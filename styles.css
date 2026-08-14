@@ -1,0 +1,1300 @@
+/* Replaced with white & purple theme styles */
+/* (full styles from version white &purple) */
+/* --- start of theme --- */
+/* 全局样式重置 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+body { animation: fadeIn 0.6s ease-in; }
+
+/* 日历项加载动画 */
+.calendar-grid .day-cell { animation: cellFadeIn 0.4s ease-out; }
+@keyframes cellFadeIn { from { opacity: 0; transform: scale(0.8);} to { opacity:1; transform: scale(1);} }
+
+:root {
+    --bg-primary: #121212;
+    --bg-secondary: #1a1a1a;
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --accent-blue: #0e2973;
+    --accent-blue-light: #6495ed;
+    --accent-blue-hover: rgba(65, 105, 225, 0.8);
+    --accent-silver: #b0bec5;
+    --migraine-red: #c82f2d;
+    --glass-bg: rgba(26, 32, 44, 0.7);
+    --glass-border: rgba(65, 105, 225, 0.2);
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    background-image: radial-gradient(circle at 20% 50%, rgba(65, 105, 225, 0.15) 0%, transparent 60%), radial-gradient(circle at 80% 30%, rgba(100, 149, 237, 0.1) 0%, transparent 60%), linear-gradient(135deg, rgba(65, 105, 225, 0.05) 0%, rgba(26, 32, 44, 0.05) 100%);
+    background-attachment: fixed;
+    overflow-x: hidden;
+    overflow-y: visible;
+}
+
+.container { width:100%; max-width:800px; padding:2rem; margin:0 auto; }
+
+.glass-effect { background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border:1px solid var(--glass-border); border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.03); transition: all 0.4s; position:relative; display:block; padding:2rem; }
+
+/* header, navigation, calendar and modal styles are included - see full theme file in version folder */
+
+/* keep existing modal behavior: ensure modal scrollability */
+.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color: rgba(0,0,0,0.7); z-index:1000; justify-content:center; padding:2rem 1rem; overflow-y:auto; }
+.modal-content { width:100%; max-width:500px; padding:2rem; animation: modalFadeIn 0.3s ease; max-height: calc(100vh - 4rem); overflow-y:auto; }
+
+/* basic day cell styling */
+.day-cell { border-radius:8px; border:1px solid rgba(255,255,255,0.06); padding:1rem; min-height:80px; display:flex; align-items:flex-start; justify-content:flex-start; position:relative; }
+
+/* diary indicator */
+.diary-indicator { position:absolute; top:8px; right:8px; width:4px; height:4px; background-color:var(--accent-silver); border-radius:50%; }
+
+/* simple utility */
+.migraine-dot { width:8px; height:8px; background:var(--migraine-red); border-radius:50%; margin-top:6px; }
+
+/* responsive */
+@media (max-width:768px) { .container{padding:1rem;} .modal-content{margin:1rem; padding:1.5rem; width:calc(100% - 2rem); max-width:none;} }
+
+/* --- end of theme --- */
+
+/* 全局样式重置 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 页面加载动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+body {
+    animation: fadeIn 0.6s ease-in;
+}
+
+/* 日历项加载动画 */
+.calendar-grid .day-cell {
+    animation: cellFadeIn 0.4s ease-out;
+}
+
+@keyframes cellFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 为每个单元格添加延迟动画 */
+.calendar-grid .day-cell:nth-child(1) { animation-delay: 0.05s; }
+.calendar-grid .day-cell:nth-child(2) { animation-delay: 0.1s; }
+.calendar-grid .day-cell:nth-child(3) { animation-delay: 0.15s; }
+.calendar-grid .day-cell:nth-child(4) { animation-delay: 0.2s; }
+.calendar-grid .day-cell:nth-child(5) { animation-delay: 0.25s; }
+.calendar-grid .day-cell:nth-child(6) { animation-delay: 0.3s; }
+.calendar-grid .day-cell:nth-child(7) { animation-delay: 0.35s; }
+
+/* 基础颜色和字体 - 使用睡眠记录页面的蓝色 */
+:root {
+    --bg-primary: #121212;
+    --bg-secondary: #1a1a1a;
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --accent-blue: #0e2973; /* 加深一个色阶的深蓝色 */
+    --accent-blue-light: #3a5aab; /* 相应调整淡蓝色 */
+    --accent-blue-hover: rgba(14, 41, 115, 0.8); /* 调整悬停色 */
+    --accent-silver: #b0bec5;
+    --migraine-red: #c82f2d;
+    --glass-bg: rgba(26, 32, 44, 0.7);
+    --glass-border: rgba(65, 105, 225, 0.2); /* 使用蓝色边框 */
+    --glass-hover: rgba(37, 50, 70, 0.8);
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    background-image: 
+        radial-gradient(circle at 20% 50%, rgba(65, 105, 225, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 80% 30%, rgba(100, 149, 237, 0.1) 0%, transparent 60%),
+        linear-gradient(135deg, rgba(65, 105, 225, 0.05) 0%, rgba(26, 32, 44, 0.05) 100%);
+    background-attachment: fixed;
+    overflow-x: hidden;
+    overflow-y: visible;
+    display: block;
+}
+
+.container {
+    width: 100%;
+    max-width: 800px;
+    padding: 2rem;
+    margin: 0 auto;
+}
+
+/* 增强的液态玻璃效果 */
+.glass-effect {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.03);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    display: block;
+    max-height: none;
+    overflow-y: visible;
+    padding: 2rem;
+}
+
+.glass-effect::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+}
+
+.glass-effect:hover {
+    background: var(--glass-hover);
+    border-color: rgba(65, 105, 225, 0.3);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(65, 105, 225, 0.05);
+    transform: translateY(-2px);
+}
+
+/* 头部样式 */
+.header {
+    width: 100%;
+    margin-bottom: 2rem;
+    padding: 0.5rem 1rem;
+    background: rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+}
+
+/* 头部内容布局 - 将标题和登录按钮分开 */
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0 1rem;
+}
+
+/* 用户认证样式 - 确保在右上角 */
+.user-auth-section {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    align-items: center;
+    position: absolute;
+    top: 0.5rem;
+    right: 1rem;
+    z-index: 10;
+}
+
+/* 认证按钮样式 */
+.auth-buttons {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.auth-btn {
+    background: var(--accent-blue);
+    border: none;
+    color: white;
+    padding: 0.7rem 1.4rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(14, 41, 115, 0.3);
+    white-space: nowrap;
+}
+
+.auth-btn:hover {
+    background: var(--accent-blue-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(14, 41, 115, 0.4);
+}
+
+/* 用户状态样式 */
+.user-status {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    color: var(--text-primary);
+}
+
+.logout-btn {
+    background: rgba(200, 47, 45, 0.2);
+    border: 1px solid rgba(200, 47, 45, 0.3);
+    color: var(--migraine-red);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+    background: rgba(200, 47, 45, 0.3);
+    border-color: var(--migraine-red);
+    transform: translateY(-1px);
+}
+
+.header h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-bottom: 0;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+    display: inline-block;
+}
+
+/* 移除标题的蓝色渐变效果和所有动画 */
+.header h1::before {
+    content: none;
+}
+
+.header-controls {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    padding: 0 1rem;
+    width: 100%;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* 导航链接容器样式 */
+.navigation-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1rem 0;
+}
+
+/* 通用导航链接样式 - 应用于所有页面 */
+.nav-link,
+.diary-link,
+.sleep-link {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 1rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-link::before,
+.diary-link::before,
+.sleep-link::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(65, 105, 225, 0.1), transparent);
+    transition: all 0.5s ease;
+}
+
+.nav-link:hover,
+.diary-link:hover,
+.sleep-link:hover {
+    color: var(--accent-blue-light);
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(65, 105, 225, 0.3);
+    box-shadow: 0 4px 12px rgba(65, 105, 225, 0.15);
+}
+
+.nav-link:hover::before,
+.diary-link:hover::before,
+.sleep-link:hover::before {
+    left: 100%;
+}
+
+.nav-link:active,
+.diary-link:active,
+.sleep-link:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(65, 105, 225, 0.1);
+}
+
+.control-btn {
+    background: rgba(26, 32, 44, 0.6);
+    border: 1px solid var(--glass-border);
+    color: var(--accent-silver);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.control-btn:hover {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 4px 15px rgba(65, 105, 225, 0.4);
+}
+
+#current-month-year {
+    color: var(--text-primary);
+    font-size: 1.8rem;
+    font-weight: 400;
+    min-width: 200px;
+}
+
+/* 可点击元素样式 */
+.clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clickable:hover {
+    color: var(--accent-blue-light);
+    transform: scale(1.05);
+}
+
+/* 日历容器样式 */
+.calendar-container {
+    margin-top: 2rem;
+}
+
+/* 年视图容器样式 */
+#year-view {
+    display: none;
+    margin: 2rem auto;
+    max-width: 1200px;
+    text-align: center;
+}
+
+/* 月份卡片样式 */
+.months-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 1200px;
+    justify-content: center;
+    justify-items: center;
+    padding: 1rem;
+}
+
+.month-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 0.8rem;
+    border: 1px solid var(--glass-border);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    max-width: 220px;
+    width: 100%;
+    margin: 0 auto;
+    min-height: 220px;
+    max-height: 220px;
+}
+
+.month-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(65, 105, 225, 0.2);
+    border-color: rgba(65, 105, 225, 0.3);
+}
+
+.month-card h4 {
+    margin: 0 0 0.4rem 0;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.month-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    margin-top: 0.1rem;
+    align-content: start;
+    justify-items: center;
+    width: 100%;
+}
+
+/* 星期标签特殊样式 */
+.month-days.week-labels {
+    height: auto !important;
+    margin-top: 0.1rem !important;
+    margin-bottom: 0.1rem !important;
+    gap: 2px;
+}
+
+.month-day {
+    text-align: center;
+    padding: 1px;
+    height: 24px;
+    width: 24px;
+    font-size: 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    overflow: visible;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+/* 确保日期数字正确显示 */
+.month-day span {
+    font-size: 0.5rem;
+    line-height: 1;
+    display: block;
+    text-align: center;
+    padding: 0;
+    margin: 0;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.month-day.other-month {
+    color: var(--text-secondary);
+    opacity: 0.4;
+}
+
+.month-day.current-day {
+    background-color: #0d0fa1;
+    color: white;
+    font-weight: bold;
+}
+
+/* 偏头痛标记点样式 */
+.migraine-dot {
+    width: 3px;
+    height: 3px;
+    background-color: var(--migraine-red);
+    border-radius: 50%;
+    margin-top: 1px;
+    flex-shrink: 0;
+    flex-grow: 0;
+}
+
+/* 偏头痛红点样式 */
+.migraine-dot {
+    width: 6px !important;
+    height: 6px !important;
+    background-color: #e74c3c !important; /* 直接使用红色 */
+    border-radius: 50%;
+    display: block !important;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+    padding: 0;
+}
+
+.calendar-glass {
+    padding: 2rem;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.03);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.calendar-glass::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+}
+
+.calendar-glass:hover {
+    background: var(--glass-hover);
+    border-color: rgba(65, 105, 225, 0.3);
+}
+
+/* 日历头部样式 */
+.calendar-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    margin-bottom: 1rem;
+}
+
+.day-label {
+    text-align: center;
+    padding: 1rem;
+    color: var(--accent-silver);
+    font-weight: 500;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* 日历网格样式 */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+
+.day-cell {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    background: rgba(26, 32, 44, 0.5);
+    border: 1px solid transparent;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.day-cell::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(13, 71, 161, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s, opacity 0.3s;
+    opacity: 0;
+}
+
+.day-cell:hover::before {
+    width: 150%;
+    height: 150%;
+    opacity: 1;
+}
+
+.day-cell:hover {
+    background: rgba(13, 71, 161, 0.2);
+    border-color: var(--accent-blue);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(13, 71, 161, 0.3);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* 有记录的日期特殊样式 */
+.day-cell.has-migraine,
+.day-cell:has(.diary-indicator) {
+    border-color: var(--glass-border);
+    background: rgba(30, 30, 30, 0.6);
+}
+
+.day-cell.has-migraine:hover {
+    border-color: var(--migraine-red);
+    background: rgba(239, 83, 80, 0.1);
+}
+
+.day-cell.other-month {
+    color: var(--text-secondary);
+    opacity: 0.3;
+}
+
+.day-cell.current-day {
+    background: #0d0fa1; /* 使用之前的深蓝色 */
+    color: white;
+    font-weight: bold;
+}
+
+.day-cell.has-migraine .migraine-indicator {
+    width: 8px;
+    height: 8px;
+    background-color: var(--migraine-red);
+    border-radius: 50%;
+    margin-top: 5px;
+    display: block;
+}
+
+.day-number {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.migraine-indicator {
+    display: none;
+}
+
+/* 模态框样式 */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-y: auto;
+}
+
+.modal-content {
+    width: 100%;
+    max-width: 500px;
+    padding: 2rem;
+    animation: modalFadeIn 0.3s ease;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    position: relative;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.close-modal {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 1.8rem;
+    color: var(--accent-silver);
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.close-modal:hover {
+    color: var(--accent-blue);
+}
+
+#modal-date {
+    margin-bottom: 1.5rem;
+    color: var(--accent-blue-light);
+    font-size: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+#migraine-check {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    cursor: pointer;
+}
+
+#diary-entry {
+    width: 100%;
+    padding: 1rem;
+    background: rgba(30, 30, 30, 0.7);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 1rem;
+    resize: vertical;
+    min-height: 120px;
+}
+
+#diary-entry:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.2);
+}
+
+.form-actions {
+    text-align: right;
+    margin-top: 1rem;
+}
+
+.save-btn {
+    background: var(--accent-blue);
+    color: white;
+    border: none;
+    padding: 0.8rem 2rem;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-left: 10px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.save-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.save-btn:hover::before {
+    left: 100%;
+}
+
+.save-btn:hover {
+    background: var(--accent-blue-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(13, 71, 161, 0.4);
+}
+
+.delete-btn {
+    background: transparent;
+    color: var(--migraine-red);
+    border: 1px solid var(--migraine-red);
+    padding: 0.8rem 2rem;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.delete-btn:hover {
+    background: var(--migraine-red);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239, 83, 80, 0.3);
+}
+
+/* 偏头痛触发因素样式 - 改进版 */
+.triggers-section {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.triggers-section h4 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* 分类折叠面板设计 */
+.trigger-category {
+    margin-bottom: 0.8rem;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.trigger-category h5 {
+    margin: 0;
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    transition: background-color 0.2s ease;
+}
+
+.trigger-category h5:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.trigger-category h5::after {
+    content: '▼';
+    font-size: 0.7rem;
+    transition: transform 0.3s ease;
+}
+
+.trigger-category.collapsed h5::after {
+    transform: rotate(-90deg);
+}
+
+.trigger-options {
+    padding: 0.8rem;
+    background-color: rgba(255, 255, 255, 0.03);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.4rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.trigger-category.collapsed .trigger-options {
+    display: none;
+}
+
+.trigger-label {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    cursor: pointer;
+    font-size: 0.85rem;
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.trigger-label:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.trigger-checkbox {
+    margin-right: 0.5rem;
+    accent-color: var(--accent-primary);
+    transform: scale(0.9);
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+/* 触发因素分类颜色 */
+.trigger-category.dietary h5 {
+    background-color: rgba(230, 126, 34, 0.1);
+    color: #e67e22; /* 橙色 - 饮食 */
+    border-bottom: 1px solid rgba(230, 126, 34, 0.2);
+}
+
+.trigger-category.hormonal h5 {
+    background-color: rgba(155, 89, 182, 0.1);
+    color: #9b59b6; /* 紫色 - 荷尔蒙 */
+    border-bottom: 1px solid rgba(155, 89, 182, 0.2);
+}
+
+.trigger-category.sleep h5 {
+    background-color: rgba(52, 152, 219, 0.1);
+    color: #3498db; /* 蓝色 - 睡眠 */
+    border-bottom: 1px solid rgba(52, 152, 219, 0.2);
+}
+
+.trigger-category.stress h5 {
+    background-color: rgba(231, 76, 60, 0.1);
+    color: #e74c3c; /* 红色 - 压力 */
+    border-bottom: 1px solid rgba(231, 76, 60, 0.2);
+}
+
+.trigger-category.environmental h5 {
+    background-color: rgba(39, 174, 96, 0.1);
+    color: #27ae60; /* 绿色 - 环境 */
+    border-bottom: 1px solid rgba(39, 174, 96, 0.2);
+}
+
+.trigger-category.physical h5 {
+    background-color: rgba(243, 156, 18, 0.1);
+    color: #f39c12; /* 黄色 - 身体 */
+    border-bottom: 1px solid rgba(243, 156, 18, 0.2);
+}
+
+.trigger-category.medication h5 {
+    background-color: rgba(26, 188, 156, 0.1);
+    color: #1abc9c; /* 青色 - 药物 */
+    border-bottom: 1px solid rgba(26, 188, 156, 0.2);
+}
+
+.trigger-category.other h5 {
+    background-color: rgba(127, 140, 141, 0.1);
+    color: #7f8c8d; /* 灰色 - 其他 */
+    border-bottom: 1px solid rgba(127, 140, 141, 0.2);
+}
+
+/* 选中状态的样式 */
+.trigger-checkbox:checked + span {
+    font-weight: 500;
+    color: var(--accent-blue-light);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .trigger-options {
+        grid-template-columns: 1fr;
+        gap: 0.3rem;
+    }
+    
+    .trigger-category {
+        margin-bottom: 0.5rem;
+    }
+    
+    .trigger-category h5 {
+        padding: 0.5rem 0.8rem;
+        font-size: 0.9rem;
+    }
+    
+    .trigger-label {
+        font-size: 0.8rem;
+        padding: 0.2rem 0.4rem;
+    }
+}
+
+/* 日记指示器样式 */
+.diary-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 4px;
+    height: 4px;
+    background-color: var(--accent-silver);
+    border-radius: 50%;
+}
+
+/* 增强的过渡动画 */
+.day-cell {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 模态框内容动画增强 */
+.modal-content {
+    animation: modalFadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    /* allow vertical scrolling so the textarea and actions are reachable on small screens */
+    overflow-y: auto;
+    max-height: calc(100vh - 4rem);
+}
+
+.modal-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.95);
+        backdrop-filter: blur(0px);
+        -webkit-backdrop-filter: blur(0px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+    }
+}
+
+/* 页脚样式 */
+.footer {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 2rem;
+}
+
+/* 固定底部导航栏样式 */
+.footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 0.3rem 0;
+    background: rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 100;
+    box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* 导航链接容器样式 */
+.navigation-links {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 1rem;
+    margin: 0 auto;
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+}
+
+/* 导航链接样式 */
+.nav-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+    font-size: 0.8rem;
+    flex: 1;
+    max-width: none;
+    min-width: 60px;
+    padding: 0.2rem;
+}
+
+/* 导航图标样式 */
+.nav-icon {
+    font-size: 1.4rem;
+    margin-bottom: 0.2rem;
+    display: inline-block;
+    width: auto;
+    height: auto;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+/* 导航文字样式 - 横向排列，与图标居中对齐 */
+.nav-text {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 0.1rem;
+    white-space: nowrap;
+    text-align: center;
+}
+
+/* 中间突出的日历按钮 */
+.nav-link.calendar-btn {
+    position: relative;
+    top: -1.3rem;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(14, 41, 115, 0.5);
+    transition: all 0.3s ease;
+    z-index: 101;
+}
+
+.nav-link.calendar-btn .nav-icon {
+    font-size: 1.8rem;
+    margin-bottom: 0;
+    color: white;
+    width: auto;
+    height: auto;
+    line-height: 1;
+}
+
+.nav-link.calendar-btn .nav-text {
+    position: absolute;
+    bottom: -1.2rem;
+    color: var(--text-primary);
+    font-size: 0.7rem;
+    white-space: nowrap;
+}
+
+.nav-link.calendar-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(14, 41, 115, 0.6);
+}
+
+.nav-link:hover:not(.calendar-btn) {
+    color: var(--accent-blue-light);
+    transform: translateY(-2px);
+}
+
+/* 键盘导航焦点样式增强 */
+.control-btn:focus,
+.save-btn:focus,
+.delete-btn:focus {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+    transform: scale(1.05);
+}
+
+.day-cell:focus-within {
+    border-color: var(--accent-blue);
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+}
+
+#migraine-check:focus,
+#diary-entry:focus {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--accent-silver);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-blue);
+}
+
+/* 响应式设计增强 */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+    
+    .header h1 {
+        font-size: 2rem;
+    }
+    
+    #current-month-year {
+        font-size: 1.5rem;
+    }
+    
+    .header-controls {
+        gap: 1rem;
+    }
+    
+    .calendar-glass {
+        padding: 1rem;
+    }
+    
+    .day-label {
+        padding: 0.5rem 0.2rem;
+        font-size: 0.8rem;
+    }
+    
+    .day-cell {
+        padding: 0.3rem;
+        min-height: 60px;
+    }
+    
+    .day-number {
+        font-size: 0.9rem;
+    }
+    
+    .modal-content {
+        margin: 1rem;
+        padding: 1.5rem;
+        width: calc(100% - 2rem);
+        max-width: none;
+    }
+    
+    .form-actions {
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 0.8rem;
+    }
+    
+    .save-btn,
+    .delete-btn {
+        margin: 0;
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .calendar-grid {
+        gap: 2px;
+    }
+    
+    .day-cell {
+        min-height: 50px;
+    }
+    
+    .diary-indicator {
+        top: 4px;
+        right: 4px;
+        width: 3px;
+        height: 3px;
+    }
+    
+    .header h1 {
+        font-size: 1.8rem;
+    }
+}

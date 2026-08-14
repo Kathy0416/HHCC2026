@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>偏头痛日记 - 时间线视图</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* 日记页面特定样式 */
+        .timeline-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+
+        
+        /* 底部图标导航栏样式 - 类似小红书风格 */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 0.5rem 0 1rem;
+            background: rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+        }
+        
+        /* 导航链接样式 */
+        .navigation-links {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            gap: 0.5rem;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+        }
+        
+        /* 导航链接样式 */
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            font-size: 0.8rem;
+            flex: 1;
+            max-width: 60px;
+        }
+        
+        /* 导航图标样式 */
+        .nav-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        /* 中间突出的日历按钮 */
+        .nav-link.calendar-btn {
+            position: relative;
+            top: -1.5rem;
+            background: var(--accent-blue-light);
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(65, 105, 225, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link.calendar-btn .nav-icon {
+            font-size: 2rem;
+            margin-bottom: 0;
+            color: white;
+        }
+        
+        .nav-link.calendar-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 16px rgba(65, 105, 225, 0.5);
+        }
+        
+        .nav-link:hover:not(.calendar-btn) {
+            color: var(--accent-blue-light);
+            transform: translateY(-2px);
+        }
+        
+        .timeline-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        /* 导航链接使用全局样式 */
+        .navigation-links {
+            margin-bottom: 2rem;
+        }
+        
+        /* 筛选按钮样式 */
+        .filter-controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 0.6rem 1.5rem;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        
+        .filter-btn:hover {
+            background: var(--accent-blue);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(13, 71, 161, 0.4);
+        }
+        
+        .filter-btn.active {
+            background: var(--accent-blue);
+            color: white;
+            box-shadow: 0 4px 15px rgba(13, 71, 161, 0.4);
+        }
+        
+        /* 分组样式 */
+        .timeline-groups {
+            margin-bottom: 3rem;
+        }
+        
+        .timeline-group {
+            margin-bottom: 4rem;
+        }
+        
+        .timeline-group.hidden {
+            display: none;
+        }
+        
+        .group-title {
+            color: var(--text-primary);
+            font-size: 1.4rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 为偏头痛组添加特殊样式 */
+        #migraine-group .group-title {
+            border-left: 4px solid var(--migraine-red);
+        }
+        
+        /* 为日记组添加特殊样式 */
+        #diary-group .group-title {
+            border-left: 4px solid var(--accent-blue);
+        }
+        
+        /* 分组内的时间线样式调整 */
+        .timeline-group .timeline {
+            margin-top: 2rem;
+        }
+        
+        .timeline {
+            position: relative;
+            padding: 2rem 0;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, transparent, var(--accent-blue), transparent);
+            transform: translateX(-50%);
+        }
+        
+        .timeline-item {
+            position: relative;
+            margin-bottom: 3rem;
+            display: flex;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .timeline-item.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .timeline-item:nth-child(odd) {
+            justify-content: flex-end;
+        }
+        
+        .timeline-item:nth-child(even) {
+            justify-content: flex-start;
+        }
+        
+        .timeline-content {
+            width: calc(50% - 40px);
+            padding: 1.5rem;
+            border-radius: 12px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+                        0 0 0 1px rgba(255, 255, 255, 0.03);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .timeline-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        }
+        
+        .timeline-item:nth-child(odd) .timeline-content {
+            margin-right: 40px;
+        }
+        
+        .timeline-item:nth-child(even) .timeline-content {
+            margin-left: 40px;
+        }
+        
+        .timeline-date {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--accent-blue-light);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .migraine-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            background: rgba(239, 83, 80, 0.2);
+            border-radius: 20px;
+            color: var(--migraine-red);
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.75rem;
+        }
+        
+        .migraine-indicator::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--migraine-red);
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        
+        .timeline-dot {
+            position: absolute;
+            left: 50%;
+            top: 1.5rem;
+            width: 20px;
+            height: 20px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 4px 12px rgba(13, 71, 161, 0.4);
+            border: 3px solid var(--bg-primary);
+            z-index: 1;
+        }
+        
+        .timeline-description {
+            color: var(--text-primary);
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+        
+        .no-entries {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 2rem;
+            padding: 0.75rem 2rem;
+            background: var(--glass-bg);
+            border: 1px solid var(--accent-blue);
+            color: var(--accent-blue);
+            border-radius: 25px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .back-link:hover {
+            background: var(--accent-blue);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(13, 71, 161, 0.4);
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .timeline::before {
+                left: 30px;
+            }
+            
+            .timeline-item {
+                justify-content: flex-start !important;
+            }
+            
+            .timeline-content {
+                width: calc(100% - 70px);
+                margin-left: 70px !important;
+                margin-right: 0 !important;
+            }
+            
+            .timeline-dot {
+                left: 30px;
+                transform: translateX(-50%);
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .timeline-content {
+                padding: 1rem;
+                width: calc(100% - 60px);
+                margin-left: 60px !important;
+            }
+            
+            .timeline::before {
+                left: 25px;
+            }
+            
+            .timeline-dot {
+                left: 25px;
+                width: 16px;
+                height: 16px;
+                border-width: 2px;
+            }
+        }
+    </style>
+</head>
+<body>
+        <div class="container">
+            <header class="header">
+                <div class="header-content">
+                    <h1 data-text="偏头痛日记">偏头痛日记</h1>
+                    <div class="user-auth-section">
+                        <div id="userStatus" class="user-status" style="display: none;">
+                            <span id="usernameDisplay"></span>
+                            <button id="logoutBtn" class="logout-btn">退出登录</button>
+                        </div>
+                        <div id="authBtns" class="auth-buttons">
+                            <button id="loginBtn" class="auth-btn">登录</button>
+                            <button id="registerBtn" class="auth-btn">注册</button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+        
+        <main class="glass-effect">
+            <div class="timeline-container">
+                <div class="timeline-header">
+                    <p>记录您的偏头痛历程，追踪模式和趋势</p>
+                    
+                    <!-- 筛选按钮 -->
+                    <div class="filter-controls">
+                        <button class="filter-btn active" data-filter="all">全部</button>
+                        <button class="filter-btn" data-filter="migraine">仅显示偏头痛</button>
+                        <button class="filter-btn" data-filter="diary">仅显示日记</button>
+                    </div>
+                </div>
+                
+                <!-- 统一时间轴容器（全部模式下使用） -->
+                <div id="unified-timeline" class="timeline">
+                    <!-- 统一时间线条目将通过JavaScript动态生成 -->
+                </div>
+                
+                <!-- 分组容器（筛选模式下使用） -->
+                <div class="timeline-groups">
+                    <div id="migraine-group" class="timeline-group">
+                        <h3 class="group-title">偏头痛记录</h3>
+                        <div class="migraine-timeline timeline">
+                            <!-- 偏头痛条目将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                    
+                    <div id="diary-group" class="timeline-group">
+                        <h3 class="group-title">日常记录</h3>
+                        <div class="diary-timeline timeline">
+                            <!-- 日常日记条目将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 空状态提示 -->
+                <div id="no-entries" class="no-entries">
+                    <p>暂无偏头痛记录</p>
+                    <p style="font-size: 1rem; margin-top: 1rem;">在日历页面添加记录后，将在此处显示</p>
+                </div>
+                
+                <div style="text-align: center;">
+                    <a href="index.html" class="back-link">返回日历</a>
+                </div>
+            </div>
+        </main>
+        
+        <!-- 底部图标导航栏 -->
+        <footer class="footer">
+            <nav class="navigation-links">
+                <a href="index.html" class="nav-link">
+                    <span class="nav-icon">📅</span>
+                    <span class="nav-text">首页</span>
+                </a>
+                <a href="sleep.html" class="nav-link">
+                    <span class="nav-icon">💤</span>
+                    <span class="nav-text">睡眠记录</span>
+                </a>
+                <a href="diary.html" class="nav-link calendar-btn">
+                    <span class="nav-icon">📔</span>
+                    <span class="nav-text">日历</span>
+                </a>
+                <a href="tips.html" class="nav-link">
+                    <span class="nav-icon">💡</span>
+                    <span class="nav-text">Tips</span>
+                </a>
+                <a href="my.html" class="nav-link">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-text">我的</span>
+                </a>
+            </nav>
+        </footer>
+        
+        <!-- 登录模态框 -->
+        <div id="loginModal" class="modal">
+            <div class="modal-content glass-effect auth-modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>用户登录</h2>
+                <form id="loginForm" class="auth-form">
+                    <div class="auth-form-group">
+                        <label for="loginUsername">用户名</label>
+                        <input type="text" id="loginUsername" required>
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="loginPassword">密码</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="auth-submit-btn">登录</button>
+                </form>
+                <div class="auth-switch">
+                    还没有账号？ <a href="#" id="switchToRegister">立即注册</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 注册模态框 -->
+        <div id="registerModal" class="modal">
+            <div class="modal-content glass-effect auth-modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>用户注册</h2>
+                <form id="registerForm" class="auth-form">
+                    <div class="auth-form-group">
+                        <label for="registerUsername">用户名</label>
+                        <input type="text" id="registerUsername" required>
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="registerPassword">密码</label>
+                        <input type="password" id="registerPassword" required>
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="registerConfirmPassword">确认密码</label>
+                        <input type="password" id="registerConfirmPassword" required>
+                    </div>
+                    <button type="submit" class="auth-submit-btn">注册</button>
+                </form>
+                <div class="auth-switch">
+                    已有账号？ <a href="#" id="switchToLogin">立即登录</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 用户认证相关函数
+        function initUserAuth() {
+            // 检查用户是否已登录
+            checkUserStatus();
+            
+            // 添加事件监听
+            addAuthEventListeners();
+        }
+        
+        // 检查用户状态
+        function checkUserStatus() {
+            const currentUser = getCurrentUser();
+            if (currentUser) {
+                showUserStatus(currentUser);
+            } else {
+                showAuthButtons();
+            }
+        }
+        
+        // 添加认证事件监听
+        function addAuthEventListeners() {
+            // 登录/注册按钮事件
+            const loginBtn = document.getElementById('loginBtn');
+            const registerBtn = document.getElementById('registerBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+            
+            // 模态框切换事件
+            const switchToRegister = document.getElementById('switchToRegister');
+            const switchToLogin = document.getElementById('switchToLogin');
+            
+            // 登录/注册表单事件
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            
+            // 登录按钮点击事件
+            loginBtn.addEventListener('click', () => {
+                showModal('loginModal');
+            });
+            
+            // 注册按钮点击事件
+            registerBtn.addEventListener('click', () => {
+                showModal('registerModal');
+            });
+            
+            // 退出登录按钮点击事件
+            logoutBtn.addEventListener('click', () => {
+                logout();
+            });
+            
+            // 切换到注册模态框
+            switchToRegister.addEventListener('click', (e) => {
+                e.preventDefault();
+                hideModal('loginModal');
+                showModal('registerModal');
+            });
+            
+            // 切换到登录模态框
+            switchToLogin.addEventListener('click', (e) => {
+                e.preventDefault();
+                hideModal('registerModal');
+                showModal('loginModal');
+            });
+            
+            // 登录表单提交事件
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                handleLogin();
+            });
+            
+            // 注册表单提交事件
+            registerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                handleRegister();
+            });
+        }
+        
+        // 显示模态框
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.style.display = 'flex';
+        }
+        
+        // 隐藏模态框
+        function hideModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.style.display = 'none';
+        }
+        
+        // 获取用户列表
+        function getUsers() {
+            const users = localStorage.getItem('users');
+            return users ? JSON.parse(users) : [];
+        }
+        
+        // 保存用户列表
+        function saveUsers(users) {
+            localStorage.setItem('users', JSON.stringify(users));
+        }
+        
+        // 获取当前登录用户
+        function getCurrentUser() {
+            const currentUser = localStorage.getItem('currentUser');
+            return currentUser ? JSON.parse(currentUser) : null;
+        }
+        
+        // 设置当前登录用户
+        function setCurrentUser(user) {
+            localStorage.setItem('currentUser', JSON.stringify(user));
+        }
+        
+        // 清除当前登录用户
+        function clearCurrentUser() {
+            localStorage.removeItem('currentUser');
+        }
+        
+        // 显示用户状态
+        function showUserStatus(user) {
+            const userStatus = document.getElementById('userStatus');
+            const authBtns = document.getElementById('authBtns');
+            const usernameDisplay = document.getElementById('usernameDisplay');
+            
+            usernameDisplay.textContent = user.username;
+            userStatus.style.display = 'flex';
+            authBtns.style.display = 'none';
+        }
+        
+        // 显示登录注册按钮
+        function showAuthButtons() {
+            const userStatus = document.getElementById('userStatus');
+            const authBtns = document.getElementById('authBtns');
+            
+            userStatus.style.display = 'none';
+            authBtns.style.display = 'flex';
+        }
+        
+        // 处理用户登录
+        function handleLogin() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            const users = getUsers();
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                setCurrentUser(user);
+                hideModal('loginModal');
+                checkUserStatus();
+                alert('登录成功！');
+            } else {
+                alert('用户名或密码错误！');
+            }
+        }
+        
+        // 处理用户注册
+        function handleRegister() {
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                alert('两次输入的密码不一致！');
+                return;
+            }
+            
+            const users = getUsers();
+            if (users.find(u => u.username === username)) {
+                alert('该用户名已被注册！');
+                return;
+            }
+            
+            const newUser = {
+                username,
+                password
+            };
+            
+            users.push(newUser);
+            saveUsers(users);
+            setCurrentUser(newUser);
+            hideModal('registerModal');
+            checkUserStatus();
+            alert('注册成功！');
+        }
+        
+        // 处理用户退出登录
+        function logout() {
+            clearCurrentUser();
+            checkUserStatus();
+            alert('已退出登录！');
+        }
+        
+        // 等待DOM加载完成
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化用户认证
+            initUserAuth();
+        });
+        // 创建时间线条目（用于分组视图）
+        function createTimelineItem(date, entry, isMigraine = false) {
+            // 确定使用哪个时间线容器
+            const timeline = isMigraine ? 
+                document.querySelector('.migraine-timeline') : 
+                document.querySelector('.diary-timeline');
+            
+            const timelineItem = document.createElement('div');
+            timelineItem.classList.add('timeline-item');
+            timelineItem.dataset.type = isMigraine ? 'migraine' : 'diary';
+            
+            let contentHTML = `
+                <div class="timeline-dot"></div>
+                <div class="timeline-content">
+                    <div class="timeline-date">
+                        <span>${formatDate(date)}</span>
+                    </div>
+            `;
+            
+            if (entry.migraine) {
+                contentHTML += `
+                    <div class="migraine-indicator">偏头痛</div>
+                `;
+            }
+            
+            if (entry.diary) {
+                contentHTML += `
+                    <div class="timeline-description">${escapeHTML(entry.diary)}</div>
+                `;
+            }
+            
+            contentHTML += `
+                </div>
+            `;
+            
+            timelineItem.innerHTML = contentHTML;
+            timeline.appendChild(timelineItem);
+            
+            // 触发动画
+            setTimeout(() => {
+                timelineItem.classList.add('visible');
+            }, 100);
+        }
+        
+        // 格式化日期
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+            });
+        }
+        
+        // 转义HTML字符
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 从本地存储加载日历数据
+        function loadCalendarData() {
+            const savedData = localStorage.getItem('migraineCalendarData');
+            if (savedData) {
+                try {
+                    const data = JSON.parse(savedData);
+                    // 检查数据是否为空，如果为空则添加测试数据
+                    if (Object.keys(data).length === 0) {
+                        return getTestData();
+                    }
+                    return data;
+                } catch (e) {
+                    console.error('加载日历数据失败:', e);
+                }
+            }
+            // 如果没有保存的数据，返回测试数据
+            return getTestData();
+        }
+        
+        // 获取测试数据
+        function getTestData() {
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            const twoDaysAgo = new Date(today);
+            twoDaysAgo.setDate(today.getDate() - 2);
+            
+            const formatDateForKey = (date) => {
+                return date.toISOString().split('T')[0];
+            };
+            
+            return {
+                [formatDateForKey(today)]: {
+                    migraine: true,
+                    diary: '今天偏头痛比较严重，可能是因为昨天工作压力太大了。需要多休息。',
+                    triggers: ['stress', 'lack_of_sleep']
+                },
+                [formatDateForKey(yesterday)]: {
+                    migraine: false,
+                    diary: '今天工作很忙，感觉有些累，但没有偏头痛。需要注意劳逸结合。',
+                    triggers: []
+                },
+                [formatDateForKey(twoDaysAgo)]: {
+                    migraine: true,
+                    diary: '偏头痛发作了，吃了药后有所缓解。可能和最近的天气变化有关。',
+                    triggers: ['weather', 'hormonal']
+                }
+            };
+        }
+        
+        // 创建统一时间线条目（用于全部视图）
+        function createUnifiedTimelineItem(date, entry) {
+            const timeline = document.getElementById('unified-timeline');
+            const timelineItem = document.createElement('div');
+            timelineItem.classList.add('timeline-item');
+            timelineItem.dataset.type = entry.migraine ? 'migraine' : 'diary';
+            
+            let contentHTML = `
+                <div class="timeline-dot" style="background: ${entry.migraine ? 'var(--migraine-red)' : 'var(--accent-blue)'}"></div>
+                <div class="timeline-content">
+                    <div class="timeline-date">
+                        <span>${formatDate(date)}</span>
+                    </div>
+            `;
+            
+            if (entry.migraine) {
+                contentHTML += `
+                    <div class="migraine-indicator">偏头痛</div>
+                `;
+            }
+            
+            if (entry.diary) {
+                contentHTML += `
+                    <div class="timeline-description">${escapeHTML(entry.diary)}</div>
+                `;
+            }
+            
+            contentHTML += `
+                </div>
+            `;
+            
+            timelineItem.innerHTML = contentHTML;
+            timeline.appendChild(timelineItem);
+            
+            // 触发动画
+            setTimeout(() => {
+                timelineItem.classList.add('visible');
+            }, 100);
+        }
+        
+        // 初始化时间线
+        function initTimeline() {
+            const calendarData = loadCalendarData();
+            const allEntries = [];
+            const migraineEntries = [];
+            const diaryEntries = [];
+            
+            // 收集并分类所有记录
+            for (const date in calendarData) {
+                const entry = calendarData[date];
+                // 只要有偏头痛标记或日记内容，都视为可展示的记录
+                if (entry.migraine || entry.diary) {
+                    allEntries.push({ date, entry });
+
+                    if (entry.migraine) {
+                        // 有偏头痛的记录
+                        migraineEntries.push({ date, entry });
+                    }
+
+                    // 日记分组只包含有日记内容的条目
+                    if (entry.diary) {
+                        diaryEntries.push({ date, entry });
+                    }
+                }
+            }
+            
+            // 按日期排序（从新到旧）
+            allEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+            migraineEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+            diaryEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            // 创建统一时间线条目（用于全部视图）
+            allEntries.forEach(({ date, entry }) => {
+                createUnifiedTimelineItem(date, entry);
+            });
+            
+            // 创建分组时间线条目（用于筛选视图）
+            migraineEntries.forEach(({ date, entry }) => {
+                createTimelineItem(date, entry, true);
+            });
+            
+            diaryEntries.forEach(({ date, entry }) => {
+                createTimelineItem(date, entry, false);
+            });
+            
+            // 如果没有任何记录，显示空状态
+            if (allEntries.length === 0) {
+                const noEntries = document.getElementById('no-entries');
+                if (noEntries) {
+                    noEntries.style.display = 'block';
+                }
+            } else {
+                // 默认隐藏空状态
+                const noEntries = document.getElementById('no-entries');
+                if (noEntries) {
+                    noEntries.style.display = 'none';
+                }
+            }
+            
+            // 初始化筛选功能
+            initFilter();
+            
+            // 添加滚动动画检测
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, {
+                threshold: 0.1
+            });
+            
+            document.querySelectorAll('.timeline-item').forEach(item => {
+                observer.observe(item);
+            });
+        }
+        
+        // 初始化筛选功能
+        function initFilter() {
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            const unifiedTimeline = document.getElementById('unified-timeline');
+            const timelineGroups = document.querySelector('.timeline-groups');
+            const migraineGroup = document.getElementById('migraine-group');
+            const diaryGroup = document.getElementById('diary-group');
+            const noEntries = document.getElementById('no-entries');
+            
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // 更新激活状态
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    const filter = btn.getAttribute('data-filter');
+                    
+                    switch (filter) {
+                        case 'all':
+                            // 全部模式：显示统一时间轴，隐藏分组
+                            unifiedTimeline.style.display = 'block';
+                            timelineGroups.style.display = 'none';
+                            noEntries.style.display = 'none';
+                            
+                            // 如果统一时间轴没有内容，显示空状态
+                            if (unifiedTimeline.querySelector('.timeline-item') === null) {
+                                noEntries.style.display = 'block';
+                                unifiedTimeline.style.display = 'none';
+                            }
+                            break;
+                        
+                        case 'migraine':
+                            // 偏头痛模式：隐藏统一时间轴，显示偏头痛分组
+                            unifiedTimeline.style.display = 'none';
+                            timelineGroups.style.display = 'block';
+                            migraineGroup.classList.remove('hidden');
+                            diaryGroup.classList.add('hidden');
+                            noEntries.style.display = 'none';
+                            
+                            // 如果偏头痛分组没有内容，显示空状态
+                            if (migraineGroup.querySelector('.timeline-item') === null) {
+                                noEntries.style.display = 'block';
+                                noEntries.innerHTML = `
+                                    <p>暂无偏头痛记录</p>
+                                    <p style="font-size: 1rem; margin-top: 1rem;">在日历页面添加偏头痛记录后，将在此处显示</p>
+                                `;
+                            }
+                            break;
+                        
+                        case 'diary':
+                            // 日记模式：隐藏统一时间轴，显示日记分组
+                            unifiedTimeline.style.display = 'none';
+                            timelineGroups.style.display = 'block';
+                            migraineGroup.classList.add('hidden');
+                            diaryGroup.classList.remove('hidden');
+                            noEntries.style.display = 'none';
+                            
+                            // 如果日记分组没有内容，显示空状态
+                            if (diaryGroup.querySelector('.timeline-item') === null) {
+                                noEntries.style.display = 'block';
+                                noEntries.innerHTML = `
+                                    <p>暂无日记记录</p>
+                                    <p style="font-size: 1rem; margin-top: 1rem;">在日历页面添加日记记录后，将在此处显示</p>
+                                `;
+                            }
+                            break;
+                    }
+                });
+            });
+            
+            // 初始隐藏分组，显示统一时间轴
+            timelineGroups.style.display = 'none';
+        }
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', initTimeline);
+    </script>
+    <script>
+        // Register Service Worker for PWA support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then((registration) => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('ServiceWorker registration failed: ', error);
+                    });
+            });
+        }
+    </script>
+    
+    <!-- AI聊天功能 -->
+    <style>
+        /* 聊天气泡按钮 */
+        .chat-bubble-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: #6495ed;
+            border: none;
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(100, 149, 237, 0.4);
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1400;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .chat-bubble-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(100, 149, 237, 0.6);
+        }
+        
+        .chat-bubble-btn:active {
+            transform: scale(0.95);
+        }
+        
+        /* AI聊天界面样式 */
+        .chat-container {
+            max-width: 400px;
+            height: 600px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            z-index: 1500;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: all 0.3s ease;
+        }
+        
+        .chat-container.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        .chat-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(26, 32, 44, 0.8);
+            border-radius: 12px 12px 0 0;
+        }
+        
+        .chat-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .message {
+            max-width: 80%;
+            padding: 0.8rem 1rem;
+            border-radius: 18px;
+            line-height: 1.4;
+            animation: messageSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message.user {
+            align-self: flex-end;
+            background: #6495ed;
+            color: white;
+            border-bottom-right-radius: 6px;
+        }
+        
+        .message.ai {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            border-bottom-left-radius: 6px;
+        }
+        
+        .message.typing {
+            opacity: 0.7;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            30% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .chat-input-area {
+            padding: 1rem;
+            border-top: 1px solid var(--glass-border);
+            background: rgba(26, 32, 44, 0.8);
+            border-radius: 0 0 12px 12px;
+        }
+        
+        .chat-input-container {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        #chat-input {
+            flex: 1;
+            padding: 0.8rem 1rem;
+            background: rgba(30, 30, 30, 0.7);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            resize: none;
+            min-height: 40px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        
+        #chat-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.2);
+        }
+        
+        #send-btn {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+        
+        #send-btn:hover {
+            background: var(--accent-blue-hover);
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(65, 105, 225, 0.3);
+        }
+        
+        #send-btn:active {
+            transform: scale(0.95);
+        }
+        
+        /* 关闭按钮 */
+        .close-chat-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.3rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        
+        .close-chat-btn:hover {
+            color: var(--accent-blue);
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        /* 欢迎消息样式 */
+        .welcome-message {
+            text-align: center;
+            margin: 2rem 1rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .chat-container {
+                width: calc(100% - 40px);
+                height: 500px;
+                bottom: 70px;
+                right: 20px;
+            }
+            
+            .chat-bubble-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+    
+    <!-- 聊天气泡按钮 -->
+    <button class="chat-bubble-btn" id="chat-bubble-btn">💬</button>
+    
+    <!-- AI聊天界面 -->
+    <div class="chat-container" id="chat-container">
+        <div class="chat-header">
+            <h2>AI助手</h2>
+            <button class="close-chat-btn" id="close-chat-btn">&times;</button>
+        </div>
+        
+        <div class="chat-messages" id="chat-messages">
+            <div class="welcome-message">
+                <p>你好！我是你的AI助手，有什么关于偏头痛的问题可以问我。</p>
+            </div>
+        </div>
+        
+        <div class="chat-input-area">
+            <div class="chat-input-container">
+                <textarea id="chat-input" placeholder="输入你的问题..." rows="1"></textarea>
+                <button id="send-btn">➤</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="ai-chat.js"></script>
+</body>
+</html>

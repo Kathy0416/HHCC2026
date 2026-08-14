@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>偏头痛记录日历</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Ensure consistent spacing between trigger categories */
+        .triggers-section .trigger-category {
+            margin-bottom: 1rem;
+        }
+        
+        /* 底部图标导航栏样式 - 类似小红书风格 */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 0.5rem 0 1rem;
+            background: rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+        }
+        
+        /* 导航链接样式 */
+        .navigation-links {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            gap: 0.5rem;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+        }
+        
+        /* 导航链接样式 */
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            font-size: 0.8rem;
+            flex: 1;
+            max-width: 60px;
+        }
+        
+        /* 导航图标样式 */
+        .nav-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        /* 中间突出的日历按钮 */
+        .nav-link.calendar-btn {
+            position: relative;
+            top: -1.5rem;
+            background: var(--accent-blue-light);
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(65, 105, 225, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link.calendar-btn .nav-icon {
+            font-size: 2rem;
+            margin-bottom: 0;
+            color: white;
+        }
+        
+        .nav-link.calendar-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 16px rgba(65, 105, 225, 0.5);
+        }
+        
+        .nav-link:hover:not(.calendar-btn) {
+            color: var(--accent-blue-light);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+        <div class="container">
+            <header class="header">
+                <div class="header-content">
+                    <h1 data-text="偏头痛记录日历">偏头痛记录日历</h1>
+                    <div class="user-auth-section">
+                        <div id="userStatus" class="user-status" style="display: none;">
+                            <span id="usernameDisplay"></span>
+                            <button id="logoutBtn" class="logout-btn">退出登录</button>
+                        </div>
+                        <div id="authBtns" class="auth-buttons">
+                            <button id="loginBtn" class="auth-btn">登录</button>
+                            <button id="registerBtn" class="auth-btn">注册</button>
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin-top: 0.5rem;">
+                    <button id="prev-month" class="control-btn">&lt;</button>
+                    <h2 id="current-month-year" class="clickable" title="点击进入全年视图"></h2>
+                    <button id="next-month" class="control-btn">&gt;</button>
+                </div>
+                <div id="year-view" class="year-view-container" style="display: none;">
+                    <!-- 全年视图将通过JavaScript动态生成 -->
+                </div>
+            </header>
+        
+            <main class="calendar-container">
+                <div class="calendar-glass">
+                    <div class="calendar-header">
+                        <div class="day-label">周日</div>
+                        <div class="day-label">周一</div>
+                        <div class="day-label">周二</div>
+                        <div class="day-label">周三</div>
+                        <div class="day-label">周四</div>
+                        <div class="day-label">周五</div>
+                        <div class="day-label">周六</div>
+                    </div>
+                    <div id="calendar-grid" class="calendar-grid">
+                        <!-- 日历单元格将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </main>
+        
+            <div id="modal" class="modal">
+                <div class="modal-content glass-effect">
+                    <span class="close-modal">&times;</span>
+                    <h3 id="modal-date"></h3>
+                    <div class="form-group">
+                        <label for="migraine-check">
+                            <input type="checkbox" id="migraine-check"> 标记此日发生偏头痛
+                        </label>
+                    </div>
+                
+                    <!-- 偏头痛触发因素选择 -->
+                    <div class="form-group triggers-section" style="display: none;">
+                        <h4>选择可能的触发因素：</h4>
+                    
+                        <!-- 1. 饮食触发因素 -->
+                        <div class="trigger-category dietary">
+                            <h5>1. 饮食触发因素</h5>
+                            <div class="trigger-options">
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="dietary" data-trigger="alcohol"> 酒精（尤其是红酒、啤酒）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="dietary" data-trigger="caffeine"> 咖啡因（过量或戒断）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="dietary" data-trigger="aged-cheese"> 陈年奶酪（酪胺）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="dietary" data-trigger="processed-meat"> 加工肉类（硝酸盐/亚硝酸盐：培根、萨拉米、热狗）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="dietary" data-trigger="msg"> 味精</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="dietary" data-trigger="artificial-sweetener"> 人工甜味剂（尤其是阿斯巴甜）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="dietary" data-trigger="chocolate"> 巧克力</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="dietary" data-trigger="citrus"> 柑橘类水果</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="dietary" data-trigger="dehydration"> 脱水</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="dietary" data-trigger="skipped-meal"> 跳过餐食/低血糖</label>
+                            </div>
+                        </div>
+                    
+                        <!-- 2. 荷尔蒙变化 -->
+                        <div class="trigger-category hormonal">
+                            <h5>2. 荷尔蒙变化（尤其是女性）</h5>
+                            <div class="trigger-options">
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="hormonal" data-trigger="menstruation"> 月经 </label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="hormonal" data-trigger="ovulation"> 排卵</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="hormonal" data-trigger="birth-control"> 激素替代疗法</label>
+                            </div>
+                        </div>
+                    
+                        <!-- 3. 睡眠相关 -->
+                        <div class="trigger-category sleep">
+                            <h5>3. 睡眠相关</h5>
+                            <div class="trigger-options">
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="sleep" data-trigger="too-little-sleep"> 睡眠不足</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="sleep" data-trigger="too-much-sleep"> 睡眠过多（睡过头）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="sleep" data-trigger="disrupted-sleep"> 睡眠不规律/时差</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="sleep" data-trigger="shift-work"> 轮班工作</label>
+                            </div>
+                        </div>
+                    
+                        <!-- 4. 压力与情绪触发因素 -->
+                        <div class="trigger-category stress">
+                            <h5>4. 压力与情绪触发因素</h5>
+                            <div class="trigger-options">
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="stress" data-trigger="stress"> 压力（急性或慢性）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="stress" data-trigger="stress-relief"> 压力后的放松（周末偏头痛）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="stress" data-trigger="anxiety"> 焦虑、担忧、兴奋</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="stress" data-trigger="depression"> 抑郁</label>
+                            </div>
+                        </div>
+                    
+                        <!-- 5. 环境/感官触发因素 -->
+                        <div class="trigger-category environmental">
+                            <h5>5. 环境/感官触发因素</h5>
+                            <div class="trigger-options">
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="environmental" data-trigger="bright-light"> 强光或闪烁的灯光</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="environmental" data-trigger="loud-noise"> 嘈杂的噪音</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="environmental" data-trigger="strong-smell"> 强烈的气味（香水、烟雾、清洁产品）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="environmental" data-trigger="weather"> 天气变化（气压下降、暴风雨、高湿度、极端冷热）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="environmental" data-trigger="high-altitude"> 高海拔</label>
+                            </div>
+                        </div>
+                    
+                        <!-- 6. 身体触发因素 -->
+                        <div class="trigger-category physical">
+                            <h5>6. 身体触发因素</h5>
+                            <div class="trigger-options">
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="physical" data-trigger="exertion"> 剧烈的身体活动 </label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="physical" data-trigger="neck-tension"> 颈部或肩部紧张</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="physical" data-trigger="poor-posture"> 不良姿势</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="physical" data-trigger="eye-strain"> 眼睛疲劳（长时间使用屏幕）</label>
+                            </div>
+                        </div>
+                    
+                        <!-- 7. 药物与物质触发因素 -->
+                        <div class="trigger-category medication">
+                            <h5>7. 药物与物质触发因素</h5>
+                            <div class="trigger-options">
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="medication" data-trigger="bp-medicine"> 某些降压药（如血管扩张剂）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="medication" data-trigger="nitroglycerin"> 硝酸甘油</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="medication" data-trigger="hormone-medicine"> 激素药物</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="medication" data-trigger="medication-overuse"> 过度使用急性偏头痛药物</label>
+                            </div>
+                        </div>
+                    
+                        <!-- 8. 其他/杂项 -->
+                        <div class="trigger-category other">
+                            <h5>8. 其他/杂项</h5>
+                            <div class="trigger-options">
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="other" data-trigger="routine-change"> 日常习惯改变（旅行、日程变化）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="other" data-trigger="food-additives"> 某些食品添加剂（酵母提取物、水解蛋白）</label>
+                                <label class="trigger-label"><input type="checkbox" class="trigger-checkbox" data-category="other" data-trigger="smoking"> 吸烟或接触二手烟</label>
+                            </div>
+                        </div>
+                    </div>
+                
+                    <div class="form-group">
+                        <label for="diary-entry">日记记录：</label>
+                        <textarea id="diary-entry" rows="5" placeholder="记录此日的感受或其他信息..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button id="delete-entry" class="delete-btn">删除记录</button>
+                        <button id="save-entry" class="save-btn">保存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <script src="script.js"></script>
+        <script>
+            // Register Service Worker for PWA support
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('sw.js')
+                        .then((registration) => {
+                            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                        })
+                        .catch((error) => {
+                            console.log('ServiceWorker registration failed: ', error);
+                        });
+                });
+            }
+        </script>
+        
+        <!-- AI聊天功能 -->
+        <style>
+            /* 聊天气泡按钮 */
+            .chat-bubble-btn {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                width: 60px;
+                height: 60px;
+                background: #6495ed;
+                border: none;
+                border-radius: 50%;
+                box-shadow: 0 4px 12px rgba(100, 149, 237, 0.4);
+                color: white;
+                font-size: 1.5rem;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                z-index: 1400;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .chat-bubble-btn:hover {
+                transform: scale(1.1);
+                box-shadow: 0 6px 16px rgba(100, 149, 237, 0.6);
+            }
+            
+            .chat-bubble-btn:active {
+                transform: scale(0.95);
+            }
+            
+            /* AI聊天界面样式 */
+            .chat-container {
+                max-width: 400px;
+                height: 600px;
+                background: var(--glass-bg);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                border: 1px solid var(--glass-border);
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                display: flex;
+                flex-direction: column;
+                position: fixed;
+                bottom: 80px;
+                right: 20px;
+                z-index: 1500;
+                opacity: 0;
+                transform: scale(0.9);
+                transition: all 0.3s ease;
+            }
+            
+            .chat-container.visible {
+                opacity: 1;
+                transform: scale(1);
+            }
+            
+            .chat-header {
+                padding: 1rem;
+                border-bottom: 1px solid var(--glass-border);
+                background: rgba(26, 32, 44, 0.8);
+                border-radius: 12px 12px 0 0;
+            }
+            
+            .chat-header h2 {
+                margin: 0;
+                font-size: 1.2rem;
+                color: var(--text-primary);
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .chat-messages {
+                flex: 1;
+                padding: 1rem;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .message {
+                max-width: 80%;
+                padding: 0.8rem 1rem;
+                border-radius: 18px;
+                line-height: 1.4;
+                animation: messageSlideIn 0.3s ease-out;
+            }
+            
+            @keyframes messageSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            .message.user {
+                align-self: flex-end;
+                background: #6495ed;
+                color: white;
+                border-bottom-right-radius: 6px;
+            }
+            
+            .message.ai {
+                align-self: flex-start;
+                background: rgba(255, 255, 255, 0.1);
+                color: var(--text-primary);
+                border-bottom-left-radius: 6px;
+            }
+            
+            .message.typing {
+                opacity: 0.7;
+            }
+            
+            .typing-indicator {
+                display: flex;
+                gap: 4px;
+                align-items: center;
+            }
+            
+            .typing-dot {
+                width: 8px;
+                height: 8px;
+                background: var(--text-secondary);
+                border-radius: 50%;
+                animation: typing 1.4s infinite;
+            }
+            
+            .typing-dot:nth-child(2) {
+                animation-delay: 0.2s;
+            }
+            
+            .typing-dot:nth-child(3) {
+                animation-delay: 0.4s;
+            }
+            
+            @keyframes typing {
+                0%, 60%, 100% {
+                    transform: scale(0.8);
+                    opacity: 0.5;
+                }
+                30% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+            
+            .chat-input-area {
+                padding: 1rem;
+                border-top: 1px solid var(--glass-border);
+                background: rgba(26, 32, 44, 0.8);
+                border-radius: 0 0 12px 12px;
+            }
+            
+            .chat-input-container {
+                display: flex;
+                gap: 0.5rem;
+            }
+            
+            #chat-input {
+                flex: 1;
+                padding: 0.8rem 1rem;
+                background: rgba(30, 30, 30, 0.7);
+                border: 1px solid var(--glass-border);
+                border-radius: 20px;
+                color: var(--text-primary);
+                font-family: inherit;
+                font-size: 0.9rem;
+                resize: none;
+                min-height: 40px;
+                max-height: 120px;
+                overflow-y: auto;
+            }
+            
+            #chat-input:focus {
+                outline: none;
+                border-color: var(--accent-blue);
+                box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.2);
+            }
+            
+            #send-btn {
+                background: var(--accent-blue);
+                color: white;
+                border: none;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 1.1rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s ease;
+                flex-shrink: 0;
+            }
+            
+            #send-btn:hover {
+                background: var(--accent-blue-hover);
+                transform: scale(1.1);
+                box-shadow: 0 4px 12px rgba(65, 105, 225, 0.3);
+            }
+            
+            #send-btn:active {
+                transform: scale(0.95);
+            }
+            
+            /* 关闭按钮 */
+            .close-chat-btn {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: transparent;
+                border: none;
+                color: var(--text-secondary);
+                font-size: 1.2rem;
+                cursor: pointer;
+                padding: 0.3rem;
+                border-radius: 4px;
+                transition: all 0.3s ease;
+            }
+            
+            .close-chat-btn:hover {
+                color: var(--accent-blue);
+                background: rgba(255, 255, 255, 0.1);
+            }
+            
+            /* 欢迎消息样式 */
+            .welcome-message {
+                text-align: center;
+                margin: 2rem 1rem;
+                color: var(--text-secondary);
+                font-size: 0.9rem;
+            }
+            
+            /* 响应式设计 */
+            @media (max-width: 480px) {
+                .chat-container {
+                    width: calc(100% - 40px);
+                    height: 500px;
+                    bottom: 70px;
+                    right: 20px;
+                }
+                
+                .chat-bubble-btn {
+                    width: 50px;
+                    height: 50px;
+                    font-size: 1.2rem;
+                }
+            }
+        </style>
+        
+        <!-- 聊天气泡按钮 -->
+        <button class="chat-bubble-btn" id="chat-bubble-btn">💬</button>
+        
+        <!-- AI聊天界面 -->
+        <div class="chat-container" id="chat-container">
+            <div class="chat-header">
+                <h2>AI助手</h2>
+                <button class="close-chat-btn" id="close-chat-btn">&times;</button>
+            </div>
+            
+            <div class="chat-messages" id="chat-messages">
+                <div class="welcome-message">
+                    <p>你好！我是你的AI助手，有什么关于偏头痛的问题可以问我。</p>
+                </div>
+            </div>
+            
+            <div class="chat-input-area">
+                <div class="chat-input-container">
+                    <textarea id="chat-input" placeholder="输入你的问题..." rows="1"></textarea>
+                    <button id="send-btn">➤</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 底部图标导航栏 -->
+        <footer class="footer">
+            <nav class="navigation-links">
+                <a href="index.html" class="nav-link">
+                    <span class="nav-icon">📅</span>
+                    <span class="nav-text">首页</span>
+                </a>
+                <a href="sleep.html" class="nav-link">
+                    <span class="nav-icon">💤</span>
+                    <span class="nav-text">睡眠记录</span>
+                </a>
+                <a href="diary.html" class="nav-link calendar-btn">
+                    <span class="nav-icon">📔</span>
+                    <span class="nav-text">日历</span>
+                </a>
+                <a href="tips.html" class="nav-link">
+                    <span class="nav-icon">💡</span>
+                    <span class="nav-text">Tips</span>
+                </a>
+                <a href="my.html" class="nav-link">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-text">我的</span>
+                </a>
+            </nav>
+        </footer>
+        
+        <!-- 登录模态框 -->
+        <div id="loginModal" class="modal">
+            <div class="modal-content glass-effect auth-modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>用户登录</h2>
+                <form id="loginForm" class="auth-form">
+                    <div class="auth-form-group">
+                        <label for="loginUsername">用户名</label>
+                        <input type="text" id="loginUsername" required>
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="loginPassword">密码</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="auth-submit-btn">登录</button>
+                </form>
+                <div class="auth-switch">
+                    还没有账号？ <a href="#" id="switchToRegister">立即注册</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 注册模态框 -->
+        <div id="registerModal" class="modal">
+            <div class="modal-content glass-effect auth-modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>用户注册</h2>
+                <form id="registerForm" class="auth-form">
+                    <div class="auth-form-group">
+                        <label for="registerUsername">用户名</label>
+                        <input type="text" id="registerUsername" required>
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="registerPassword">密码</label>
+                        <input type="password" id="registerPassword" required>
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="registerConfirmPassword">确认密码</label>
+                        <input type="password" id="registerConfirmPassword" required>
+                    </div>
+                    <button type="submit" class="auth-submit-btn">注册</button>
+                </form>
+                <div class="auth-switch">
+                    已有账号？ <a href="#" id="switchToLogin">立即登录</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 用户认证JavaScript -->
+        <script>
+            // 用户认证相关函数
+            function initUserAuth() {
+                // 检查用户是否已登录
+                checkUserStatus();
+                
+                // 添加事件监听
+                addAuthEventListeners();
+            }
+            
+            // 检查用户状态
+            function checkUserStatus() {
+                const currentUser = getCurrentUser();
+                if (currentUser) {
+                    showUserStatus(currentUser);
+                } else {
+                    showAuthButtons();
+                }
+            }
+            
+            // 添加认证事件监听
+            function addAuthEventListeners() {
+                // 登录/注册按钮事件
+                const loginBtn = document.getElementById('loginBtn');
+                const registerBtn = document.getElementById('registerBtn');
+                const logoutBtn = document.getElementById('logoutBtn');
+                
+                // 模态框切换事件
+                const switchToRegister = document.getElementById('switchToRegister');
+                const switchToLogin = document.getElementById('switchToLogin');
+                
+                // 登录/注册表单事件
+                const loginForm = document.getElementById('loginForm');
+                const registerForm = document.getElementById('registerForm');
+                
+                // 登录按钮点击事件
+                loginBtn.addEventListener('click', () => {
+                    showModal('loginModal');
+                });
+                
+                // 注册按钮点击事件
+                registerBtn.addEventListener('click', () => {
+                    showModal('registerModal');
+                });
+                
+                // 退出登录按钮点击事件
+                logoutBtn.addEventListener('click', () => {
+                    logout();
+                });
+                
+                // 切换到注册模态框
+                switchToRegister.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    hideModal('loginModal');
+                    showModal('registerModal');
+                });
+                
+                // 切换到登录模态框
+                switchToLogin.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    hideModal('registerModal');
+                    showModal('loginModal');
+                });
+                
+                // 登录表单提交事件
+                loginForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    handleLogin();
+                });
+                
+                // 注册表单提交事件
+                registerForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    handleRegister();
+                });
+            }
+            
+            // 显示模态框
+            function showModal(modalId) {
+                const modal = document.getElementById(modalId);
+                modal.style.display = 'flex';
+            }
+            
+            // 隐藏模态框
+            function hideModal(modalId) {
+                const modal = document.getElementById(modalId);
+                modal.style.display = 'none';
+            }
+            
+            // 获取用户列表
+            function getUsers() {
+                const users = localStorage.getItem('users');
+                return users ? JSON.parse(users) : [];
+            }
+            
+            // 保存用户列表
+            function saveUsers(users) {
+                localStorage.setItem('users', JSON.stringify(users));
+            }
+            
+            // 获取当前登录用户
+            function getCurrentUser() {
+                const currentUser = localStorage.getItem('currentUser');
+                return currentUser ? JSON.parse(currentUser) : null;
+            }
+            
+            // 设置当前登录用户
+            function setCurrentUser(user) {
+                localStorage.setItem('currentUser', JSON.stringify(user));
+            }
+            
+            // 清除当前登录用户
+            function clearCurrentUser() {
+                localStorage.removeItem('currentUser');
+            }
+            
+            // 显示用户状态
+            function showUserStatus(user) {
+                const userStatus = document.getElementById('userStatus');
+                const authBtns = document.getElementById('authBtns');
+                const usernameDisplay = document.getElementById('usernameDisplay');
+                
+                usernameDisplay.textContent = user.username;
+                userStatus.style.display = 'flex';
+                authBtns.style.display = 'none';
+            }
+            
+            // 显示登录注册按钮
+            function showAuthButtons() {
+                const userStatus = document.getElementById('userStatus');
+                const authBtns = document.getElementById('authBtns');
+                
+                userStatus.style.display = 'none';
+                authBtns.style.display = 'flex';
+            }
+            
+            // 处理用户登录
+            function handleLogin() {
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                const users = getUsers();
+                const user = users.find(u => u.username === username && u.password === password);
+                
+                if (user) {
+                    setCurrentUser(user);
+                    hideModal('loginModal');
+                    checkUserStatus();
+                    alert('登录成功！');
+                } else {
+                    alert('用户名或密码错误！');
+                }
+            }
+            
+            // 处理用户注册
+            function handleRegister() {
+                const username = document.getElementById('registerUsername').value;
+                const password = document.getElementById('registerPassword').value;
+                const confirmPassword = document.getElementById('registerConfirmPassword').value;
+                
+                if (password !== confirmPassword) {
+                    alert('两次输入的密码不一致！');
+                    return;
+                }
+                
+                const users = getUsers();
+                if (users.find(u => u.username === username)) {
+                    alert('该用户名已被注册！');
+                    return;
+                }
+                
+                const newUser = {
+                    username,
+                    password
+                };
+                
+                users.push(newUser);
+                saveUsers(users);
+                setCurrentUser(newUser);
+                hideModal('registerModal');
+                checkUserStatus();
+                alert('注册成功！');
+            }
+            
+            // 处理用户退出登录
+            function logout() {
+                clearCurrentUser();
+                checkUserStatus();
+                alert('已退出登录！');
+            }
+            
+            // 等待DOM加载完成
+            document.addEventListener('DOMContentLoaded', () => {
+                // 初始化用户认证
+                initUserAuth();
+            });
+        </script>
+        
+        <script src="ai-chat.js"></script>
+    </body>
+</html>
