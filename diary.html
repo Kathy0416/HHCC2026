@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>偏头痛日记 - 时间线视图</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="api.js"></script>
     <style>
         /* 日记页面特定样式 */
         .timeline-container {
@@ -576,6 +577,22 @@
                 showModal('loginModal');
             });
             
+            // 关闭按钮点击事件（关闭登录/注册模态框）
+            document.querySelector('#loginModal .close-modal').addEventListener('click', () => {
+                hideModal('loginModal');
+            });
+            document.querySelector('#registerModal .close-modal').addEventListener('click', () => {
+                hideModal('registerModal');
+            });
+            
+            // 点击模态框外部关闭
+            window.addEventListener('click', (e) => {
+                const loginModal = document.getElementById('loginModal');
+                const registerModal = document.getElementById('registerModal');
+                if (e.target === loginModal) hideModal('loginModal');
+                if (e.target === registerModal) hideModal('registerModal');
+            });
+            
             // 登录表单提交事件
             loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -648,11 +665,26 @@
             authBtns.style.display = 'flex';
         }
         
-        // 处理用户登录
-        function handleLogin() {
-            const username = document.getElementById('loginUsername').value;
+        // 处理用户登录（后端优先，失败降级本地）
+        async function handleLogin() {
+            const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
-            
+
+            if (window.ApiClient && await window.ApiClient.health()) {
+                try {
+                    const data = await window.ApiClient.login(username, password);
+                    window.ApiClient.setToken(data.token);
+                    setCurrentUser({ username: data.user.username });
+                    hideModal('loginModal');
+                    checkUserStatus();
+                    alert('登录成功！');
+                    return;
+                } catch (e) {
+                    alert(e.message || '登录失败！');
+                    return;
+                }
+            }
+
             const users = getUsers();
             const user = users.find(u => u.username === username && u.password === password);
             
@@ -666,15 +698,30 @@
             }
         }
         
-        // 处理用户注册
-        function handleRegister() {
-            const username = document.getElementById('registerUsername').value;
+        // 处理用户注册（后端优先，失败降级本地）
+        async function handleRegister() {
+            const username = document.getElementById('registerUsername').value.trim();
             const password = document.getElementById('registerPassword').value;
             const confirmPassword = document.getElementById('registerConfirmPassword').value;
             
             if (password !== confirmPassword) {
                 alert('两次输入的密码不一致！');
                 return;
+            }
+
+            if (window.ApiClient && await window.ApiClient.health()) {
+                try {
+                    const data = await window.ApiClient.register(username, password);
+                    window.ApiClient.setToken(data.token);
+                    setCurrentUser({ username: data.user.username });
+                    hideModal('registerModal');
+                    checkUserStatus();
+                    alert('注册成功！');
+                    return;
+                } catch (e) {
+                    alert(e.message || '注册失败！');
+                    return;
+                }
             }
             
             const users = getUsers();
@@ -699,8 +746,13 @@
         // 处理用户退出登录
         function logout() {
             clearCurrentUser();
+            if (window.ApiClient) {
+                window.ApiClient.setToken('');
+                window.ApiClient.clearLocalData();
+            }
             checkUserStatus();
             alert('已退出登录！');
+            location.reload();
         }
         
         // 等待DOM加载完成
@@ -789,6 +841,19 @@
             return getTestData();
         }
         
+        // 从后端同步日历数据到本地
+        async function syncCalendarFromBackend() {
+            try {
+                if (!window.ApiClient || !(await window.ApiClient.health())) return;
+                const data = await window.ApiClient.getCalendar();
+                if (data && data.byDate) {
+                    localStorage.setItem('migraineCalendarData', JSON.stringify(data.byDate));
+                }
+            } catch (e) {
+                console.warn('从后端同步日历数据失败，使用本地数据:', e);
+            }
+        }
+
         // 获取测试数据
         function getTestData() {
             const today = new Date();
@@ -1013,7 +1078,11 @@
         }
         
         // 页面加载时初始化
-        document.addEventListener('DOMContentLoaded', initTimeline);
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 先从后端同步日历数据到本地（跨设备一致）
+            await syncCalendarFromBackend();
+            initTimeline();
+        });
     </script>
     <script>
         // Register Service Worker for PWA support

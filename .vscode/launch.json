@@ -1,0 +1,66 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // 推荐：F5 一键启动「后端 + 前端」，后端和前端都能打断点调试。
+            // 后端启动后会自动用 Chrome 打开前端页面并进入调试。
+            "name": "🚀 F5 一键启动 (后端+前端, Chrome)",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/server/server.js",
+            "cwd": "${workspaceFolder}/server",
+            "env": {
+                "SERVE_FRONTEND": "1"
+            },
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "serverReadyAction": {
+                "action": "debugWithChrome",
+                "pattern": "localhost:3000",
+                "uriFormat": "http://localhost:3000/index.html",
+                "webRoot": "${workspaceFolder}"
+            }
+        },
+        {
+            // 备选：Windows 自带 Edge，没有 Chrome 时用这个。
+            "name": "🚀 F5 一键启动 (后端+前端, Edge)",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/server/server.js",
+            "cwd": "${workspaceFolder}/server",
+            "env": {
+                "SERVE_FRONTEND": "1"
+            },
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "serverReadyAction": {
+                "action": "debugWithEdge",
+                "pattern": "localhost:3000",
+                "uriFormat": "http://localhost:3000/index.html",
+                "webRoot": "${workspaceFolder}"
+            }
+        },
+        {
+            // 只启动后端（不自动打开浏览器）。
+            "name": "仅启动后端 (Node)",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/server/server.js",
+            "cwd": "${workspaceFolder}/server",
+            "env": {
+                "SERVE_FRONTEND": "1"
+            },
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        }
+    ]
+}

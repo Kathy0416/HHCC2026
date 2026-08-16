@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的 - 偏头痛记录应用</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="api.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-heatmap@3.0.1"></script>
     <style>
@@ -708,7 +709,7 @@
         document.head.appendChild(style);
         
         // 导航栏文字显示
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // 初始化模态框
             initModalEvents();
             
@@ -717,6 +718,9 @@
             
             // 初始化热力图（无论是否登录都显示，未登录时显示示例数据）
             initHeatmap();
+
+            // 先从后端同步数据到本地（跨设备一致）
+            await syncDataFromBackend();
             
             // 从本地存储加载用户数据
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
@@ -796,6 +800,28 @@
             }
         });
 
+        // 从后端同步日历/睡眠数据到本地
+        async function syncDataFromBackend() {
+            try {
+                if (!window.ApiClient || !(await window.ApiClient.health())) return;
+                const [cal, sleep] = await Promise.all([
+                    window.ApiClient.getCalendar().catch(() => null),
+                    window.ApiClient.getSleepRecords().catch(() => null)
+                ]);
+                if (cal && cal.byDate) {
+                    localStorage.setItem('migraineCalendarData', JSON.stringify(cal.byDate));
+                }
+                if (sleep && Array.isArray(sleep.records)) {
+                    // my 页面按日期对象使用睡眠数据，转成 {date: record} 形式
+                    const sleepMap = {};
+                    sleep.records.forEach(r => { sleepMap[r.date] = r; });
+                    localStorage.setItem('sleepData', JSON.stringify(sleepMap));
+                }
+            } catch (e) {
+                console.warn('从后端同步数据失败:', e);
+            }
+        }
+
         // 模态框事件处理
         function initModalEvents() {
             const loginModal = document.getElementById('loginModal');
@@ -865,13 +891,28 @@
             }
         }
 
-        // 登录表单提交
-        document.getElementById('loginForm')?.addEventListener('submit', (e) => {
+        // 登录表单提交（后端优先，失败降级本地）
+        document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const username = document.getElementById('loginUsername').value;
+            const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
-            
-            // 简单验证 - 实际项目中应使用更安全的验证方式
+
+            if (window.ApiClient && await window.ApiClient.health()) {
+                try {
+                    const data = await window.ApiClient.login(username, password);
+                    window.ApiClient.setToken(data.token);
+                    localStorage.setItem('currentUser', JSON.stringify({ username: data.user.username }));
+                    alert('登录成功！');
+                    document.getElementById('loginModal').style.display = 'none';
+                    checkUserStatus();
+                    location.reload();
+                    return;
+                } catch (err) {
+                    alert(err.message || '登录失败！');
+                    return;
+                }
+            }
+
             const users = JSON.parse(localStorage.getItem('users') || '[]');
             const user = users.find(u => u.username === username && u.password === password);
             
@@ -880,17 +921,16 @@
                 alert('登录成功！');
                 document.getElementById('loginModal').style.display = 'none';
                 checkUserStatus();
-                // 刷新页面以更新数据
                 location.reload();
             } else {
                 alert('用户名或密码错误！');
             }
         });
 
-        // 注册表单提交
-        document.getElementById('registerForm')?.addEventListener('submit', (e) => {
+        // 注册表单提交（后端优先，失败降级本地）
+        document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const username = document.getElementById('registerUsername').value;
+            const username = document.getElementById('registerUsername').value.trim();
             const password = document.getElementById('registerPassword').value;
             const confirmPassword = document.getElementById('registerConfirmPassword').value;
             
@@ -898,7 +938,23 @@
                 alert('两次输入的密码不一致！');
                 return;
             }
-            
+
+            if (window.ApiClient && await window.ApiClient.health()) {
+                try {
+                    const data = await window.ApiClient.register(username, password);
+                    window.ApiClient.setToken(data.token);
+                    localStorage.setItem('currentUser', JSON.stringify({ username: data.user.username }));
+                    alert('注册成功！');
+                    document.getElementById('registerModal').style.display = 'none';
+                    checkUserStatus();
+                    location.reload();
+                    return;
+                } catch (err) {
+                    alert(err.message || '注册失败！');
+                    return;
+                }
+            }
+
             const users = JSON.parse(localStorage.getItem('users') || '[]');
             if (users.some(u => u.username === username)) {
                 alert('用户名已存在！');
@@ -912,15 +968,17 @@
             alert('注册成功！');
             document.getElementById('registerModal').style.display = 'none';
             checkUserStatus();
-            // 刷新页面以更新数据
             location.reload();
         });
 
         // 退出登录
         document.getElementById('logoutBtn')?.addEventListener('click', () => {
             localStorage.removeItem('currentUser');
+            if (window.ApiClient) {
+                window.ApiClient.setToken('');
+                window.ApiClient.clearLocalData();
+            }
             checkUserStatus();
-            // 刷新页面以更新数据
             location.reload();
         });
         

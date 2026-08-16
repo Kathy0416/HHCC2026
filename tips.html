@@ -6,6 +6,7 @@
     <title>Tips广场 - 偏头痛记录应用</title>
     <!-- 引入外部样式 -->
     <link rel="stylesheet" href="styles.css">
+    <script src="api.js"></script>
     
     <style>
         /* Tips广场页面样式 */
@@ -858,7 +859,7 @@
                     <span class="nav-text">Tips</span>
                 </a>
                 <a href="my.html" class="nav-link">
-                    <span class="nav-icon">�</span>
+                    <span class="nav-icon">👤</span>
                     <span class="nav-text">我的</span>
                 </a>
             </nav>
@@ -1362,6 +1363,22 @@
             
             // 初始化模态框事件
             initModalEvents();
+
+            // 尝试从后端加载真实 Tips 数据
+            syncTipsFromBackend();
+        }
+
+        // 从后端加载 Tips 数据
+        async function syncTipsFromBackend() {
+            try {
+                if (!window.ApiClient || !(await window.ApiClient.health())) return;
+                const data = await window.ApiClient.getTips();
+                if (data && Array.isArray(data.tips) && data.tips.length > 0) {
+                    renderTipCards(data.tips);
+                }
+            } catch (e) {
+                console.warn('从后端加载 Tips 失败，使用本地数据:', e);
+            }
         }
         
         // 渲染笔记卡片
@@ -1554,8 +1571,24 @@
             });
             
             modal.style.display = 'flex';
+
+            // 从后端加载评论（异步刷新，失败则保留本地）
+            refreshCommentsFromBackend(tip.id);
         }
         
+        // 从后端加载并刷新评论列表
+        async function refreshCommentsFromBackend(tipId) {
+            try {
+                if (!window.ApiClient || !(await window.ApiClient.health())) return;
+                const data = await window.ApiClient.getComments(tipId);
+                const comments = (data && Array.isArray(data.comments)) ? data.comments : [];
+                updateCommentsList(tipId, comments);
+                updateCommentsCount(tipId, comments.length);
+            } catch (e) {
+                console.warn('从后端加载评论失败:', e);
+            }
+        }
+
         // 加载评论
         function loadComments(tipId) {
             const comments = localStorage.getItem(`comments-${tipId}`);
@@ -1567,21 +1600,35 @@
             localStorage.setItem(`comments-${tipId}`, JSON.stringify(comments));
         }
         
-        // 提交评论
-        function submitComment(tipId) {
-            const authorInput = document.getElementById(`commentAuthor-${tipId}`);
+        // 提交评论（后端优先，失败降级本地）
+        async function submitComment(tipId) {
             const contentInput = document.getElementById(`commentContent-${tipId}`);
-            const commentsList = document.getElementById(`commentsList-${tipId}`);
+            const content = contentInput ? contentInput.value.trim() : '';
             
-            const author = authorInput.value.trim();
-            const content = contentInput.value.trim();
-            
-            if (!author || !content) {
-                alert('请填写完整的评论信息');
+            if (!content) {
+                alert('请输入评论内容');
                 return;
             }
-            
-            // 创建评论对象
+
+            // 后端优先
+            if (window.ApiClient && await window.ApiClient.health()) {
+                try {
+                    await window.ApiClient.addComment(tipId, content);
+                    await refreshCommentsFromBackend(tipId);
+                    contentInput.value = '';
+                    return;
+                } catch (e) {
+                    console.warn('后端评论失败，回退本地:', e);
+                }
+            }
+
+            // 本地降级
+            let author = '匿名';
+            try {
+                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                if (currentUser && currentUser.username) author = currentUser.username;
+            } catch (e) {}
+
             const comment = {
                 id: Date.now(),
                 author: author,
@@ -1589,23 +1636,12 @@
                 date: new Date().toLocaleString('zh-CN')
             };
             
-            // 加载现有评论
             const comments = loadComments(tipId);
-            
-            // 添加新评论
             comments.push(comment);
-            
-            // 保存评论
             saveComments(tipId, comments);
-            
-            // 更新评论列表
             updateCommentsList(tipId, comments);
             
-            // 清空表单
-            authorInput.value = '';
             contentInput.value = '';
-            
-            // 更新交互数
             updateCommentsCount(tipId, comments.length);
         }
         
@@ -1774,8 +1810,8 @@
             authBtns.style.display = 'flex';
         }
         
-        // 处理用户注册
-        function handleRegister() {
+        // 处理用户注册（后端优先，失败降级本地）
+        async function handleRegister() {
             const username = document.getElementById('registerUsername').value.trim();
             const password = document.getElementById('registerPassword').value.trim();
             const confirmPassword = document.getElementById('registerConfirmPassword').value.trim();
@@ -1785,76 +1821,88 @@
                 alert('请填写完整的注册信息');
                 return;
             }
-            
             if (password !== confirmPassword) {
                 alert('两次输入的密码不一致');
                 return;
             }
-            
             if (password.length < 6) {
                 alert('密码长度不能少于6个字符');
                 return;
             }
-            
-            // 检查用户名是否已存在
+
+            // 后端优先
+            if (window.ApiClient && await window.ApiClient.health()) {
+                try {
+                    const data = await window.ApiClient.register(username, password);
+                    window.ApiClient.setToken(data.token);
+                    saveCurrentUser({ username: data.user.username });
+                    checkUserStatus();
+                    hideModal('registerModal');
+                    document.getElementById('registerForm').reset();
+                    alert('注册成功！欢迎使用Tips广场。');
+                    return;
+                } catch (e) {
+                    alert(e.message || '注册失败！');
+                    return;
+                }
+            }
+
+            // 本地降级
             const users = getUsers();
             const existingUser = users.find(user => user.username === username);
-            
             if (existingUser) {
                 alert('该用户名已被注册');
                 return;
             }
-            
-            // 创建新用户
             const newUser = {
                 id: Date.now(),
                 username: username,
-                password: password // 实际项目中应该加密存储
+                password: password
             };
-            
-            // 保存新用户
             users.push(newUser);
             saveUsers(users);
-            
-            // 自动登录新用户
             saveCurrentUser(newUser);
             checkUserStatus();
-            
-            // 隐藏注册模态框
             hideModal('registerModal');
-            
-            // 清空表单
             document.getElementById('registerForm').reset();
-            
             alert('注册成功！欢迎使用Tips广场。');
         }
         
-        // 处理用户登录
-        function handleLogin() {
+        // 处理用户登录（后端优先，失败降级本地）
+        async function handleLogin() {
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
             
-            // 表单验证
             if (!username || !password) {
                 alert('请填写完整的登录信息');
                 return;
             }
-            
-            // 检查用户是否存在
+
+            // 后端优先
+            if (window.ApiClient && await window.ApiClient.health()) {
+                try {
+                    const data = await window.ApiClient.login(username, password);
+                    window.ApiClient.setToken(data.token);
+                    saveCurrentUser({ username: data.user.username });
+                    checkUserStatus();
+                    hideModal('loginModal');
+                    document.getElementById('loginForm').reset();
+                    alert('登录成功！欢迎回来。');
+                    return;
+                } catch (e) {
+                    alert(e.message || '登录失败！');
+                    return;
+                }
+            }
+
+            // 本地降级
             const users = getUsers();
             const user = users.find(user => user.username === username && user.password === password);
-            
             if (user) {
-                // 登录成功
                 saveCurrentUser(user);
                 checkUserStatus();
-                
-                // 隐藏登录模态框
                 hideModal('loginModal');
-                
-                // 清空表单
                 document.getElementById('loginForm').reset();
-                
                 alert('登录成功！欢迎回来。');
             } else {
                 alert('用户名或密码错误');
@@ -1864,8 +1912,13 @@
         // 用户退出登录
         function logout() {
             localStorage.removeItem('currentUser');
+            if (window.ApiClient) {
+                window.ApiClient.setToken('');
+                window.ApiClient.clearLocalData();
+            }
             checkUserStatus();
             alert('您已成功退出登录。');
+            location.reload();
         }
         
         // 修改评论功能，使用登录用户的用户名

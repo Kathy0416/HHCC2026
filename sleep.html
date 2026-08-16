@@ -6,6 +6,7 @@
     <title>睡眠记录 - 偏头痛记录应用</title>
     <!-- 引入外部样式 -->
     <link rel="stylesheet" href="styles.css">
+    <script src="api.js"></script>
     <!-- 引入Chart.js用于图表绘制 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -673,6 +674,22 @@
                 showModal('loginModal');
             });
             
+            // 关闭按钮点击事件（关闭登录/注册模态框）
+            document.querySelector('#loginModal .close-modal').addEventListener('click', () => {
+                hideModal('loginModal');
+            });
+            document.querySelector('#registerModal .close-modal').addEventListener('click', () => {
+                hideModal('registerModal');
+            });
+            
+            // 点击模态框外部关闭
+            window.addEventListener('click', (e) => {
+                const loginModal = document.getElementById('loginModal');
+                const registerModal = document.getElementById('registerModal');
+                if (e.target === loginModal) hideModal('loginModal');
+                if (e.target === registerModal) hideModal('registerModal');
+            });
+            
             // 登录表单提交事件
             loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -745,11 +762,26 @@
             authBtns.style.display = 'flex';
         }
         
-        // 处理用户登录
-        function handleLogin() {
-            const username = document.getElementById('loginUsername').value;
+        // 处理用户登录（后端优先，失败降级本地）
+        async function handleLogin() {
+            const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
-            
+
+            if (window.ApiClient && await window.ApiClient.health()) {
+                try {
+                    const data = await window.ApiClient.login(username, password);
+                    window.ApiClient.setToken(data.token);
+                    setCurrentUser({ username: data.user.username });
+                    hideModal('loginModal');
+                    checkUserStatus();
+                    alert('登录成功！');
+                    return;
+                } catch (e) {
+                    alert(e.message || '登录失败！');
+                    return;
+                }
+            }
+
             const users = getUsers();
             const user = users.find(u => u.username === username && u.password === password);
             
@@ -763,15 +795,30 @@
             }
         }
         
-        // 处理用户注册
-        function handleRegister() {
-            const username = document.getElementById('registerUsername').value;
+        // 处理用户注册（后端优先，失败降级本地）
+        async function handleRegister() {
+            const username = document.getElementById('registerUsername').value.trim();
             const password = document.getElementById('registerPassword').value;
             const confirmPassword = document.getElementById('registerConfirmPassword').value;
             
             if (password !== confirmPassword) {
                 alert('两次输入的密码不一致！');
                 return;
+            }
+
+            if (window.ApiClient && await window.ApiClient.health()) {
+                try {
+                    const data = await window.ApiClient.register(username, password);
+                    window.ApiClient.setToken(data.token);
+                    setCurrentUser({ username: data.user.username });
+                    hideModal('registerModal');
+                    checkUserStatus();
+                    alert('注册成功！');
+                    return;
+                } catch (e) {
+                    alert(e.message || '注册失败！');
+                    return;
+                }
             }
             
             const users = getUsers();
@@ -796,8 +843,13 @@
         // 处理用户退出登录
         function logout() {
             clearCurrentUser();
+            if (window.ApiClient) {
+                window.ApiClient.setToken('');
+                window.ApiClient.clearLocalData();
+            }
             checkUserStatus();
             alert('已退出登录！');
+            location.reload();
         }
         
         // 生成模拟睡眠数据（用于测试）
@@ -908,6 +960,9 @@
             
             // 加载历史数据并更新图表和列表
             loadSleepData();
+
+            // 尝试从后端同步睡眠数据
+            syncSleepFromBackend();
         }
         
         // 计算睡眠时长
@@ -961,6 +1016,11 @@
         function handleFormSubmit(event) {
             event.preventDefault();
             
+            // 未登录检查：记录睡眠数据需先登录
+            if (window.ApiClient && !window.ApiClient.requireLogin('请先登录或注册后再记录睡眠数据')) {
+                return;
+            }
+            
             // 获取表单数据
             const date = document.getElementById('date').value;
             const sleepTime = document.getElementById('sleepTime').value;
@@ -1011,6 +1071,9 @@
             
             // 保存到localStorage
             localStorage.setItem('sleepRecords', JSON.stringify(sleepRecords));
+
+            // 同步到后端
+            saveSleepRecordToBackend(record);
         }
         
         // 从localStorage加载睡眠数据
@@ -1042,6 +1105,30 @@
             }
         }
         
+        // 从后端同步睡眠数据
+        async function syncSleepFromBackend() {
+            try {
+                if (!window.ApiClient || !(await window.ApiClient.health())) return;
+                const data = await window.ApiClient.getSleepRecords();
+                if (data && Array.isArray(data.records)) {
+                    localStorage.setItem('sleepRecords', JSON.stringify(data.records));
+                    loadSleepData();
+                }
+            } catch (e) {
+                console.warn('从后端同步睡眠数据失败:', e);
+            }
+        }
+
+        // 同步睡眠记录到后端
+        async function saveSleepRecordToBackend(record) {
+            try {
+                if (!window.ApiClient || !(await window.ApiClient.health())) return;
+                await window.ApiClient.saveSleepRecord(record.date, record);
+            } catch (e) {
+                console.warn('同步睡眠记录到后端失败:', e);
+            }
+        }
+
         // 更新睡眠记录表格
         function updateSleepRecordsTable(records) {
             const tbody = document.querySelector('#sleepRecordsTable tbody');

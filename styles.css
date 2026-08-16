@@ -1298,3 +1298,138 @@ body {
         font-size: 1.8rem;
     }
 }
+
+/* ============================================================
+   登录 / 注册模态框样式（统一所有页面）
+   原来自 my.html 的内联样式，现提取为公共样式，供所有页面共享
+   ============================================================ */
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal {
+    backdrop-filter: blur(8px);
+}
+
+.auth-modal-content {
+    animation: modalSlideIn 0.3s ease-out;
+    padding: 2.5rem;
+    max-width: 450px;
+}
+
+.auth-modal-content h2 {
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    font-size: 1.8rem;
+    text-align: center;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.auth-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.auth-form-group label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.auth-form-group input {
+    padding: 0.875rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.auth-form-group input:focus {
+    outline: none;
+    border-color: var(--accent-blue-light);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 3px rgba(100, 149, 237, 0.1);
+}
+
+.auth-submit-btn {
+    padding: 0.875rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent-blue-light);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 0.5rem;
+}
+
+.auth-submit-btn:hover {
+    background: var(--accent-blue-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(100, 149, 237, 0.3);
+}
+
+.auth-submit-btn:active {
+    transform: translateY(0);
+}
+
+.auth-switch {
+    text-align: center;
+    margin-top: 1.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.auth-switch a {
+    color: var(--accent-blue-light);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.auth-switch a:hover {
+    color: var(--accent-blue-hover);
+    text-decoration: underline;
+}
+
+.close-modal {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.2s ease;
+    line-height: 1;
+}
+
+.close-modal:hover {
+    color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+    .auth-modal-content {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+    .auth-modal-content h2 {
+        font-size: 1.5rem;
+    }
+}
