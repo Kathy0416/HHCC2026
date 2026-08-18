@@ -1433,3 +1433,8 @@ body {
         font-size: 1.5rem;
     }
 }
+
+/* 防止固定底部导航栏遮挡页面内容 */
+body {
+    padding-bottom: 80px;
+}
