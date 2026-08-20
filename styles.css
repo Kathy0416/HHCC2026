@@ -1298,3 +1298,206 @@ body {
         font-size: 1.8rem;
     }
 }
+
+/* ============================================================
+   登录 / 注册模态框样式（统一所有页面）
+   原来自 my.html 的内联样式，现提取为公共样式，供所有页面共享
+   ============================================================ */
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal {
+    backdrop-filter: blur(8px);
+}
+
+.auth-modal-content {
+    animation: modalSlideIn 0.3s ease-out;
+    padding: 2.5rem;
+    max-width: 450px;
+}
+
+.auth-modal-content h2 {
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    font-size: 1.8rem;
+    text-align: center;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.auth-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.auth-form-group label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.auth-form-group input,
+.auth-form-group textarea {
+    padding: 0.875rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.auth-form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+    line-height: 1.5;
+    font-family: inherit;
+}
+
+.auth-form-group input:focus,
+.auth-form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent-blue-light);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 3px rgba(100, 149, 237, 0.1);
+}
+
+.auth-form-group input[type="file"] {
+    padding: 0;
+    border: none;
+    background: transparent;
+    backdrop-filter: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.auth-form-group input[type="file"]::file-selector-button {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent-blue-light);
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-right: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.auth-form-group input[type="file"]::file-selector-button:hover {
+    background: var(--accent-blue-hover);
+}
+
+.tag-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.tag-option {
+    padding: 0.4rem 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tag-option:hover {
+    border-color: var(--accent-blue-light);
+    color: var(--text-primary);
+}
+
+.tag-option.active {
+    background: var(--accent-blue-light);
+    color: white;
+    border-color: var(--accent-blue-light);
+}
+
+.auth-submit-btn {
+    padding: 0.875rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent-blue-light);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 0.5rem;
+}
+
+.auth-submit-btn:hover {
+    background: var(--accent-blue-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(100, 149, 237, 0.3);
+}
+
+.auth-submit-btn:active {
+    transform: translateY(0);
+}
+
+.auth-switch {
+    text-align: center;
+    margin-top: 1.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.auth-switch a {
+    color: var(--accent-blue-light);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.auth-switch a:hover {
+    color: var(--accent-blue-hover);
+    text-decoration: underline;
+}
+
+.close-modal {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.2s ease;
+    line-height: 1;
+}
+
+.close-modal:hover {
+    color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+    .auth-modal-content {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+    .auth-modal-content h2 {
+        font-size: 1.5rem;
+    }
+}
+
+/* 防止固定底部导航栏遮挡页面内容 */
+body {
+    padding-bottom: 80px;
+}

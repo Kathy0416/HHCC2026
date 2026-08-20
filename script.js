@@ -410,16 +410,25 @@ function closeModal() {
 function saveCalendarEntry() {
     if (!selectedDate) return;
     
+    // 未登录检查：记录日记需先登录
+    if (window.ApiClient && !window.ApiClient.requireLogin('请先登录或注册后再记录日记')) {
+        return;
+    }
+    
     // 保存数据
-    calendarData[selectedDate] = {
+    const entry = {
         migraine: migraineCheck.checked,
         diary: diaryEntry.value.trim(),
         triggers: getSelectedTriggers(),
         lastUpdated: new Date().toISOString()
     };
+    calendarData[selectedDate] = entry;
     
     // 保存到本地存储
     saveCalendarData();
+    
+    // 同步到后端
+    saveEntryToBackend(selectedDate, entry);
     
     // 重新渲染日历
     renderCalendar();
@@ -435,12 +444,20 @@ function saveCalendarEntry() {
 function deleteCalendarEntry() {
     if (!selectedDate) return;
     
+    // 未登录检查
+    if (window.ApiClient && !window.ApiClient.requireLogin('请先登录或注册后再操作')) {
+        return;
+    }
+    
     if (confirm('确定要删除这条记录吗？此操作无法撤销。')) {
         // 删除数据
         delete calendarData[selectedDate];
         
         // 保存到本地存储
         saveCalendarData();
+        
+        // 同步删除后端
+        deleteEntryFromBackend(selectedDate);
         
         // 重新渲染日历
         renderCalendar();
@@ -532,6 +549,44 @@ function loadCalendarData() {
             console.error('加载日历数据失败:', e);
             calendarData = {};
         }
+    }
+
+    // 尝试从后端加载（成功后覆盖本地数据并刷新界面）
+    loadCalendarDataFromBackend();
+}
+
+// 从后端加载日历数据
+async function loadCalendarDataFromBackend() {
+    try {
+        if (!window.ApiClient || !(await window.ApiClient.health())) return;
+        const data = await window.ApiClient.getCalendar();
+        if (data && data.byDate) {
+            calendarData = data.byDate;
+            localStorage.setItem('migraineCalendarData', JSON.stringify(calendarData));
+            renderCalendar();
+        }
+    } catch (e) {
+        console.warn('从后端加载日历数据失败，使用本地数据:', e);
+    }
+}
+
+// 同步日历条目到后端
+async function saveEntryToBackend(date, entry) {
+    try {
+        if (!window.ApiClient || !(await window.ApiClient.health())) return;
+        await window.ApiClient.saveCalendarEntry(date, entry);
+    } catch (e) {
+        console.warn('同步日历条目到后端失败:', e);
+    }
+}
+
+// 同步删除后端日历条目
+async function deleteEntryFromBackend(date) {
+    try {
+        if (!window.ApiClient || !(await window.ApiClient.health())) return;
+        await window.ApiClient.deleteCalendarEntry(date);
+    } catch (e) {
+        console.warn('同步删除后端日历条目失败:', e);
     }
 }
 
