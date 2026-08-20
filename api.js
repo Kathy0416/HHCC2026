@@ -143,6 +143,9 @@
     getTip(id) {
       return this._request('GET', '/tips/' + id);
     },
+    publishTip(data) {
+      return this._request('POST', '/tips', data);
+    },
     getComments(tipId) {
       return this._request('GET', '/tips/' + tipId + '/comments');
     },

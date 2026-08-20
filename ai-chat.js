@@ -132,14 +132,48 @@ async function sendMessage() {
     getAIResponse(message);
 }
 
+// 简单的 Markdown 渲染（支持加粗、换行、标题、列表），并转义 HTML 防 XSS
+function renderMarkdown(text) {
+    if (!text) return '';
+    let html = String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+    // 加粗 **text**
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+    // 标题 # / ## / ###
+    html = html.replace(/^#{1,3}\s+(.+)$/gm, '<b>$1</b>');
+    // 无序列表 - / *
+    html = html.replace(/^[-*]\s+(.+)$/gm, '• $1');
+    // 有序列表 1. / 2.
+    html = html.replace(/^\d+\.\s+(.+)$/gm, '$1');
+    // 换行
+    html = html.replace(/\n/g, '<br>');
+
+    return html;
+}
+
 // 显示消息
 function displayMessage(text, sender) {
     const messageEl = document.createElement('div');
     messageEl.className = `message ${sender}`;
-    messageEl.textContent = text;
-    
+
+    if (sender === 'ai') {
+        // AI 消息：渲染 Markdown
+        messageEl.innerHTML = renderMarkdown(text);
+    } else {
+        // 用户消息：转义 HTML + 保留换行
+        const escaped = String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        messageEl.innerHTML = escaped.replace(/\n/g, '<br>');
+    }
+
     chatMessages.appendChild(messageEl);
-    
+
     // 滚动到底部
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }

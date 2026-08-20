@@ -1349,7 +1349,8 @@ body {
     font-weight: 500;
 }
 
-.auth-form-group input {
+.auth-form-group input,
+.auth-form-group textarea {
     padding: 0.875rem 1rem;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
@@ -1360,11 +1361,73 @@ body {
     backdrop-filter: blur(10px);
 }
 
-.auth-form-group input:focus {
+.auth-form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+    line-height: 1.5;
+    font-family: inherit;
+}
+
+.auth-form-group input:focus,
+.auth-form-group textarea:focus {
     outline: none;
     border-color: var(--accent-blue-light);
     background: rgba(255, 255, 255, 0.08);
     box-shadow: 0 0 0 3px rgba(100, 149, 237, 0.1);
+}
+
+.auth-form-group input[type="file"] {
+    padding: 0;
+    border: none;
+    background: transparent;
+    backdrop-filter: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.auth-form-group input[type="file"]::file-selector-button {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent-blue-light);
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-right: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.auth-form-group input[type="file"]::file-selector-button:hover {
+    background: var(--accent-blue-hover);
+}
+
+.tag-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.tag-option {
+    padding: 0.4rem 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tag-option:hover {
+    border-color: var(--accent-blue-light);
+    color: var(--text-primary);
+}
+
+.tag-option.active {
+    background: var(--accent-blue-light);
+    color: white;
+    border-color: var(--accent-blue-light);
 }
 
 .auth-submit-btn {

@@ -811,8 +811,7 @@
                         window.ApiClient.clearLocalData();
                         hideModal('loginModal');
                         checkUserStatus();
-                        alert('登录成功！');
-                        location.reload();
+                        finishAuth('登录成功！');
                         return;
                     } catch (e) {
                         alert(e.message || '登录失败！');
@@ -829,8 +828,7 @@
                     if (window.ApiClient) window.ApiClient.clearLocalData();
                     hideModal('loginModal');
                     checkUserStatus();
-                    alert('登录成功！');
-                    location.reload();
+                    finishAuth('登录成功！');
                 } else {
                     alert('用户名或密码错误！');
                 }
@@ -855,8 +853,7 @@
                         window.ApiClient.clearLocalData();
                         hideModal('registerModal');
                         checkUserStatus();
-                        alert('注册成功！');
-                        location.reload();
+                        finishAuth('注册成功！');
                         return;
                     } catch (e) {
                         alert(e.message || '注册失败！');
@@ -882,8 +879,7 @@
                 if (window.ApiClient) window.ApiClient.clearLocalData();
                 hideModal('registerModal');
                 checkUserStatus();
-                alert('注册成功！');
-                location.reload();
+                finishAuth('注册成功！');
             }
             
             // 处理用户退出登录
@@ -894,7 +890,21 @@
                     window.ApiClient.clearLocalData();
                 }
                 checkUserStatus();
-                alert('已退出登录！');
+                finishAuth('已退出登录！');
+            }
+            
+            // 立即清空日历界面（退出/切换账号时避免残留显示上一个账号的数据）
+            function clearCalendarUI() {
+                try {
+                    if (typeof calendarData !== 'undefined') calendarData = {};
+                    if (typeof renderCalendar === 'function') renderCalendar();
+                } catch (e) {}
+            }
+            
+            // 认证成功后的统一处理：先清空界面 → 再提示 → 最后刷新
+            function finishAuth(message) {
+                clearCalendarUI();
+                alert(message);
                 location.reload();
             }
             

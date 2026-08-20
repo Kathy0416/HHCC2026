@@ -7,7 +7,7 @@ const router = express.Router();
 const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions';
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
-const SYSTEM_PROMPT = '你是一个专业的偏头痛健康助手，提供温和、实用并且符合健康安全的建议。';
+const SYSTEM_PROMPT = '你是偏头痛记录应用中的智能健康助手。你可以访问用户在本应用中记录的偏头痛发作数据，并结合这些数据为用户提供个性化、贴合其记录的建议。回答应温和、实用、符合健康安全，不提供医疗诊断、不替代医生。请保持回答简短精炼，直接给出要点，避免冗长的长篇大论。';
 
 // 服务端本地模拟回复（未配置 DeepSeek Key 或调用失败时使用）
 function mockReply(message) {
@@ -40,6 +40,50 @@ function mockReply(message) {
   return '抱歉，我不太明白你的问题。我是一个专注于偏头痛相关问题的 AI 助手，你可以问我关于偏头痛的症状、触发因素、治疗方法、睡眠、饮食等问题。';
 }
 
+// 读取用户的偏头痛发作记录，格式化后作为 AI 上下文
+function getUserMigraineRecords(userId) {
+  const rows = db
+    .prepare('SELECT * FROM calendar_entries WHERE user_id = ? AND migraine = 1 ORDER BY date DESC LIMIT 50')
+    .all(userId);
+  return rows.map((r) => {
+    let triggers = [];
+    try {
+      triggers = JSON.parse(r.triggers || '[]');
+    } catch (e) {
+      triggers = [];
+    }
+    return {
+      date: r.date,
+      diary: r.diary || '未填写日记',
+      triggers: triggers.length ? triggers.join('、') : '未记录'
+    };
+  });
+}
+
+// 生成用户发作记录的上下文文本（作为独立消息注入，让 AI 明确"已拥有"这些数据）
+function buildRecordsContext(records) {
+  if (!records || records.length === 0) return '';
+  const lines = records
+    .map((r) => `- ${r.date}：${r.diary}（触发因素：${r.triggers}）`)
+    .join('\n');
+  return `该用户在本应用中记录的偏头痛发作数据如下（共 ${records.length} 次，按日期倒序）：\n${lines}`;
+}
+
+// 本地模拟回复时，结合用户的发作记录做简单统计（未配置 DeepSeek Key 时使用）
+function mockReplyWithRecords(message, records) {
+  const lower = String(message || '').toLowerCase();
+  if (
+    records &&
+    records.length > 0 &&
+    (lower.includes('几次') || lower.includes('多少') || lower.includes('记录') || lower.includes('发作') || lower.includes('统计'))
+  ) {
+    const latest = records[0];
+    const recent = records.slice(0, 5).map((r) => r.date).join('、');
+    return `根据你的记录，你目前共记录了 ${records.length} 次偏头痛发作。最近一次是 ${latest.date}（${latest.diary}，触发因素：${latest.triggers}）。最近几次发作日期：${recent}。`;
+  }
+  return null;
+}
+
 // 对话接口（代理 DeepSeek，密钥保存在服务端）
 router.post('/chat', optionalAuth, async (req, res) => {
   const message = String(req.body.message || '').trim();
@@ -53,12 +97,17 @@ router.post('/chat', optionalAuth, async (req, res) => {
   let mock = false;
 
   if (!DEEPSEEK_API_KEY) {
-    reply = mockReply(message);
+    const records = req.user ? getUserMigraineRecords(req.user.id) : [];
+    const withRecords = mockReplyWithRecords(message, records);
+    reply = withRecords || mockReply(message);
     mock = true;
   } else {
     try {
+      const records = req.user ? getUserMigraineRecords(req.user.id) : [];
+      const recordsContext = buildRecordsContext(records);
       const messages = [
         { role: 'system', content: SYSTEM_PROMPT },
+        ...(recordsContext ? [{ role: 'user', content: recordsContext }] : []),
         ...history.map((m) => ({
           role: m.role === 'assistant' ? 'assistant' : 'user',
           content: String(m.content || '')

@@ -1,5 +1,5 @@
 const express = require('express');
-const { optionalAuth } = require('../middleware');
+const { optionalAuth, requireAuth } = require('../middleware');
 const db = require('../db');
 
 const router = express.Router();
@@ -45,6 +45,47 @@ function withCommentCount(tip) {
 router.get('/', (req, res) => {
   const rows = db.prepare('SELECT * FROM tips ORDER BY id DESC').all();
   res.json({ tips: rows.map((r) => withCommentCount(toTip(r))) });
+});
+
+// 发布 Tips（需登录，支持图片 base64 和 markdown 文字）
+router.post('/', requireAuth, (req, res) => {
+  const title = String(req.body.title || '').trim();
+  const content = String(req.body.content || '').trim();
+  const description = String(req.body.description || '').trim();
+  const image = String(req.body.image || '').trim();
+  const tags = Array.isArray(req.body.tags)
+    ? req.body.tags.map((t) => String(t).trim()).filter(Boolean)
+    : [];
+
+  if (!title) {
+    return res.status(400).json({ error: '标题不能为空' });
+  }
+  if (!content) {
+    return res.status(400).json({ error: '内容不能为空' });
+  }
+  if (title.length > 100) {
+    return res.status(400).json({ error: '标题过长（最多 100 字）' });
+  }
+  if (content.length > 20000) {
+    return res.status(400).json({ error: '内容过长（最多 20000 字）' });
+  }
+  if (image && image.length > 10 * 1024 * 1024) {
+    return res.status(400).json({ error: '图片过大（最大约 7MB）' });
+  }
+
+  const username = req.user.username;
+  const date = new Date().toISOString().split('T')[0];
+  const avatar = (username || '匿').charAt(0);
+
+  const info = db
+    .prepare(`
+      INSERT INTO tips (title, description, content, image, author_name, author_username, author_bio, author_avatar, tags, likes, date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+    `)
+    .run(title, description, content, image, username, username, '', avatar, JSON.stringify(tags), date);
+
+  const row = db.prepare('SELECT * FROM tips WHERE id = ?').get(Number(info.lastInsertRowid));
+  res.status(201).json({ tip: withCommentCount(toTip(row)) });
 });
 
 // 获取单个 Tip
