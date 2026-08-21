@@ -127,6 +127,9 @@
     document.querySelectorAll('[data-language-selector]').forEach(function (trigger) {
       const wrapper = trigger.closest('.language-switcher');
       const languageName = currentLanguage === 'en' ? t('language.english') : t('language.chinese');
+      trigger.querySelectorAll('.language-current-name, .language-chevron').forEach(function (legacyElement) {
+        legacyElement.remove();
+      });
       const currentCode = trigger.querySelector('.language-current-code');
       if (currentCode) currentCode.textContent = currentLanguage === 'en' ? 'EN' : '中';
       trigger.setAttribute('aria-label', t('language.current', { language: languageName }));
@@ -271,6 +274,7 @@
       .language-globe-wrap{position:relative;display:grid;place-items:center;width:25px;height:25px;border-radius:9px;background:linear-gradient(145deg,rgba(78,116,224,.38),rgba(54,78,157,.22));color:#a9c1ff;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
       .language-globe{width:18px;height:18px}
       .language-current-code{position:absolute;top:-7px;right:-8px;display:grid;place-items:center;min-width:18px;height:16px;padding:0 3px;border:2px solid #182033;border-radius:7px;background:#5d82ee;color:#fff;font-size:8px;font-weight:800;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.28)}
+      .language-trigger .language-current-name,.language-trigger .language-chevron{display:none!important}
       .language-switcher.is-open .language-trigger{border-color:rgba(112,151,255,.68);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 0 0 3px rgba(65,105,225,.13),0 8px 24px rgba(0,0,0,.22)}
       .language-menu{position:absolute;top:calc(100% + 10px);right:0;width:190px;padding:6px;border:1px solid rgba(119,149,231,.3);border-radius:15px;background:linear-gradient(160deg,rgba(35,45,68,.97),rgba(20,26,41,.98));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 18px 45px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.07);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-6px) scale(.97);transform-origin:top right;transition:opacity .16s ease,visibility .16s ease,transform .16s ease;z-index:2000}
       .language-menu::before{content:"";position:absolute;top:-5px;right:18px;width:9px;height:9px;border-left:1px solid rgba(119,149,231,.3);border-top:1px solid rgba(119,149,231,.3);background:rgba(35,45,68,.97);transform:rotate(45deg)}
