@@ -127,9 +127,7 @@
     document.querySelectorAll('[data-language-selector]').forEach(function (trigger) {
       const wrapper = trigger.closest('.language-switcher');
       const languageName = currentLanguage === 'en' ? t('language.english') : t('language.chinese');
-      const currentName = trigger.querySelector('.language-current-name');
       const currentCode = trigger.querySelector('.language-current-code');
-      if (currentName) currentName.textContent = languageName;
       if (currentCode) currentCode.textContent = currentLanguage === 'en' ? 'EN' : '中';
       trigger.setAttribute('aria-label', t('language.current', { language: languageName }));
       trigger.title = t('language.current', { language: languageName });
@@ -184,10 +182,6 @@
           </svg>
           <span class="language-current-code"></span>
         </span>
-        <span class="language-current-name"></span>
-        <svg class="language-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-          <path d="m4 6 4 4 4-4"></path>
-        </svg>
       </button>
       <div class="language-menu" id="language-menu" role="menu" aria-hidden="true">
         <button class="language-option" type="button" role="menuitemradio" data-language-option="en" aria-checked="false" tabindex="-1">
@@ -271,16 +265,13 @@
     style.id = 'i18n-styles';
     style.textContent = `
       .language-switcher{position:relative;display:inline-flex;align-items:center;flex:0 0 auto;z-index:40}
-      .language-trigger{position:relative;display:inline-flex;align-items:center;gap:.48rem;height:40px;padding:.38rem .62rem .38rem .48rem;border:1px solid rgba(137,166,255,.28);border-radius:13px;background:linear-gradient(145deg,rgba(50,65,96,.72),rgba(24,31,49,.78));box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 5px 18px rgba(0,0,0,.16);color:var(--text-primary,#f4f7ff);font:inherit;font-size:.78rem;font-weight:600;letter-spacing:.01em;cursor:pointer;white-space:nowrap;transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease}
+      .language-trigger{position:relative;display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;padding:0;border:1px solid rgba(137,166,255,.28);border-radius:14px;background:linear-gradient(145deg,rgba(50,65,96,.72),rgba(24,31,49,.78));box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 5px 18px rgba(0,0,0,.16);color:var(--text-primary,#f4f7ff);font:inherit;cursor:pointer;transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease}
       .language-trigger:hover{transform:translateY(-1px);border-color:rgba(112,151,255,.58);background:linear-gradient(145deg,rgba(60,80,124,.82),rgba(27,36,58,.88));box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 7px 22px rgba(20,49,123,.24)}
       .language-trigger:focus-visible,.language-option:focus-visible{outline:2px solid rgba(120,158,255,.95);outline-offset:2px}
       .language-globe-wrap{position:relative;display:grid;place-items:center;width:25px;height:25px;border-radius:9px;background:linear-gradient(145deg,rgba(78,116,224,.38),rgba(54,78,157,.22));color:#a9c1ff;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
       .language-globe{width:18px;height:18px}
       .language-current-code{position:absolute;top:-7px;right:-8px;display:grid;place-items:center;min-width:18px;height:16px;padding:0 3px;border:2px solid #182033;border-radius:7px;background:#5d82ee;color:#fff;font-size:8px;font-weight:800;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.28)}
-      .language-current-name{min-width:45px;text-align:left}
-      .language-chevron{width:13px;height:13px;color:var(--text-secondary,#a0a0a0);transition:transform .18s ease}
       .language-switcher.is-open .language-trigger{border-color:rgba(112,151,255,.68);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 0 0 3px rgba(65,105,225,.13),0 8px 24px rgba(0,0,0,.22)}
-      .language-switcher.is-open .language-chevron{transform:rotate(180deg)}
       .language-menu{position:absolute;top:calc(100% + 10px);right:0;width:190px;padding:6px;border:1px solid rgba(119,149,231,.3);border-radius:15px;background:linear-gradient(160deg,rgba(35,45,68,.97),rgba(20,26,41,.98));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 18px 45px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.07);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-6px) scale(.97);transform-origin:top right;transition:opacity .16s ease,visibility .16s ease,transform .16s ease;z-index:2000}
       .language-menu::before{content:"";position:absolute;top:-5px;right:18px;width:9px;height:9px;border-left:1px solid rgba(119,149,231,.3);border-top:1px solid rgba(119,149,231,.3);background:rgba(35,45,68,.97);transform:rotate(45deg)}
       .language-switcher.is-open .language-menu{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0) scale(1)}
@@ -291,8 +282,8 @@
       .language-option-name{font-weight:600}
       .language-option-check{width:16px;height:16px;color:#7da2ff;opacity:0;transform:scale(.7);transition:opacity .15s ease,transform .15s ease}
       .language-option.is-selected .language-option-check{opacity:1;transform:scale(1)}
-      @media(max-width:600px){.language-trigger{width:42px;height:42px;padding:0;justify-content:center;border-radius:14px}.language-current-name,.language-chevron{display:none}.language-globe-wrap{width:27px;height:27px}.language-menu{left:0;right:auto;transform-origin:top left}.language-menu::before{left:16px;right:auto}}
-      @media(prefers-reduced-motion:reduce){.language-trigger,.language-chevron,.language-menu,.language-option,.language-option-check{transition:none!important}}
+      @media(max-width:600px){.language-globe-wrap{width:27px;height:27px}.language-menu{left:0;right:auto;transform-origin:top left}.language-menu::before{left:16px;right:auto}}
+      @media(prefers-reduced-motion:reduce){.language-trigger,.language-menu,.language-option,.language-option-check{transition:none!important}}
     `;
     document.head.appendChild(style);
   }
