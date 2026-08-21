@@ -1,6 +1,6 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v3-i18n';
+const CACHE_NAME = 'migraine-app-cache-v6-globe-only';
 const urlsToCache = [
   '.',
   'index.html',
@@ -11,7 +11,7 @@ const urlsToCache = [
   'ai-chat.html',
   'styles.css',
   'locales.js',
-  'i18n.js',
+  'i18n.js?v=6-globe-only',
   'script.js',
   'ai-chat.js',
   'api.js'

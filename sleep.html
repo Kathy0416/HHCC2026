@@ -7,7 +7,7 @@
     <!-- 引入外部样式 -->
     <link rel="stylesheet" href="styles.css">
     <script src="locales.js"></script>
-    <script src="i18n.js"></script>
+    <script src="i18n.js?v=6-globe-only"></script>
     <script src="api.js"></script>
     <!-- 引入Chart.js用于图表绘制 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1483,9 +1483,10 @@
         // Register Service Worker for PWA support
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
                     .then((registration) => {
                         console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                        return registration.update();
                     })
                     .catch((error) => {
                         console.log('ServiceWorker registration failed: ', error);
