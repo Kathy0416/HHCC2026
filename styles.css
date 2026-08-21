@@ -293,6 +293,10 @@ body {
     content: none;
 }
 
+html[lang="en"] .header h1 {
+    font-size: 1.65rem;
+}
+
 .header-controls {
     display: flex;
     justify-content: flex-start;
@@ -1228,8 +1232,24 @@ body {
         padding: 1rem;
     }
     
-    .header h1 {
-        font-size: 2rem;
+    .header-content {
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 0;
+    }
+
+    .user-auth-section {
+        position: static;
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .header h1,
+    html[lang="en"] .header h1 {
+        width: 100%;
+        font-size: 1.8rem;
+        text-align: center;
     }
     
     #current-month-year {
@@ -1294,8 +1314,14 @@ body {
         height: 3px;
     }
     
-    .header h1 {
-        font-size: 1.8rem;
+    .header h1,
+    html[lang="en"] .header h1 {
+        font-size: 1.5rem;
+    }
+
+    .auth-btn {
+        padding: 0.55rem 0.8rem;
+        font-size: 0.8rem;
     }
 }
 

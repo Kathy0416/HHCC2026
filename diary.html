@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>偏头痛日记 - 时间线视图</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="locales.js"></script>
+    <script src="i18n.js"></script>
     <script src="api.js"></script>
     <style>
         /* 日记页面特定样式 */
@@ -455,7 +457,7 @@
                 </a>
                 <a href="tips.html" class="nav-link">
                     <span class="nav-icon">💡</span>
-                    <span class="nav-text">Tips</span>
+                    <span class="nav-text" data-i18n="nav.tips">Tips</span>
                 </a>
                 <a href="my.html" class="nav-link">
                     <span class="nav-icon">👤</span>
@@ -775,19 +777,19 @@
                 <div class="timeline-dot"></div>
                 <div class="timeline-content">
                     <div class="timeline-date">
-                        <span>${formatDate(date)}</span>
+                        <span data-date-value="${date}">${formatDate(date)}</span>
                     </div>
             `;
             
             if (entry.migraine) {
                 contentHTML += `
-                    <div class="migraine-indicator">偏头痛</div>
+                    <div class="migraine-indicator" data-migraine-label>${window.I18n ? window.I18n.translate('偏头痛') : '偏头痛'}</div>
                 `;
             }
             
             if (entry.diary) {
                 contentHTML += `
-                    <div class="timeline-description">${escapeHTML(entry.diary)}</div>
+                    <div class="timeline-description" data-i18n-skip>${escapeHTML(entry.diary)}</div>
                 `;
             }
             
@@ -806,13 +808,13 @@
         
         // 格式化日期
         function formatDate(dateStr) {
-            const date = new Date(dateStr);
-            return date.toLocaleDateString('zh-CN', {
+            const date = new Date(`${dateStr}T00:00:00`);
+            return new Intl.DateTimeFormat(window.I18n ? window.I18n.getLanguage() : 'zh-CN', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
                 weekday: 'long'
-            });
+            }).format(date);
         }
         
         // 转义HTML字符
@@ -896,19 +898,19 @@
                 <div class="timeline-dot" style="background: ${entry.migraine ? 'var(--migraine-red)' : 'var(--accent-blue)'}"></div>
                 <div class="timeline-content">
                     <div class="timeline-date">
-                        <span>${formatDate(date)}</span>
+                        <span data-date-value="${date}">${formatDate(date)}</span>
                     </div>
             `;
             
             if (entry.migraine) {
                 contentHTML += `
-                    <div class="migraine-indicator">偏头痛</div>
+                    <div class="migraine-indicator" data-migraine-label>${window.I18n ? window.I18n.translate('偏头痛') : '偏头痛'}</div>
                 `;
             }
             
             if (entry.diary) {
                 contentHTML += `
-                    <div class="timeline-description">${escapeHTML(entry.diary)}</div>
+                    <div class="timeline-description" data-i18n-skip>${escapeHTML(entry.diary)}</div>
                 `;
             }
             
@@ -1046,8 +1048,8 @@
                             if (migraineGroup.querySelector('.timeline-item') === null) {
                                 noEntries.style.display = 'block';
                                 noEntries.innerHTML = `
-                                    <p>暂无偏头痛记录</p>
-                                    <p style="font-size: 1rem; margin-top: 1rem;">在日历页面添加偏头痛记录后，将在此处显示</p>
+                                    <p>${window.I18n ? window.I18n.translate('暂无偏头痛记录') : '暂无偏头痛记录'}</p>
+                                    <p style="font-size: 1rem; margin-top: 1rem;">${window.I18n ? window.I18n.translate('在日历页面添加偏头痛记录后，将在此处显示') : '在日历页面添加偏头痛记录后，将在此处显示'}</p>
                                 `;
                             }
                             break;
@@ -1064,8 +1066,8 @@
                             if (diaryGroup.querySelector('.timeline-item') === null) {
                                 noEntries.style.display = 'block';
                                 noEntries.innerHTML = `
-                                    <p>暂无日记记录</p>
-                                    <p style="font-size: 1rem; margin-top: 1rem;">在日历页面添加日记记录后，将在此处显示</p>
+                                    <p>${window.I18n ? window.I18n.translate('暂无日记记录') : '暂无日记记录'}</p>
+                                    <p style="font-size: 1rem; margin-top: 1rem;">${window.I18n ? window.I18n.translate('在日历页面添加日记记录后，将在此处显示') : '在日历页面添加日记记录后，将在此处显示'}</p>
                                 `;
                             }
                             break;
@@ -1082,6 +1084,15 @@
             // 先从后端同步日历数据到本地（跨设备一致）
             await syncCalendarFromBackend();
             initTimeline();
+        });
+
+        window.addEventListener('migraine:languagechange', () => {
+            document.querySelectorAll('[data-date-value]').forEach((element) => {
+                element.textContent = formatDate(element.dataset.dateValue);
+            });
+            document.querySelectorAll('[data-migraine-label]').forEach((element) => {
+                element.textContent = window.I18n.translate('偏头痛');
+            });
         });
     </script>
     <script>

@@ -6,6 +6,8 @@
     <title>睡眠记录 - 偏头痛记录应用</title>
     <!-- 引入外部样式 -->
     <link rel="stylesheet" href="styles.css">
+    <script src="locales.js"></script>
+    <script src="i18n.js"></script>
     <script src="api.js"></script>
     <!-- 引入Chart.js用于图表绘制 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -544,7 +546,7 @@
                 </a>
                 <a href="tips.html" class="nav-link">
                     <span class="nav-icon">💡</span>
-                    <span class="nav-text">Tips</span>
+                    <span class="nav-text" data-i18n="nav.tips">Tips</span>
                 </a>
                 <a href="my.html" class="nav-link">
                     <span class="nav-icon">👤</span>
@@ -603,6 +605,19 @@
     </div>
     
     <script>
+        function sleepLocale() {
+            return window.I18n ? window.I18n.getLanguage() : 'zh-CN';
+        }
+
+        function sleepQualityLabel(quality) {
+            return window.I18n ? window.I18n.t(`sleep.quality.${quality}`) : ({ excellent: '优秀', good: '良好', fair: '一般', poor: '较差' }[quality] || quality);
+        }
+
+        function sleepDate(value, options) {
+            const date = new Date(`${value}T00:00:00`);
+            return new Intl.DateTimeFormat(sleepLocale(), options).format(date);
+        }
+
         // 等待DOM加载完成
         document.addEventListener('DOMContentLoaded', () => {
             // 初始化页面
@@ -1138,7 +1153,7 @@
                 const row = document.createElement('tr');
                 
                 // 格式化日期显示
-                const formattedDate = new Date(record.date).toLocaleDateString('zh-CN', {
+                const formattedDate = sleepDate(record.date, {
                     year: 'numeric',
                     month: '2-digit',
                     day: '2-digit'
@@ -1146,10 +1161,10 @@
                 
                 // 获取质量显示文本和类名
                 const qualityMap = {
-                    'excellent': { text: '优秀', className: 'quality-excellent' },
-                    'good': { text: '良好', className: 'quality-good' },
-                    'fair': { text: '一般', className: 'quality-fair' },
-                    'poor': { text: '较差', className: 'quality-poor' }
+                    'excellent': { text: sleepQualityLabel('excellent'), className: 'quality-excellent' },
+                    'good': { text: sleepQualityLabel('good'), className: 'quality-good' },
+                    'fair': { text: sleepQualityLabel('fair'), className: 'quality-fair' },
+                    'poor': { text: sleepQualityLabel('poor'), className: 'quality-poor' }
                 };
                 
                 const qualityData = qualityMap[record.quality];
@@ -1176,7 +1191,7 @@
             const recentRecords = records.slice(0, 7).reverse(); // 反转以按日期升序显示
             
             // 准备图表数据
-            const dates = recentRecords.map(record => new Date(record.date).toLocaleDateString('zh-CN', {
+            const dates = recentRecords.map(record => sleepDate(record.date, {
                 month: '2-digit',
                 day: '2-digit'
             }));
@@ -1224,7 +1239,7 @@
                 data: {
                     labels: dates,
                     datasets: [{
-                        label: '睡眠时长 (小时)',
+                        label: sleepLocale() === 'en' ? 'Sleep duration (hours)' : '睡眠时长 (小时)',
                         data: durations,
                         borderColor: '#4169e1',
                         backgroundColor: 'rgba(65, 105, 225, 0.1)',
@@ -1250,7 +1265,9 @@
                             displayColors: false,
                             callbacks: {
                                 label: function(context) {
-                                    return `睡眠时长: ${context.parsed.y.toFixed(1)} 小时`;
+                                    return sleepLocale() === 'en'
+                                        ? `Sleep duration: ${context.parsed.y.toFixed(1)} hours`
+                                        : `睡眠时长: ${context.parsed.y.toFixed(1)} 小时`;
                                 }
                             }
                         }
@@ -1294,7 +1311,7 @@
                 data: {
                     labels: dates,
                     datasets: [{
-                        label: '睡眠质量',
+                        label: sleepLocale() === 'en' ? 'Sleep quality' : '睡眠质量',
                         data: qualityValues,
                         backgroundColor: qualityValues.map(value => {
                             const colors = ['#e74c3c', '#f1c40f', '#3498db', '#2ecc71'];
@@ -1317,8 +1334,8 @@
                             bodyColor: '#e0e0e0',
                             callbacks: {
                                 label: function(context) {
-                                    const qualityMap = { 1: '较差', 2: '一般', 3: '良好', 4: '优秀' };
-                                    return `睡眠质量: ${qualityMap[context.parsed.y]}`;
+                                    const qualityMap = { 1: sleepQualityLabel('poor'), 2: sleepQualityLabel('fair'), 3: sleepQualityLabel('good'), 4: sleepQualityLabel('excellent') };
+                                    return `${sleepLocale() === 'en' ? 'Sleep quality' : '睡眠质量'}: ${qualityMap[context.parsed.y]}`;
                                 }
                             }
                         }
@@ -1331,7 +1348,7 @@
                                 color: '#e0e0e0',
                                 stepSize: 1,
                                 callback: function(value) {
-                                    const qualityMap = { 1: '较差', 2: '一般', 3: '良好', 4: '优秀' };
+                                    const qualityMap = { 1: sleepQualityLabel('poor'), 2: sleepQualityLabel('fair'), 3: sleepQualityLabel('good'), 4: sleepQualityLabel('excellent') };
                                     return qualityMap[value];
                                 }
                             },
@@ -1380,7 +1397,7 @@
 
             records.forEach(record => {
                 const date = new Date(record.date);
-                const dateLabel = date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+                const dateLabel = new Intl.DateTimeFormat(sleepLocale(), { month: '2-digit', day: '2-digit' }).format(date);
 
                 const [sleepH, sleepM] = record.sleepTime.split(':').map(Number);
                 const [wakeH, wakeM] = record.wakeTime.split(':').map(Number);
@@ -1394,7 +1411,7 @@
 
                     const nextDate = new Date(date);
                     nextDate.setDate(nextDate.getDate() + 1);
-                    const nextLabel = nextDate.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+                    const nextLabel = new Intl.DateTimeFormat(sleepLocale(), { month: '2-digit', day: '2-digit' }).format(nextDate);
                     sleepSegments.push({ x: nextLabel, y: [0, wakeTime] });
                 }
             });
@@ -1403,7 +1420,7 @@
                 type: 'bar',
                 data: {
                     datasets: [{
-                        label: '睡眠时间段',
+                        label: sleepLocale() === 'en' ? 'Sleep period' : '睡眠时间段',
                         data: sleepSegments,
                         backgroundColor: 'rgba(100, 149, 237, 0.8)',
                         borderColor: 'rgba(100, 149, 237, 1)',
@@ -1431,7 +1448,7 @@
                             callbacks: {
                                 label: function(context) {
                                     const [start, end] = context.raw.y;
-                                    return `睡眠时间段: ${fmtTime(start)} - ${fmtTime(end % 24)}`;
+                                    return `${sleepLocale() === 'en' ? 'Sleep period' : '睡眠时间段'}: ${fmtTime(start)} - ${fmtTime(end % 24)}`;
                                 }
                             }
                         }
@@ -1457,6 +1474,10 @@
                 }
             });
         }
+
+        window.addEventListener('migraine:languagechange', () => {
+            loadSleepData();
+        });
     </script>
     <script>
         // Register Service Worker for PWA support

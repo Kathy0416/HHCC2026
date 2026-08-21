@@ -121,7 +121,7 @@ async function sendMessage() {
     
     // AI 功能须联网使用（走后端代理），未连接服务器时禁用并提示
     if (!window.ApiClient || !(await window.ApiClient.health())) {
-        const offlineTip = '该功能须联网使用';
+        const offlineTip = window.I18n ? window.I18n.t('ai.offline') : '该功能须联网使用';
         displayMessage(offlineTip, 'ai');
         addToChatHistory(offlineTip, 'ai');
         saveChatHistory();
@@ -159,6 +159,7 @@ function renderMarkdown(text) {
 function displayMessage(text, sender) {
     const messageEl = document.createElement('div');
     messageEl.className = `message ${sender}`;
+    messageEl.setAttribute('data-i18n-skip', '');
 
     if (sender === 'ai') {
         // AI 消息：渲染 Markdown
@@ -220,7 +221,7 @@ async function getAIResponse(userMessage) {
         console.error('AI 回复失败：', error);
         removeTypingIndicator(typingEl);
 
-        const fallbackResponse = 'AI 服务暂时不可用，请稍后再试';
+        const fallbackResponse = window.I18n ? window.I18n.t('ai.unavailable') : 'AI 服务暂时不可用，请稍后再试';
         displayMessage(fallbackResponse, 'ai');
         addToChatHistory(fallbackResponse, 'ai');
         saveChatHistory();

@@ -6,6 +6,8 @@
     <title>Tips广场 - 偏头痛记录应用</title>
     <!-- 引入外部样式 -->
     <link rel="stylesheet" href="styles.css">
+    <script src="locales.js"></script>
+    <script src="i18n.js"></script>
     <script src="api.js"></script>
     
     <style>
@@ -1144,7 +1146,7 @@
                 </a>
                 <a href="tips.html" class="nav-link">
                     <span class="nav-icon">💡</span>
-                    <span class="nav-text">Tips</span>
+                    <span class="nav-text" data-i18n="nav.tips">Tips</span>
                 </a>
                 <a href="my.html" class="nav-link">
                     <span class="nav-icon">👤</span>
@@ -1161,6 +1163,20 @@
             initTipsApp();
             // 初始化用户认证
             initUserAuth();
+        });
+
+        window.addEventListener('migraine:languagechange', () => {
+            const locale = window.I18n.getLanguage();
+            let cached = null;
+            try {
+                cached = JSON.parse(localStorage.getItem(`tipsCache:${locale}`) || 'null');
+            } catch (error) {
+                cached = null;
+            }
+            renderTipCards(Array.isArray(cached) && cached.length ? cached : localizedBuiltInTips());
+            const tipModal = document.getElementById('tipModal');
+            if (tipModal) tipModal.style.display = 'none';
+            syncTipsFromBackend();
         });
         
         // 生成SVG占位图
@@ -1246,6 +1262,39 @@
             }
         });
 
+        function localizedTemplateConfig(template) {
+            const config = TIP_TEMPLATE_CONFIG[template] || TIP_TEMPLATE_CONFIG.normal;
+            if (!window.I18n) return config;
+            const localized = {};
+            Object.entries(config).forEach(([key, value]) => {
+                localized[key] = typeof value === 'string' ? window.I18n.translate(value) : value;
+            });
+            return localized;
+        }
+
+        function localizedBuiltInTips() {
+            const locale = window.I18n ? window.I18n.getLanguage() : 'zh-CN';
+            const entries = window.MigraineLocales && window.MigraineLocales.tips
+                ? Object.entries(window.MigraineLocales.tips)
+                : [];
+            return entries.map(([key, translations], index) => {
+                const copy = translations[locale] || translations['zh-CN'];
+                return {
+                    id: `builtin-${key}`,
+                    builtinKey: key,
+                    title: copy.title,
+                    description: copy.description,
+                    content: copy.content,
+                    template: index < 2 ? 'clinical' : 'normal',
+                    author: { name: copy.authorName, username: key, bio: copy.authorBio, avatar: copy.authorName.charAt(0) },
+                    tags: copy.tags,
+                    likes: 0,
+                    comments: 0,
+                    date: ''
+                };
+            });
+        }
+
         function getTipTemplate(tip) {
             const requested = String((tip && tip.template) || '').toLowerCase();
             if (TIP_TEMPLATE_CONFIG[requested]) return requested;
@@ -1287,7 +1336,30 @@
         }
 
         function wrapCoverTitle(title, maxCharacters = 15, maxLines = 3) {
-            const characters = Array.from(String(title || '未命名 Tips').trim() || '未命名 Tips');
+            const normalizedTitle = String(title || '未命名 Tips').trim() || '未命名 Tips';
+            if (window.I18n && window.I18n.getLanguage() === 'en') {
+                const words = normalizedTitle.split(/\s+/);
+                const lines = [];
+                let currentLine = '';
+                words.forEach((word) => {
+                    const candidate = currentLine ? `${currentLine} ${word}` : word;
+                    if (candidate.length <= maxCharacters || !currentLine) {
+                        currentLine = candidate;
+                    } else if (lines.length < maxLines - 1) {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    } else {
+                        currentLine = `${currentLine} ${word}`;
+                    }
+                });
+                if (currentLine) lines.push(currentLine);
+                if (lines.length > maxLines) lines.length = maxLines;
+                if (lines[maxLines - 1] && lines[maxLines - 1].length > maxCharacters + 5) {
+                    lines[maxLines - 1] = `${lines[maxLines - 1].slice(0, maxCharacters + 2).trim()}…`;
+                }
+                return lines;
+            }
+            const characters = Array.from(normalizedTitle);
             const lines = [];
             for (let index = 0; index < characters.length && lines.length < maxLines; index += maxCharacters) {
                 lines.push(characters.slice(index, index + maxCharacters).join(''));
@@ -1300,8 +1372,9 @@
 
         function generateTitleCover(title, template = 'normal') {
             const safeTemplate = TIP_TEMPLATE_CONFIG[template] ? template : 'normal';
-            const config = TIP_TEMPLATE_CONFIG[safeTemplate];
-            const titleLines = wrapCoverTitle(title);
+            const config = localizedTemplateConfig(safeTemplate);
+            const isEnglish = window.I18n && window.I18n.getLanguage() === 'en';
+            const titleLines = wrapCoverTitle(title, isEnglish ? 24 : 15, isEnglish ? 4 : 3);
             const firstLineY = 350 - ((titleLines.length - 1) * 48);
             const titleMarkup = titleLines.map((line, index) => (
                 `<text x="64" y="${firstLineY + index * 96}" fill="#ffffff" font-size="58" font-weight="700" font-family="Arial, 'Microsoft YaHei', sans-serif">${escapeSVGText(line)}</text>`
@@ -1331,7 +1404,9 @@
             const normalizedTip = normalizeTip(tip);
             const fallbackCover = generateTitleCover(normalizedTip.title, normalizedTip.template);
             const uploadedImage = typeof normalizedTip.image === 'string' ? normalizedTip.image.trim() : '';
-            imageElement.alt = `${normalizedTip.title} 封面`;
+            imageElement.alt = window.I18n && window.I18n.getLanguage() === 'en'
+                ? `${normalizedTip.title} cover`
+                : `${normalizedTip.title} 封面`;
             imageElement.onerror = () => {
                 imageElement.onerror = null;
                 imageElement.src = fallbackCover;
@@ -1778,8 +1853,16 @@
         
         // 初始化Tips应用
         function initTipsApp() {
-            // 生成模拟数据
-            const tips = generateMockTips();
+            const locale = window.I18n ? window.I18n.getLanguage() : 'zh-CN';
+            let tips;
+            try {
+                tips = JSON.parse(localStorage.getItem(`tipsCache:${locale}`) || 'null');
+            } catch (error) {
+                tips = null;
+            }
+            if (!Array.isArray(tips) || tips.length === 0) {
+                tips = locale === 'en' ? localizedBuiltInTips() : generateMockTips();
+            }
             
             // 渲染笔记卡片
             renderTipCards(tips);
@@ -1841,12 +1924,14 @@
                 }
                 imagePreview.src = imageBase64 || generateTitleCover(title, currentTemplate);
                 imagePreview.style.display = 'block';
-                imagePreview.alt = imageBase64 ? '已上传的封面预览' : `${title} 自动生成封面预览`;
+                imagePreview.alt = window.I18n && window.I18n.getLanguage() === 'en'
+                    ? (imageBase64 ? 'Uploaded cover preview' : `Generated cover preview for ${title}`)
+                    : (imageBase64 ? '已上传的封面预览' : `${title} 自动生成封面预览`);
             }
 
             function applyPublishTemplate(template) {
                 currentTemplate = TIP_TEMPLATE_CONFIG[template] ? template : 'normal';
-                const config = TIP_TEMPLATE_CONFIG[currentTemplate];
+                const config = localizedTemplateConfig(currentTemplate);
                 titleLabel.textContent = config.titleLabel;
                 titleInput.placeholder = config.titlePlaceholder;
                 descriptionLabel.textContent = config.descriptionLabel;
@@ -1910,6 +1995,10 @@
                 input.addEventListener('change', () => {
                     if (input.checked) applyPublishTemplate(input.value);
                 });
+            });
+
+            window.addEventListener('migraine:languagechange', () => {
+                applyPublishTemplate(currentTemplate);
             });
 
             // 标签点选逻辑
@@ -1981,6 +2070,8 @@
                 if (!window.ApiClient || !(await window.ApiClient.health())) return;
                 const data = await window.ApiClient.getTips();
                 if (data && Array.isArray(data.tips) && data.tips.length > 0) {
+                    const locale = window.I18n ? window.I18n.getLanguage() : 'zh-CN';
+                    localStorage.setItem(`tipsCache:${locale}`, JSON.stringify(data.tips));
                     renderTipCards(data.tips);
                 }
             } catch (e) {
@@ -1995,7 +2086,7 @@
             
             tips.forEach(rawTip => {
                 const tip = normalizeTip(rawTip);
-                const templateConfig = TIP_TEMPLATE_CONFIG[tip.template];
+                const templateConfig = localizedTemplateConfig(tip.template);
                 const tipCard = document.createElement('div');
                 tipCard.className = `tip-card template-${tip.template}`;
                 tipCard.dataset.tipId = tip.id;
@@ -2013,6 +2104,7 @@
 
                 const title = document.createElement('h3');
                 title.className = 'tip-card-title';
+                title.setAttribute('data-i18n-skip', '');
                 title.textContent = tip.title;
 
                 const tags = document.createElement('div');
@@ -2020,6 +2112,7 @@
                 tip.tags.forEach((tag) => {
                     const tagElement = document.createElement('span');
                     tagElement.className = 'tip-card-tag';
+                    tagElement.setAttribute('data-i18n-skip', '');
                     tagElement.textContent = tag;
                     tags.appendChild(tagElement);
                 });
@@ -2067,7 +2160,7 @@
         function showTipModal(rawTip) {
             const tip = normalizeTip(rawTip);
             const isClinical = tip.template === 'clinical';
-            const templateConfig = TIP_TEMPLATE_CONFIG[tip.template];
+            const templateConfig = localizedTemplateConfig(tip.template);
             const safeTipId = String(tip.id).replace(/[^a-zA-Z0-9_-]/g, '');
             const modal = document.getElementById('tipModal');
             const modalContent = document.getElementById('tipModalContent');
@@ -2095,22 +2188,22 @@
             textContent.className = `tip-modal-text-content template-${tip.template}`;
             textContent.innerHTML = `
                 <span class="tip-template-badge">${escapeHTML(templateConfig.label)}</span>
-                <h2 class="tip-modal-title">${escapeHTML(tip.title)}</h2>
+                <h2 class="tip-modal-title" data-i18n-skip>${escapeHTML(tip.title)}</h2>
                 <div class="tip-modal-meta">
-                    <span class="tip-modal-date">发布时间：${escapeHTML(tip.date)}</span>
-                    ${isClinical ? '<span class="medical-tag">医学建议</span>' : ''}
+                    <span class="tip-modal-date">${window.I18n ? window.I18n.translate('发布时间：') : '发布时间：'}${escapeHTML(tip.date)}</span>
+                    ${isClinical ? `<span class="medical-tag">${window.I18n ? window.I18n.translate('医学建议') : '医学建议'}</span>` : ''}
                 </div>
-                <p class="tip-modal-description">${renderTipMarkdown(tip.content)}</p>
+                <p class="tip-modal-description" data-i18n-skip>${renderTipMarkdown(tip.content)}</p>
                 <div class="tip-modal-tags">
-                    ${tip.tags.map(tag => `<span class="tip-modal-tag">${escapeHTML(tag)}</span>`).join('')}
+                    ${tip.tags.map(tag => `<span class="tip-modal-tag" data-i18n-skip>${escapeHTML(tag)}</span>`).join('')}
                 </div>
-                ${isClinical ? '<div class="disclaimer">⚠️ 免责声明：本文提供的医学建议仅供参考，具体治疗方案请咨询专业医生。</div>' : ''}
+                ${isClinical ? `<div class="disclaimer">${window.I18n ? window.I18n.translate('⚠️ 免责声明：本文提供的医学建议仅供参考，具体治疗方案请咨询专业医生。') : '⚠️ 免责声明：本文提供的医学建议仅供参考，具体治疗方案请咨询专业医生。'}</div>` : ''}
                 <div class="tip-modal-footer">
                     <div class="tip-modal-author">
                         <div class="author-avatar">${escapeHTML(tip.author.avatar)}</div>
                         <div class="tip-modal-author-info">
-                            <div class="author-username">${escapeHTML(tip.author.name)}</div>
-                            <div class="author-bio">${escapeHTML(tip.author.bio)}</div>
+                            <div class="author-username" data-i18n-skip>${escapeHTML(tip.author.name)}</div>
+                            <div class="author-bio" data-i18n-skip>${escapeHTML(tip.author.bio)}</div>
                         </div>
                     </div>
                     <div class="tip-modal-interactions">
@@ -2127,28 +2220,28 @@
                 
                 <!-- 评论区 -->
                 <div class="tip-modal-comments">
-                    <h3 class="comments-title">评论 (${comments.length})</h3>
+                    <h3 class="comments-title">${window.I18n ? window.I18n.t('tips.commentsCount', { count: comments.length }) : `评论 (${comments.length})`}</h3>
                     
                     <!-- 评论列表 -->
                     <div class="comments-list" id="commentsList-${safeTipId}">
                         ${comments.length > 0 ? comments.map(comment => `
                             <div class="comment-item">
                                 <div class="comment-header">
-                                    <span class="comment-author">${escapeHTML(comment.author)}</span>
+                                    <span class="comment-author" data-i18n-skip>${escapeHTML(comment.author)}</span>
                                     <span class="comment-date">${escapeHTML(comment.date)}</span>
                                 </div>
-                                <div class="comment-content">${escapeHTML(comment.content)}</div>
+                                <div class="comment-content" data-i18n-skip>${escapeHTML(comment.content)}</div>
                             </div>
-                        `).join('') : '<div class="no-comments">暂无评论，快来发表第一条评论吧！</div>'}
+                        `).join('') : `<div class="no-comments">${window.I18n ? window.I18n.t('tips.noComments') : '暂无评论，快来发表第一条评论吧！'}</div>`}
                     </div>
                     
                     <!-- 评论表单 -->
                     <div class="comment-form">
-                        <h4>发表评论</h4>
+                        <h4>${window.I18n ? window.I18n.translate('发表评论') : '发表评论'}</h4>
                         <div class="form-group">
-                            <textarea id="commentContent-${safeTipId}" placeholder="请输入您的评论内容" class="comment-textarea" rows="3" required></textarea>
+                            <textarea id="commentContent-${safeTipId}" placeholder="${window.I18n ? window.I18n.translate('请输入您的评论内容') : '请输入您的评论内容'}" class="comment-textarea" rows="3" required></textarea>
                         </div>
-                        <button type="button" id="submitComment-${safeTipId}" class="comment-submit-btn">发表评论</button>
+                        <button type="button" id="submitComment-${safeTipId}" class="comment-submit-btn">${window.I18n ? window.I18n.translate('发表评论') : '发表评论'}</button>
                     </div>
                 </div>
             `;
@@ -2234,7 +2327,7 @@
                 id: Date.now(),
                 author: author,
                 content: content,
-                date: new Date().toLocaleString('zh-CN')
+                date: new Date().toLocaleString(window.I18n ? window.I18n.getLanguage() : 'zh-CN')
             };
             
             const comments = loadComments(tipId);
@@ -2254,14 +2347,14 @@
                 commentsList.innerHTML = comments.map(comment => `
                     <div class="comment-item">
                         <div class="comment-header">
-                            <span class="comment-author">${escapeHTML(comment.author)}</span>
+                            <span class="comment-author" data-i18n-skip>${escapeHTML(comment.author)}</span>
                             <span class="comment-date">${escapeHTML(comment.date)}</span>
                         </div>
-                        <div class="comment-content">${escapeHTML(comment.content)}</div>
+                        <div class="comment-content" data-i18n-skip>${escapeHTML(comment.content)}</div>
                     </div>
                 `).join('');
             } else {
-                commentsList.innerHTML = '<div class="no-comments">暂无评论，快来发表第一条评论吧！</div>';
+                commentsList.innerHTML = `<div class="no-comments">${window.I18n ? window.I18n.t('tips.noComments') : '暂无评论，快来发表第一条评论吧！'}</div>`;
             }
         }
         
@@ -2273,9 +2366,9 @@
             }
             
             // 更新评论标题
-            const commentsTitle = document.querySelector(`#commentsList-${tipId} + .comment-form h3`);
+            const commentsTitle = document.querySelector('.comments-title');
             if (commentsTitle) {
-                commentsTitle.textContent = `评论 (${count})`;
+                commentsTitle.textContent = window.I18n ? window.I18n.t('tips.commentsCount', { count }) : `评论 (${count})`;
             }
         }
         
