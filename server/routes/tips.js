@@ -17,6 +17,7 @@ function toTip(row) {
     description: row.description,
     content: row.content,
     image: row.image,
+    template: row.template_type || 'normal',
     author: {
       name: row.author_name,
       username: row.author_username,
@@ -53,6 +54,9 @@ router.post('/', requireAuth, (req, res) => {
   const content = String(req.body.content || '').trim();
   const description = String(req.body.description || '').trim();
   const image = String(req.body.image || '').trim();
+  const template = req.body.template == null
+    ? 'normal'
+    : String(req.body.template).trim().toLowerCase();
   const tags = Array.isArray(req.body.tags)
     ? req.body.tags.map((t) => String(t).trim()).filter(Boolean)
     : [];
@@ -72,6 +76,9 @@ router.post('/', requireAuth, (req, res) => {
   if (image && image.length > 10 * 1024 * 1024) {
     return res.status(400).json({ error: '图片过大（最大约 7MB）' });
   }
+  if (!['clinical', 'daily', 'normal'].includes(template)) {
+    return res.status(400).json({ error: '模板类型无效' });
+  }
 
   const username = req.user.username;
   const date = new Date().toISOString().split('T')[0];
@@ -79,10 +86,10 @@ router.post('/', requireAuth, (req, res) => {
 
   const info = db
     .prepare(`
-      INSERT INTO tips (title, description, content, image, author_name, author_username, author_bio, author_avatar, tags, likes, date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+      INSERT INTO tips (title, description, content, image, template_type, author_name, author_username, author_bio, author_avatar, tags, likes, date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
     `)
-    .run(title, description, content, image, username, username, '', avatar, JSON.stringify(tags), date);
+    .run(title, description, content, image, template, username, username, '', avatar, JSON.stringify(tags), date);
 
   const row = db.prepare('SELECT * FROM tips WHERE id = ?').get(Number(info.lastInsertRowid));
   res.status(201).json({ tip: withCommentCount(toTip(row)) });

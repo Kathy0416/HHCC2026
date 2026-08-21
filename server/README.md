@@ -91,10 +91,13 @@ npm run dev
 | 方法 | 路径 | 说明 | 请求体 |
 |------|------|------|--------|
 | GET | `/api/tips` | Tips 列表 | - |
+| POST | `/api/tips` | 发布 Tip（需登录） | `{ title, description?, content, image?, tags?, template?: "clinical" \| "daily" \| "normal" }` |
 | GET | `/api/tips/:id` | 单个 Tip | - |
 | GET | `/api/tips/:id/comments` | 评论列表 | - |
 | POST | `/api/tips/:id/comments` | 发表评论（可选登录，匿名） | `{ content }` |
 | POST | `/api/tips/:id/like` | 点赞 | - |
+
+Tips 响应包含 `template` 字段；旧客户端省略该字段时默认使用 `normal`。
 
 ### AI `/api/ai`
 
