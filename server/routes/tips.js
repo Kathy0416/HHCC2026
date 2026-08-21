@@ -3,6 +3,20 @@ const { optionalAuth, requireAuth } = require('../middleware');
 const db = require('../db');
 
 const router = express.Router();
+const CLINICAL_REQUIRED_TAG = '医学建议';
+
+function normalizeTags(tags, template) {
+  const normalized = Array.isArray(tags)
+    ? tags.map((tag) => String(tag).trim()).filter(Boolean)
+    : [];
+  const uniqueTags = [...new Set(normalized)];
+
+  if (template === 'clinical' && !uniqueTags.includes(CLINICAL_REQUIRED_TAG)) {
+    uniqueTags.push(CLINICAL_REQUIRED_TAG);
+  }
+
+  return uniqueTags;
+}
 
 function toTip(row) {
   let tags = [];
@@ -11,20 +25,21 @@ function toTip(row) {
   } catch (e) {
     tags = [];
   }
+  const template = row.template_type || 'normal';
   return {
     id: row.id,
     title: row.title,
     description: row.description,
     content: row.content,
     image: row.image,
-    template: row.template_type || 'normal',
+    template,
     author: {
       name: row.author_name,
       username: row.author_username,
       bio: row.author_bio,
       avatar: row.author_avatar
     },
-    tags,
+    tags: normalizeTags(tags, template),
     likes: row.likes,
     comments: 0,
     date: row.date,
@@ -57,9 +72,7 @@ router.post('/', requireAuth, (req, res) => {
   const template = req.body.template == null
     ? 'normal'
     : String(req.body.template).trim().toLowerCase();
-  const tags = Array.isArray(req.body.tags)
-    ? req.body.tags.map((t) => String(t).trim()).filter(Boolean)
-    : [];
+  const tags = normalizeTags(req.body.tags, template);
 
   if (!title) {
     return res.status(400).json({ error: '标题不能为空' });

@@ -324,12 +324,18 @@
             flex: 1;
             max-width: 40%;
             overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.45);
         }
         
         .tip-modal-image {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
+            object-position: center;
+            display: block;
             border-right: 1px solid var(--glass-border);
             border-bottom: none;
         }
@@ -497,6 +503,14 @@
         .template-option-daily input:checked + .template-option-card {
             border-color: #a78bfa;
             background: rgba(139, 92, 246, 0.14);
+        }
+
+        .tag-option.enforced {
+            border-color: rgba(239, 68, 68, 0.55);
+            background: rgba(239, 68, 68, 0.14);
+            color: #fca5a5;
+            cursor: not-allowed;
+            opacity: 1;
         }
 
         #publishModal .auth-modal-content {
@@ -1056,6 +1070,7 @@
                     <div class="auth-form-group">
                         <label>标签（点选或输入，用 # 分隔）</label>
                         <div class="tag-options" id="tagOptions">
+                            <button type="button" class="tag-option" data-tag="医学建议" aria-label="医学建议标签">#医学建议</button>
                             <button type="button" class="tag-option" data-tag="偏头痛">#偏头痛</button>
                             <button type="button" class="tag-option" data-tag="缓解方法">#缓解方法</button>
                             <button type="button" class="tag-option" data-tag="触发因素">#触发因素</button>
@@ -1245,6 +1260,7 @@
                 contentPlaceholder: '支持 Markdown 语法，例如：\n**加粗文字**\n- 列表项一\n- 列表项二'
             }
         });
+        const CLINICAL_REQUIRED_TAG = '医学建议';
 
         function getTipTemplate(tip) {
             const requested = String((tip && tip.template) || '').toLowerCase();
@@ -1255,13 +1271,21 @@
         function normalizeTip(tip) {
             const source = tip || {};
             const author = source.author || {};
+            const template = getTipTemplate(source);
+            const tags = Array.isArray(source.tags)
+                ? source.tags.map((tag) => String(tag).trim()).filter(Boolean)
+                : [];
+            const normalizedTags = [...new Set(tags)];
+            if (template === 'clinical' && !normalizedTags.includes(CLINICAL_REQUIRED_TAG)) {
+                normalizedTags.push(CLINICAL_REQUIRED_TAG);
+            }
             return {
                 ...source,
-                template: getTipTemplate(source),
+                template,
                 title: String(source.title || '未命名 Tips'),
                 description: String(source.description || ''),
                 content: String(source.content || ''),
-                tags: Array.isArray(source.tags) ? source.tags.map((tag) => String(tag)) : [],
+                tags: normalizedTags,
                 author: {
                     name: String(author.name || '匿名'),
                     username: String(author.username || ''),
@@ -1829,6 +1853,7 @@
             const selectedTags = [];
             let imageBase64 = '';
             let currentTemplate = 'normal';
+            let clinicalTagWasAutoAdded = false;
 
             if (!publishBtn || !publishModal || !publishForm) return;
 
@@ -1855,13 +1880,50 @@
                 contentInput.placeholder = config.contentPlaceholder;
                 publishModalContent.classList.remove('template-clinical', 'template-daily', 'template-normal');
                 publishModalContent.classList.add(`template-${currentTemplate}`);
+                syncClinicalRequiredTag();
                 updateCoverPreview();
+            }
+
+            function syncClinicalRequiredTag() {
+                const clinicalTagButton = tagButtons.find((button) => button.dataset.tag === CLINICAL_REQUIRED_TAG);
+                const existingIndex = selectedTags.indexOf(CLINICAL_REQUIRED_TAG);
+
+                if (currentTemplate === 'clinical') {
+                    if (existingIndex < 0) {
+                        selectedTags.push(CLINICAL_REQUIRED_TAG);
+                        clinicalTagWasAutoAdded = true;
+                    } else {
+                        clinicalTagWasAutoAdded = false;
+                    }
+                    if (clinicalTagButton) {
+                        clinicalTagButton.classList.add('active', 'enforced');
+                        clinicalTagButton.setAttribute('aria-pressed', 'true');
+                        clinicalTagButton.setAttribute('aria-label', '医学建议标签，Clinical 临床模板必选');
+                        clinicalTagButton.title = 'Clinical 临床模板必选';
+                        clinicalTagButton.disabled = true;
+                    }
+                    return;
+                }
+
+                if (clinicalTagWasAutoAdded && existingIndex >= 0) {
+                    selectedTags.splice(existingIndex, 1);
+                }
+                clinicalTagWasAutoAdded = false;
+                if (clinicalTagButton) {
+                    clinicalTagButton.disabled = false;
+                    clinicalTagButton.classList.remove('enforced');
+                    clinicalTagButton.classList.toggle('active', selectedTags.includes(CLINICAL_REQUIRED_TAG));
+                    clinicalTagButton.setAttribute('aria-pressed', String(selectedTags.includes(CLINICAL_REQUIRED_TAG)));
+                    clinicalTagButton.setAttribute('aria-label', '医学建议标签');
+                    clinicalTagButton.removeAttribute('title');
+                }
             }
 
             function resetPublishForm() {
                 publishForm.reset();
                 imageBase64 = '';
                 selectedTags.splice(0, selectedTags.length);
+                clinicalTagWasAutoAdded = false;
                 tagButtons.forEach((button) => {
                     button.classList.remove('active');
                     button.setAttribute('aria-pressed', 'false');
@@ -1950,6 +2012,9 @@
                     try {
                         const manualTags = tagsStr ? tagsStr.split('#').map((t) => t.trim()).filter(Boolean) : [];
                         const tags = [...new Set([...selectedTags, ...manualTags])];
+                        if (currentTemplate === 'clinical' && !tags.includes(CLINICAL_REQUIRED_TAG)) {
+                            tags.push(CLINICAL_REQUIRED_TAG);
+                        }
                         await window.ApiClient.publishTip({
                             title,
                             description,
