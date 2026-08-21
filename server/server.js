@@ -23,6 +23,7 @@ app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/sleep', require('./routes/sleep'));
 app.use('/api/tips', require('./routes/tips'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/device', require('./routes/device'));
 
 // 可选：同端口托管前端静态文件（需在 .env 设置 SERVE_FRONTEND=1）
 if (process.env.SERVE_FRONTEND === '1') {

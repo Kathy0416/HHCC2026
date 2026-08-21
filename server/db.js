@@ -80,10 +80,40 @@ function initSchema() {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS device_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      device_id TEXT NOT NULL,
+      session_key TEXT NOT NULL,
+      session_type TEXT NOT NULL,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, session_key),
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS sensor_readings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL,
+      t_ms INTEGER NOT NULL,
+      lux REAL,
+      temperature_c REAL,
+      humidity_percent REAL,
+      db_spl REAL,
+      light_valid INTEGER NOT NULL DEFAULT 0,
+      sht31_valid INTEGER NOT NULL DEFAULT 0,
+      mic_valid INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(session_id, t_ms),
+      FOREIGN KEY(session_id) REFERENCES device_sessions(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_calendar_user_date ON calendar_entries(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_sleep_user_date ON sleep_records(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_comments_tip ON comments(tip_id);
     CREATE INDEX IF NOT EXISTS idx_chat_user ON chat_messages(user_id);
+    CREATE INDEX IF NOT EXISTS idx_device_sessions_user ON device_sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_sensor_readings_session ON sensor_readings(session_id);
   `);
 
   // 兼容已经存在的数据库：SQLite 的 CREATE TABLE IF NOT EXISTS 不会补充新列。
