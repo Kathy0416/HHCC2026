@@ -160,6 +160,7 @@ function displayMessage(text, sender) {
     const messageEl = document.createElement('div');
     messageEl.className = `message ${sender}`;
     messageEl.setAttribute('data-i18n-skip', '');
+    messageEl.setAttribute('data-user-content', '');
 
     if (sender === 'ai') {
         // AI 消息：渲染 Markdown

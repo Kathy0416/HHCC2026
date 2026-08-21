@@ -62,7 +62,7 @@
   }
 
   function applyElement(element) {
-    if (!(element instanceof Element) || element.closest('[data-i18n-skip]')) return;
+    if (!(element instanceof Element) || element.closest('[data-i18n-skip], [data-user-content]')) return;
 
     const key = element.getAttribute('data-i18n');
     if (key) element.textContent = t(key);
@@ -85,7 +85,7 @@
   }
 
   function applyTextNode(node) {
-    if (node.parentElement && node.parentElement.closest('script, style, textarea, [data-i18n-skip], [data-i18n]')) return;
+    if (node.parentElement && node.parentElement.closest('script, style, textarea, [data-i18n-skip], [data-user-content], [data-i18n]')) return;
     if (!originalText.has(node)) originalText.set(node, node.nodeValue);
     const source = originalText.get(node);
     node.nodeValue = currentLanguage === 'zh-CN' ? source : translateSource(source);

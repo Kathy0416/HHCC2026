@@ -1,6 +1,7 @@
 // 数据库初始化与连接（使用 Node.js 内置的 node:sqlite，无需额外原生依赖）
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
+const { migrateBuiltInTipKeys } = require('./builtin-tips');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
 const db = new DatabaseSync(DB_PATH);
@@ -95,16 +96,7 @@ function initSchema() {
     db.exec('ALTER TABLE tips ADD COLUMN builtin_key TEXT');
   }
 
-  const builtInAuthors = {
-    neurologist: 'trigger_factors',
-    pain_specialist: 'acute_relief',
-    sleep_doctor: 'sleep_migraine',
-    dietitian: 'food_diary',
-    psychologist: 'stress_management',
-    rehab_doctor: 'exercise_guide'
-  };
-  const backfillBuiltIn = db.prepare('UPDATE tips SET builtin_key = ? WHERE author_username = ? AND builtin_key IS NULL');
-  Object.entries(builtInAuthors).forEach(([username, key]) => backfillBuiltIn.run(key, username));
+  migrateBuiltInTipKeys(db);
 }
 
 // 预置 Tips 数据（仅当表为空时）

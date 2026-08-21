@@ -2,40 +2,9 @@ const express = require('express');
 const { optionalAuth, requireAuth } = require('../middleware');
 const db = require('../db');
 const catalog = require('../../locales');
+const { serializeTip } = require('../builtin-tips');
 
 const router = express.Router();
-
-function toTip(row, locale = 'zh-CN') {
-  let tags = [];
-  try {
-    tags = JSON.parse(row.tags || '[]');
-  } catch (e) {
-    tags = [];
-  }
-  const builtIn = row.builtin_key && catalog.tips[row.builtin_key]
-    ? (catalog.tips[row.builtin_key][locale] || catalog.tips[row.builtin_key]['zh-CN'])
-    : null;
-  return {
-    id: row.id,
-    builtinKey: row.builtin_key || null,
-    title: builtIn ? builtIn.title : row.title,
-    description: builtIn ? builtIn.description : row.description,
-    content: builtIn ? builtIn.content : row.content,
-    image: row.image,
-    template: row.template_type || 'normal',
-    author: {
-      name: builtIn ? builtIn.authorName : row.author_name,
-      username: row.author_username,
-      bio: builtIn ? builtIn.authorBio : row.author_bio,
-      avatar: builtIn ? builtIn.authorName.charAt(0) : row.author_avatar
-    },
-    tags: builtIn ? builtIn.tags : tags,
-    likes: row.likes,
-    comments: 0,
-    date: row.date,
-    createdAt: row.created_at
-  };
-}
 
 function toComment(row, locale = 'zh-CN') {
   const isAnonymous = row.author === '__anonymous__' || row.author === '匿名' || row.author === 'Anonymous';
@@ -56,7 +25,7 @@ function withCommentCount(tip) {
 // 获取 Tips 列表
 router.get('/', (req, res) => {
   const rows = db.prepare('SELECT * FROM tips ORDER BY id DESC').all();
-  res.json({ tips: rows.map((r) => withCommentCount(toTip(r, req.locale))) });
+  res.json({ tips: rows.map((r) => withCommentCount(serializeTip(r, req.locale))) });
 });
 
 // 发布 Tips（需登录，支持图片 base64 和 markdown 文字）
@@ -103,7 +72,7 @@ router.post('/', requireAuth, (req, res) => {
     .run(title, description, content, image, template, username, username, '', avatar, JSON.stringify(tags), date);
 
   const row = db.prepare('SELECT * FROM tips WHERE id = ?').get(Number(info.lastInsertRowid));
-  res.status(201).json({ tip: withCommentCount(toTip(row, req.locale)) });
+  res.status(201).json({ tip: withCommentCount(serializeTip(row, req.locale)) });
 });
 
 // 获取单个 Tip
@@ -112,7 +81,7 @@ router.get('/:id', (req, res) => {
   if (!row) {
     return res.status(404).json({ error: req.t('tipNotFound') });
   }
-  res.json({ tip: withCommentCount(toTip(row, req.locale)) });
+  res.json({ tip: withCommentCount(serializeTip(row, req.locale)) });
 });
 
 // 获取某条 Tip 的评论

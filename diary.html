@@ -6,7 +6,7 @@
     <title>偏头痛日记 - 时间线视图</title>
     <link rel="stylesheet" href="styles.css">
     <script src="locales.js"></script>
-    <script src="i18n.js?v=6-globe-only"></script>
+    <script src="i18n.js?v=7-content-boundary"></script>
     <script src="api.js"></script>
     <style>
         /* 日记页面特定样式 */
@@ -789,7 +789,7 @@
             
             if (entry.diary) {
                 contentHTML += `
-                    <div class="timeline-description" data-i18n-skip>${escapeHTML(entry.diary)}</div>
+                    <div class="timeline-description" data-i18n-skip data-user-content>${escapeHTML(entry.diary)}</div>
                 `;
             }
             
@@ -910,7 +910,7 @@
             
             if (entry.diary) {
                 contentHTML += `
-                    <div class="timeline-description" data-i18n-skip>${escapeHTML(entry.diary)}</div>
+                    <div class="timeline-description" data-i18n-skip data-user-content>${escapeHTML(entry.diary)}</div>
                 `;
             }
             
