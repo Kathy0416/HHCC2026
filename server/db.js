@@ -85,6 +85,12 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_comments_tip ON comments(tip_id);
     CREATE INDEX IF NOT EXISTS idx_chat_user ON chat_messages(user_id);
   `);
+
+  // 兼容已经存在的数据库：SQLite 的 CREATE TABLE IF NOT EXISTS 不会补充新列。
+  const tipColumns = db.prepare('PRAGMA table_info(tips)').all();
+  if (!tipColumns.some((column) => column.name === 'template_type')) {
+    db.exec("ALTER TABLE tips ADD COLUMN template_type TEXT NOT NULL DEFAULT 'normal'");
+  }
 }
 
 // 预置 Tips 数据（仅当表为空时）

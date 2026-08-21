@@ -148,6 +148,22 @@
             z-index: 100;
             pointer-events: auto;
         }
+
+        .tip-card.template-clinical {
+            border-color: rgba(45, 212, 191, 0.32);
+        }
+
+        .tip-card.template-daily {
+            border-color: rgba(167, 139, 250, 0.32);
+        }
+
+        .tip-card.template-clinical:hover {
+            box-shadow: 0 12px 36px rgba(20, 184, 166, 0.22);
+        }
+
+        .tip-card.template-daily:hover {
+            box-shadow: 0 12px 36px rgba(139, 92, 246, 0.22);
+        }
         
         /* 卡片图片样式 - 方形比例 */
         .tip-card-image {
@@ -215,6 +231,31 @@
             border: 1px solid rgba(65, 105, 225, 0.2);
             display: inline-block;
         }
+
+        .tip-template-badge {
+            align-self: flex-start;
+            margin-bottom: 0.55rem;
+            padding: 0.2rem 0.55rem;
+            border: 1px solid rgba(96, 165, 250, 0.32);
+            border-radius: 999px;
+            background: rgba(59, 130, 246, 0.12);
+            color: #93c5fd;
+            font-size: 0.66rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .template-clinical .tip-template-badge {
+            border-color: rgba(45, 212, 191, 0.38);
+            background: rgba(20, 184, 166, 0.12);
+            color: #5eead4;
+        }
+
+        .template-daily .tip-template-badge {
+            border-color: rgba(167, 139, 250, 0.38);
+            background: rgba(139, 92, 246, 0.12);
+            color: #c4b5fd;
+        }
         
         /* 发布时间样式 */
         .tip-modal-date {
@@ -260,6 +301,16 @@
             width: 90%;
             padding: 0;
             overflow: hidden;
+        }
+
+        .tip-modal.template-clinical {
+            border-color: rgba(45, 212, 191, 0.38);
+            box-shadow: 0 16px 46px rgba(13, 148, 136, 0.2);
+        }
+
+        .tip-modal.template-daily {
+            border-color: rgba(167, 139, 250, 0.38);
+            box-shadow: 0 16px 46px rgba(124, 58, 237, 0.2);
         }
         
         /* 模态框内容容器 - 左图右文字布局 */
@@ -326,6 +377,153 @@
             align-items: flex-end;
             gap: 0.5rem;
             width: 100%;
+        }
+
+        .publish-tip-fab {
+            position: fixed;
+            right: calc(1.25rem + env(safe-area-inset-right));
+            bottom: calc(88px + env(safe-area-inset-bottom));
+            z-index: 250;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            min-height: 48px;
+            padding: 0.75rem 1.2rem;
+            border: 1px solid rgba(147, 197, 253, 0.38);
+            border-radius: 999px;
+            background: linear-gradient(135deg, #4169e1, #2563eb);
+            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.38);
+            color: #fff;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .publish-tip-fab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 34px rgba(37, 99, 235, 0.48);
+        }
+
+        .publish-tip-fab:focus-visible {
+            outline: 3px solid rgba(191, 219, 254, 0.95);
+            outline-offset: 3px;
+        }
+
+        .publish-tip-fab-icon {
+            font-size: 1.15rem;
+            line-height: 1;
+        }
+
+        .template-selector {
+            margin: 0;
+            padding: 0;
+            border: 0;
+        }
+
+        .template-selector legend {
+            margin-bottom: 0.65rem;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .template-options {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.65rem;
+        }
+
+        .template-option {
+            position: relative;
+            display: block;
+            min-width: 0;
+            cursor: pointer;
+        }
+
+        .template-option input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .template-option-card {
+            display: flex;
+            min-height: 74px;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.25rem;
+            padding: 0.7rem;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+        }
+
+        .template-option-card strong {
+            color: var(--text-primary);
+            font-size: 0.84rem;
+        }
+
+        .template-option-card small {
+            color: var(--text-secondary);
+            font-size: 0.72rem;
+            line-height: 1.35;
+        }
+
+        .template-option:hover .template-option-card {
+            transform: translateY(-1px);
+            border-color: rgba(147, 197, 253, 0.48);
+        }
+
+        .template-option input:focus-visible + .template-option-card {
+            outline: 2px solid #93c5fd;
+            outline-offset: 2px;
+        }
+
+        .template-option input:checked + .template-option-card {
+            border-color: #60a5fa;
+            background: rgba(59, 130, 246, 0.14);
+            box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.22);
+        }
+
+        .template-option-clinical input:checked + .template-option-card {
+            border-color: #2dd4bf;
+            background: rgba(20, 184, 166, 0.14);
+        }
+
+        .template-option-daily input:checked + .template-option-card {
+            border-color: #a78bfa;
+            background: rgba(139, 92, 246, 0.14);
+        }
+
+        #publishModal .auth-modal-content {
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        #publishModal .auth-modal-content.template-clinical {
+            border-color: rgba(45, 212, 191, 0.42);
+            box-shadow: 0 12px 40px rgba(13, 148, 136, 0.18);
+        }
+
+        #publishModal .auth-modal-content.template-daily {
+            border-color: rgba(167, 139, 250, 0.42);
+            box-shadow: 0 12px 40px rgba(124, 58, 237, 0.18);
+        }
+
+        .publish-cover-preview {
+            display: none;
+            align-self: center;
+            width: min(100%, 320px);
+            max-height: 320px;
+            margin-top: 0.65rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            object-fit: contain;
+            aspect-ratio: 1 / 1;
         }
         
         /* 登录/注册模态框样式 */
@@ -722,6 +920,13 @@
             .nav-icon {
                 font-size: 1.3rem;
             }
+
+            .publish-tip-fab {
+                right: calc(0.9rem + env(safe-area-inset-right));
+                bottom: calc(82px + env(safe-area-inset-bottom));
+                min-height: 44px;
+                padding: 0.65rem 0.95rem;
+            }
         }
         
         @media (max-width: 576px) {
@@ -750,6 +955,14 @@
                 gap: 1.5rem;
                 align-items: flex-start;
             }
+
+            .template-options {
+                grid-template-columns: 1fr;
+            }
+
+            .template-option-card {
+                min-height: 58px;
+            }
         }
     </style>
 </head>
@@ -775,15 +988,16 @@
             <h2 style="text-align: center; color: var(--accent-blue-light); margin-top: 2rem;">探索偏头痛管理小贴士</h2>
             <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem;">分享你的经验，学习他人的技巧，一起管理偏头痛</p>
             
-            <div style="text-align: center; margin-bottom: 2rem;">
-                <button id="publishTipBtn" class="auth-btn" style="padding: 0.6rem 2rem; font-size: 1rem;">✍️ 发布 Tips</button>
-            </div>
-            
             <!-- 笔记卡片网格 -->
             <div class="tips-grid" id="tipsGrid">
                 <!-- 笔记卡片将通过JavaScript动态生成 -->
             </div>
         </main>
+
+        <button id="publishTipBtn" class="publish-tip-fab" type="button" aria-label="发布 Tips">
+            <span class="publish-tip-fab-icon" aria-hidden="true">✍️</span>
+            <span>发布 Tips</span>
+        </button>
         
         <!-- 笔记详情模态框 -->
         <div id="tipModal" class="modal">
@@ -801,16 +1015,42 @@
                 <span class="close-modal">&times;</span>
                 <h2>发布 Tips</h2>
                 <form id="publishForm" class="auth-form">
+                    <fieldset class="template-selector">
+                        <legend>选择发布模板</legend>
+                        <div class="template-options">
+                            <label class="template-option template-option-clinical">
+                                <input type="radio" name="publishTemplate" value="clinical">
+                                <span class="template-option-card">
+                                    <strong>Clinical 临床</strong>
+                                    <small>症状、处理与注意事项</small>
+                                </span>
+                            </label>
+                            <label class="template-option template-option-daily">
+                                <input type="radio" name="publishTemplate" value="daily">
+                                <span class="template-option-card">
+                                    <strong>Daily 日常</strong>
+                                    <small>当天体验与个人记录</small>
+                                </span>
+                            </label>
+                            <label class="template-option template-option-normal">
+                                <input type="radio" name="publishTemplate" value="normal" checked>
+                                <span class="template-option-card">
+                                    <strong>Normal 普通</strong>
+                                    <small>自由分享实用 Tips</small>
+                                </span>
+                            </label>
+                        </div>
+                    </fieldset>
                     <div class="auth-form-group">
-                        <label for="publishTitle">标题</label>
+                        <label id="publishTitleLabel" for="publishTitle">标题</label>
                         <input type="text" id="publishTitle" placeholder="给你的 Tips 起个标题" required>
                     </div>
                     <div class="auth-form-group">
-                        <label for="publishDescription">简介（可选）</label>
+                        <label id="publishDescriptionLabel" for="publishDescription">简介（可选）</label>
                         <input type="text" id="publishDescription" placeholder="一句话简介">
                     </div>
                     <div class="auth-form-group">
-                        <label for="publishContent">内容（支持 Markdown：**加粗**、换行、- 列表）</label>
+                        <label id="publishContentLabel" for="publishContent">内容（支持 Markdown：**加粗**、换行、- 列表）</label>
                         <textarea id="publishContent" rows="8" placeholder="支持 Markdown 语法，例如：&#10;**加粗文字**&#10;- 列表项一&#10;- 列表项二" required></textarea>
                     </div>
                     <div class="auth-form-group">
@@ -832,7 +1072,7 @@
                     <div class="auth-form-group">
                         <label for="publishImage">图片（可选）</label>
                         <input type="file" id="publishImage" accept="image/*">
-                        <img id="publishImagePreview" style="display:none; max-width:100%; max-height:200px; margin-top:0.5rem; border-radius:8px; object-fit:contain;">
+                        <img id="publishImagePreview" class="publish-cover-preview" alt="封面预览">
                     </div>
                     <button type="submit" class="auth-submit-btn">发布</button>
                 </form>
@@ -962,6 +1202,141 @@
                 </svg>
             `;
             return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+        }
+
+        const TIP_TEMPLATE_CONFIG = Object.freeze({
+            clinical: {
+                label: 'Clinical 临床',
+                coverLabel: 'CLINICAL / 临床',
+                startColor: '#0f766e',
+                endColor: '#083344',
+                accentColor: '#ccfbf1',
+                titleLabel: '临床主题',
+                titlePlaceholder: '例如：偏头痛先兆的识别与处理',
+                descriptionLabel: '临床摘要（可选）',
+                descriptionPlaceholder: '概括症状、处理方法或注意事项',
+                contentLabel: '临床内容（支持 Markdown）',
+                contentPlaceholder: '请描述症状表现、处理方法、注意事项和可参考的依据。'
+            },
+            daily: {
+                label: 'Daily 日常',
+                coverLabel: 'DAILY / 日常',
+                startColor: '#7c3aed',
+                endColor: '#312e81',
+                accentColor: '#ede9fe',
+                titleLabel: '日常标题',
+                titlePlaceholder: '例如：今天是什么帮助我缓解了头痛',
+                descriptionLabel: '今日概况（可选）',
+                descriptionPlaceholder: '用一句话记录今天的状态',
+                contentLabel: '日常记录（支持 Markdown）',
+                contentPlaceholder: '记录今天的症状、可能诱因、感受，以及对你有效的方法。'
+            },
+            normal: {
+                label: 'Normal 普通',
+                coverLabel: 'NORMAL / 普通',
+                startColor: '#4169e1',
+                endColor: '#172554',
+                accentColor: '#dbeafe',
+                titleLabel: '标题',
+                titlePlaceholder: '给你的 Tips 起个标题',
+                descriptionLabel: '简介（可选）',
+                descriptionPlaceholder: '一句话简介',
+                contentLabel: '内容（支持 Markdown：**加粗**、换行、- 列表）',
+                contentPlaceholder: '支持 Markdown 语法，例如：\n**加粗文字**\n- 列表项一\n- 列表项二'
+            }
+        });
+
+        function getTipTemplate(tip) {
+            const requested = String((tip && tip.template) || '').toLowerCase();
+            if (TIP_TEMPLATE_CONFIG[requested]) return requested;
+            return tip && tip.isMedical ? 'clinical' : 'normal';
+        }
+
+        function normalizeTip(tip) {
+            const source = tip || {};
+            const author = source.author || {};
+            return {
+                ...source,
+                template: getTipTemplate(source),
+                title: String(source.title || '未命名 Tips'),
+                description: String(source.description || ''),
+                content: String(source.content || ''),
+                tags: Array.isArray(source.tags) ? source.tags.map((tag) => String(tag)) : [],
+                author: {
+                    name: String(author.name || '匿名'),
+                    username: String(author.username || ''),
+                    bio: String(author.bio || ''),
+                    avatar: String(author.avatar || '匿')
+                },
+                likes: Number(source.likes) || 0,
+                date: String(source.date || '')
+            };
+        }
+
+        function escapeHTML(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeSVGText(value) {
+            return escapeHTML(value);
+        }
+
+        function wrapCoverTitle(title, maxCharacters = 15, maxLines = 3) {
+            const characters = Array.from(String(title || '未命名 Tips').trim() || '未命名 Tips');
+            const lines = [];
+            for (let index = 0; index < characters.length && lines.length < maxLines; index += maxCharacters) {
+                lines.push(characters.slice(index, index + maxCharacters).join(''));
+            }
+            if (characters.length > maxCharacters * maxLines) {
+                lines[maxLines - 1] = Array.from(lines[maxLines - 1]).slice(0, maxCharacters - 1).join('') + '…';
+            }
+            return lines;
+        }
+
+        function generateTitleCover(title, template = 'normal') {
+            const safeTemplate = TIP_TEMPLATE_CONFIG[template] ? template : 'normal';
+            const config = TIP_TEMPLATE_CONFIG[safeTemplate];
+            const titleLines = wrapCoverTitle(title);
+            const firstLineY = 350 - ((titleLines.length - 1) * 48);
+            const titleMarkup = titleLines.map((line, index) => (
+                `<text x="64" y="${firstLineY + index * 96}" fill="#ffffff" font-size="58" font-weight="700" font-family="Arial, 'Microsoft YaHei', sans-serif">${escapeSVGText(line)}</text>`
+            )).join('');
+            const svg = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" role="img" aria-label="${escapeSVGText(title)}">
+                    <defs>
+                        <linearGradient id="coverGradient" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="${config.startColor}"/>
+                            <stop offset="100%" stop-color="${config.endColor}"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="800" height="800" fill="url(#coverGradient)"/>
+                    <circle cx="720" cy="90" r="170" fill="#ffffff" opacity="0.08"/>
+                    <circle cx="90" cy="760" r="220" fill="#ffffff" opacity="0.06"/>
+                    <rect x="64" y="64" width="250" height="48" rx="24" fill="#ffffff" opacity="0.14"/>
+                    <text x="86" y="96" fill="${config.accentColor}" font-size="20" font-weight="700" letter-spacing="2" font-family="Arial, 'Microsoft YaHei', sans-serif">${escapeSVGText(config.coverLabel)}</text>
+                    ${titleMarkup}
+                    <rect x="64" y="664" width="92" height="8" rx="4" fill="${config.accentColor}" opacity="0.9"/>
+                    <text x="64" y="724" fill="${config.accentColor}" font-size="22" font-family="Arial, 'Microsoft YaHei', sans-serif">MIGRAINE SIGNAL</text>
+                </svg>
+            `;
+            return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+        }
+
+        function applyTipCover(imageElement, tip) {
+            const normalizedTip = normalizeTip(tip);
+            const fallbackCover = generateTitleCover(normalizedTip.title, normalizedTip.template);
+            const uploadedImage = typeof normalizedTip.image === 'string' ? normalizedTip.image.trim() : '';
+            imageElement.alt = `${normalizedTip.title} 封面`;
+            imageElement.onerror = () => {
+                imageElement.onerror = null;
+                imageElement.src = fallbackCover;
+            };
+            imageElement.src = uploadedImage || fallbackCover;
         }
         
         // 生成模拟笔记数据
@@ -1440,14 +1815,63 @@
             const publishBtn = document.getElementById('publishTipBtn');
             const publishModal = document.getElementById('publishModal');
             const publishForm = document.getElementById('publishForm');
+            const publishModalContent = publishModal && publishModal.querySelector('.auth-modal-content');
+            const titleInput = document.getElementById('publishTitle');
+            const descriptionInput = document.getElementById('publishDescription');
+            const contentInput = document.getElementById('publishContent');
+            const titleLabel = document.getElementById('publishTitleLabel');
+            const descriptionLabel = document.getElementById('publishDescriptionLabel');
+            const contentLabel = document.getElementById('publishContentLabel');
             const imageInput = document.getElementById('publishImage');
             const imagePreview = document.getElementById('publishImagePreview');
+            const templateInputs = Array.from(document.querySelectorAll('input[name="publishTemplate"]'));
+            const tagButtons = Array.from(document.querySelectorAll('.tag-option'));
+            const selectedTags = [];
             let imageBase64 = '';
+            let currentTemplate = 'normal';
 
             if (!publishBtn || !publishModal || !publishForm) return;
 
+            function updateCoverPreview() {
+                const title = titleInput.value.trim();
+                if (!imageBase64 && !title) {
+                    imagePreview.removeAttribute('src');
+                    imagePreview.style.display = 'none';
+                    return;
+                }
+                imagePreview.src = imageBase64 || generateTitleCover(title, currentTemplate);
+                imagePreview.style.display = 'block';
+                imagePreview.alt = imageBase64 ? '已上传的封面预览' : `${title} 自动生成封面预览`;
+            }
+
+            function applyPublishTemplate(template) {
+                currentTemplate = TIP_TEMPLATE_CONFIG[template] ? template : 'normal';
+                const config = TIP_TEMPLATE_CONFIG[currentTemplate];
+                titleLabel.textContent = config.titleLabel;
+                titleInput.placeholder = config.titlePlaceholder;
+                descriptionLabel.textContent = config.descriptionLabel;
+                descriptionInput.placeholder = config.descriptionPlaceholder;
+                contentLabel.textContent = config.contentLabel;
+                contentInput.placeholder = config.contentPlaceholder;
+                publishModalContent.classList.remove('template-clinical', 'template-daily', 'template-normal');
+                publishModalContent.classList.add(`template-${currentTemplate}`);
+                updateCoverPreview();
+            }
+
+            function resetPublishForm() {
+                publishForm.reset();
+                imageBase64 = '';
+                selectedTags.splice(0, selectedTags.length);
+                tagButtons.forEach((button) => {
+                    button.classList.remove('active');
+                    button.setAttribute('aria-pressed', 'false');
+                });
+                applyPublishTemplate('normal');
+            }
+
             publishBtn.addEventListener('click', () => {
                 publishModal.style.display = 'flex';
+                titleInput.focus();
             });
 
             const closeBtn = publishModal.querySelector('.close-modal');
@@ -1460,28 +1884,41 @@
             // 图片选择：转 base64 预览
             imageInput.addEventListener('change', () => {
                 const file = imageInput.files[0];
-                if (!file) return;
+                if (!file) {
+                    imageBase64 = '';
+                    updateCoverPreview();
+                    return;
+                }
                 if (file.size > 7 * 1024 * 1024) {
                     alert('图片过大，请选择 7MB 以内的图片');
                     imageInput.value = '';
+                    imageBase64 = '';
+                    updateCoverPreview();
                     return;
                 }
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     imageBase64 = e.target.result;
-                    imagePreview.src = imageBase64;
-                    imagePreview.style.display = 'block';
+                    updateCoverPreview();
                 };
                 reader.readAsDataURL(file);
             });
 
+            titleInput.addEventListener('input', updateCoverPreview);
+
+            templateInputs.forEach((input) => {
+                input.addEventListener('change', () => {
+                    if (input.checked) applyPublishTemplate(input.value);
+                });
+            });
+
             // 标签点选逻辑
-            const selectedTags = [];
-            const tagButtons = document.querySelectorAll('.tag-option');
             tagButtons.forEach((btn) => {
+                btn.setAttribute('aria-pressed', 'false');
                 btn.addEventListener('click', () => {
                     const tag = btn.dataset.tag;
                     btn.classList.toggle('active');
+                    btn.setAttribute('aria-pressed', String(btn.classList.contains('active')));
                     const idx = selectedTags.indexOf(tag);
                     if (idx >= 0) {
                         selectedTags.splice(idx, 1);
@@ -1495,9 +1932,9 @@
             publishForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
 
-                const title = document.getElementById('publishTitle').value.trim();
-                const description = document.getElementById('publishDescription').value.trim();
-                const content = document.getElementById('publishContent').value.trim();
+                const title = titleInput.value.trim();
+                const description = descriptionInput.value.trim();
+                const content = contentInput.value.trim();
                 const tagsStr = document.getElementById('publishTags').value.trim();
 
                 if (!title || !content) {
@@ -1513,11 +1950,16 @@
                     try {
                         const manualTags = tagsStr ? tagsStr.split('#').map((t) => t.trim()).filter(Boolean) : [];
                         const tags = [...new Set([...selectedTags, ...manualTags])];
-                        await window.ApiClient.publishTip({ title, description, content, image: imageBase64, tags });
+                        await window.ApiClient.publishTip({
+                            title,
+                            description,
+                            content,
+                            image: imageBase64,
+                            tags,
+                            template: currentTemplate
+                        });
                         publishModal.style.display = 'none';
-                        publishForm.reset();
-                        imageBase64 = '';
-                        imagePreview.style.display = 'none';
+                        resetPublishForm();
                         alert('发布成功！');
                         syncTipsFromBackend();
                         return;
@@ -1529,6 +1971,8 @@
 
                 alert('后端未连接，无法发布。请先启动后端服务。');
             });
+
+            applyPublishTemplate('normal');
         }
 
         // 从后端加载 Tips 数据
@@ -1549,48 +1993,44 @@
             const tipsGrid = document.getElementById('tipsGrid');
             tipsGrid.innerHTML = '';
             
-            tips.forEach(tip => {
+            tips.forEach(rawTip => {
+                const tip = normalizeTip(rawTip);
+                const templateConfig = TIP_TEMPLATE_CONFIG[tip.template];
                 const tipCard = document.createElement('div');
-                tipCard.className = 'tip-card';
+                tipCard.className = `tip-card template-${tip.template}`;
                 tipCard.dataset.tipId = tip.id;
                 
-                // 创建图片元素
                 const img = document.createElement('img');
-                img.src = tip.image;
-                img.alt = tip.title;
                 img.className = 'tip-card-image';
+                applyTipCover(img, tip);
                 
-                // 添加错误处理
-                img.onerror = function() {
-                    this.onerror = null;
-                    // 设置默认背景色和文字
-                    this.style.backgroundColor = 'rgba(65, 105, 225, 0.1)';
-                    this.style.display = 'flex';
-                    this.style.alignItems = 'center';
-                    this.style.justifyContent = 'center';
-                    this.style.color = 'var(--accent-blue-light)';
-                    this.style.fontSize = '2rem';
-                    this.style.textAlign = 'center';
-                    this.style.lineHeight = '1';
-                    // 使用文字作为替代，避免复杂的SVG
-                    this.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="%236495ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Crect x="3" y="3" width="18" height="18" rx="2" ry="2"%3E%3C/rect%3E%3Ccircle cx="8.5" cy="8.5" r="1.5"%3E%3C/circle%3E%3Cpolyline points="21 15 16 10 5 21"%3E%3C/polyline%3E%3C/svg%3E';
-                };
-                
-                // 创建卡片内容
                 const cardContent = document.createElement('div');
                 cardContent.className = 'tip-card-content';
-                cardContent.innerHTML = `
-                    <h3 class="tip-card-title">${tip.title}</h3>
-                    <div class="tip-card-tags">
-                        ${tip.tags.map(tag => `<span class="tip-card-tag">${tag}</span>`).join('')}
-                    </div>
-                `;
+
+                const templateBadge = document.createElement('span');
+                templateBadge.className = 'tip-template-badge';
+                templateBadge.textContent = templateConfig.label;
+
+                const title = document.createElement('h3');
+                title.className = 'tip-card-title';
+                title.textContent = tip.title;
+
+                const tags = document.createElement('div');
+                tags.className = 'tip-card-tags';
+                tip.tags.forEach((tag) => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'tip-card-tag';
+                    tagElement.textContent = tag;
+                    tags.appendChild(tagElement);
+                });
+
+                cardContent.appendChild(templateBadge);
+                cardContent.appendChild(title);
+                cardContent.appendChild(tags);
                 
-                // 组装卡片
                 tipCard.appendChild(img);
                 tipCard.appendChild(cardContent);
                 
-                // 添加点击事件
                 tipCard.addEventListener('click', () => {
                     showTipModal(tip);
                 });
@@ -1624,9 +2064,16 @@
         }
         
         // 显示笔记详情模态框
-        function showTipModal(tip) {
+        function showTipModal(rawTip) {
+            const tip = normalizeTip(rawTip);
+            const isClinical = tip.template === 'clinical';
+            const templateConfig = TIP_TEMPLATE_CONFIG[tip.template];
+            const safeTipId = String(tip.id).replace(/[^a-zA-Z0-9_-]/g, '');
             const modal = document.getElementById('tipModal');
             const modalContent = document.getElementById('tipModalContent');
+            const tipModal = modal.querySelector('.tip-modal');
+            tipModal.classList.remove('template-clinical', 'template-daily', 'template-normal');
+            tipModal.classList.add(`template-${tip.template}`);
             
             // 清空模态框内容
             modalContent.innerHTML = '';
@@ -1637,49 +2084,33 @@
             
             // 创建图片元素
             const img = document.createElement('img');
-            img.src = tip.image;
-            img.alt = tip.title;
             img.className = 'tip-modal-image';
-            
-            // 添加错误处理
-            img.onerror = function() {
-                this.onerror = null;
-                // 设置默认背景色和文字
-                this.style.backgroundColor = 'rgba(65, 105, 225, 0.1)';
-                this.style.display = 'flex';
-                this.style.alignItems = 'center';
-                this.style.justifyContent = 'center';
-                this.style.color = 'var(--accent-blue-light)';
-                this.style.fontSize = '3rem';
-                this.style.textAlign = 'center';
-                this.style.lineHeight = '1';
-                // 使用文字作为替代
-                this.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="%236495ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Crect x="3" y="3" width="18" height="18" rx="2" ry="2"%3E%3C/rect%3E%3Ccircle cx="8.5" cy="8.5" r="1.5"%3E%3C/circle%3E%3Cpolyline points="21 15 16 10 5 21"%3E%3C/polyline%3E%3C/svg%3E';
-            };
+            applyTipCover(img, tip);
             
             // 加载评论
             const comments = loadComments(tip.id);
             
             // 创建文本内容容器
             const textContent = document.createElement('div');
-            textContent.className = 'tip-modal-text-content';
+            textContent.className = `tip-modal-text-content template-${tip.template}`;
             textContent.innerHTML = `
-                <h2 class="tip-modal-title">${tip.title}</h2>
+                <span class="tip-template-badge">${escapeHTML(templateConfig.label)}</span>
+                <h2 class="tip-modal-title">${escapeHTML(tip.title)}</h2>
                 <div class="tip-modal-meta">
-                    <span class="tip-modal-date">发布时间：${tip.date}</span>
-                    ${tip.isMedical ? '<span class="medical-tag">医学建议</span>' : ''}
+                    <span class="tip-modal-date">发布时间：${escapeHTML(tip.date)}</span>
+                    ${isClinical ? '<span class="medical-tag">医学建议</span>' : ''}
                 </div>
                 <p class="tip-modal-description">${renderTipMarkdown(tip.content)}</p>
                 <div class="tip-modal-tags">
-                    ${tip.tags.map(tag => `<span class="tip-modal-tag">${tag}</span>`).join('')}
+                    ${tip.tags.map(tag => `<span class="tip-modal-tag">${escapeHTML(tag)}</span>`).join('')}
                 </div>
-                ${tip.isMedical ? '<div class="disclaimer">⚠️ 免责声明：本文提供的医学建议仅供参考，具体治疗方案请咨询专业医生。</div>' : ''}
+                ${isClinical ? '<div class="disclaimer">⚠️ 免责声明：本文提供的医学建议仅供参考，具体治疗方案请咨询专业医生。</div>' : ''}
                 <div class="tip-modal-footer">
                     <div class="tip-modal-author">
-                        <div class="author-avatar">${tip.author.avatar}</div>
+                        <div class="author-avatar">${escapeHTML(tip.author.avatar)}</div>
                         <div class="tip-modal-author-info">
-                            <div class="author-username">${tip.author.name}</div>
-                            <div class="author-bio">${tip.author.bio}</div>
+                            <div class="author-username">${escapeHTML(tip.author.name)}</div>
+                            <div class="author-bio">${escapeHTML(tip.author.bio)}</div>
                         </div>
                     </div>
                     <div class="tip-modal-interactions">
@@ -1699,14 +2130,14 @@
                     <h3 class="comments-title">评论 (${comments.length})</h3>
                     
                     <!-- 评论列表 -->
-                    <div class="comments-list" id="commentsList-${tip.id}">
+                    <div class="comments-list" id="commentsList-${safeTipId}">
                         ${comments.length > 0 ? comments.map(comment => `
                             <div class="comment-item">
                                 <div class="comment-header">
-                                    <span class="comment-author">${comment.author}</span>
-                                    <span class="comment-date">${comment.date}</span>
+                                    <span class="comment-author">${escapeHTML(comment.author)}</span>
+                                    <span class="comment-date">${escapeHTML(comment.date)}</span>
                                 </div>
-                                <div class="comment-content">${comment.content}</div>
+                                <div class="comment-content">${escapeHTML(comment.content)}</div>
                             </div>
                         `).join('') : '<div class="no-comments">暂无评论，快来发表第一条评论吧！</div>'}
                     </div>
@@ -1715,9 +2146,9 @@
                     <div class="comment-form">
                         <h4>发表评论</h4>
                         <div class="form-group">
-                            <textarea id="commentContent-${tip.id}" placeholder="请输入您的评论内容" class="comment-textarea" rows="3" required></textarea>
+                            <textarea id="commentContent-${safeTipId}" placeholder="请输入您的评论内容" class="comment-textarea" rows="3" required></textarea>
                         </div>
-                        <button type="button" id="submitComment-${tip.id}" class="comment-submit-btn">发表评论</button>
+                        <button type="button" id="submitComment-${safeTipId}" class="comment-submit-btn">发表评论</button>
                     </div>
                 </div>
             `;
@@ -1728,7 +2159,7 @@
             modalContent.appendChild(textContent);
             
             // 添加评论提交事件
-            const submitBtn = textContent.querySelector(`#submitComment-${tip.id}`);
+            const submitBtn = textContent.querySelector(`#submitComment-${safeTipId}`);
             submitBtn.addEventListener('click', () => {
                 submitComment(tip.id);
             });
@@ -1755,7 +2186,14 @@
         // 加载评论
         function loadComments(tipId) {
             const comments = localStorage.getItem(`comments-${tipId}`);
-            return comments ? JSON.parse(comments) : [];
+            if (!comments) return [];
+            try {
+                const parsed = JSON.parse(comments);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (error) {
+                console.warn('本地评论数据无法解析:', error);
+                return [];
+            }
         }
         
         // 保存评论
@@ -1816,10 +2254,10 @@
                 commentsList.innerHTML = comments.map(comment => `
                     <div class="comment-item">
                         <div class="comment-header">
-                            <span class="comment-author">${comment.author}</span>
-                            <span class="comment-date">${comment.date}</span>
+                            <span class="comment-author">${escapeHTML(comment.author)}</span>
+                            <span class="comment-date">${escapeHTML(comment.date)}</span>
                         </div>
-                        <div class="comment-content">${comment.content}</div>
+                        <div class="comment-content">${escapeHTML(comment.content)}</div>
                     </div>
                 `).join('');
             } else {
