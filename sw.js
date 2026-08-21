@@ -1,6 +1,6 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v2';
+const CACHE_NAME = 'migraine-app-cache-v3';
 const urlsToCache = [
   '.',
   'index.html',
@@ -47,6 +47,23 @@ self.addEventListener('activate', (event) => {
 // 既能离线使用，又不会一直卡在旧版本
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  // Always prefer the latest HTML. This prevents a cached page from hiding
+  // layout fixes until the user refreshes multiple times.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
