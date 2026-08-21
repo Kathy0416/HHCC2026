@@ -1,6 +1,6 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v3-i18n';
+const CACHE_NAME = 'migraine-app-cache-v4-language-picker';
 const urlsToCache = [
   '.',
   'index.html',
