@@ -197,7 +197,8 @@ function buildEnvironmentSeries(rows) {
       endAt: readings[readings.length - 1].recordedAt,
       sampleCount: readings.length,
       medianIntervalMs,
-      truncated
+      truncated,
+      demo: chronological.every((item) => item.row.mode === 'DEMO')
     },
     smoothing,
     quality: {

@@ -897,6 +897,7 @@
       cadence
     });
     const notices = [];
+    if (session.demo) notices.push(t('health.sensor.demo'));
     if (!series.quality?.fittedSampleCount) notices.push(t('health.sensor.warmup'));
     if (session.truncated) notices.push(t('health.sensor.truncated'));
     notice.textContent = notices.join(' ');

@@ -40,6 +40,7 @@ function environmentRow(index, options = {}) {
   return {
     id: options.id == null ? index + 1 : options.id,
     recorded_at: new Date(timestamp).toISOString(),
+    mode: options.mode || '',
     temperature_c: options.temperature == null ? cubic : options.temperature,
     humidity_pct: options.humidity == null ? cubic + 30 : options.humidity,
     light_lux: options.light == null ? cubic * 10 : options.light,
@@ -71,11 +72,19 @@ test('latest environment session uses a stable full-window trailing cubic fit', 
   const series = buildEnvironmentSeries(rows);
   assert.equal(series.session.sampleCount, 321);
   assert.equal(series.session.medianIntervalMs, 1000);
+  assert.equal(series.session.demo, false);
   assert.equal(series.smoothing.degree, 3);
   assert.equal(series.readings[299].fitted, null);
   assert.ok(series.readings[300].fitted);
   assert.ok(Math.abs(series.readings[300].fitted.temperatureC - series.readings[300].raw.temperatureC) < 1e-8);
   assert.ok(series.readings.slice(300).every((reading) => Object.values(reading.fitted).every(Number.isFinite)));
+});
+
+test('environment series identifies a wholly synthetic demo session', () => {
+  const rows = Array.from({ length: 321 }, (_, index) => environmentRow(index, { mode: 'DEMO' })).reverse();
+  const series = buildEnvironmentSeries(rows);
+  assert.equal(series.session.demo, true);
+  assert.equal(series.quality.fittedSampleCount, 21);
 });
 
 test('environment smoothing reduces deterministic noise and remains stable for epoch timestamps', () => {

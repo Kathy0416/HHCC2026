@@ -459,7 +459,7 @@ function createHealthRouter(db = defaultDb) {
 
   router.get('/environment-series', (req, res) => {
     const rows = db.prepare(`
-      SELECT id, recorded_at, temperature_c, humidity_pct, light_lux, noise_db
+      SELECT id, recorded_at, mode, temperature_c, humidity_pct, light_lux, noise_db
       FROM environment_readings
       WHERE user_id = ?
       ORDER BY recorded_at DESC, id DESC

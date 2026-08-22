@@ -39,6 +39,9 @@ npm start
 
 # 开发模式（文件变更自动重启）
 npm run dev
+
+# 为指定账号生成 12 分钟的合成环境传感器演示数据
+npm run seed:demo -- test1
 ```
 
 启动后访问健康检查：`http://localhost:3000/api/health`
