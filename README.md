@@ -39,16 +39,25 @@ SQLite data is stored in the named Docker volume `migraine-data`, so it survives
 
 ## Optional configuration
 
-Docker Compose reads an optional `.env` file from this directory. For example:
+Docker Compose loads `server/.env` and, when present, an app-level `.env` that overrides it. For local Node development, use `server/.env`.
 
 ```dotenv
 JWT_SECRET=replace-with-a-long-random-local-secret
 DEEPSEEK_API_KEY=
 DEEPSEEK_API_URL=https://api.deepseek.com/chat/completions
-DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_MODEL=deepseek-v4-flash
 ```
 
-Do not commit `.env`; it is ignored by Git and excluded from the Docker build context. When `DEEPSEEK_API_KEY` is empty, the existing local mock AI response is used.
+Do not commit `.env`; it is ignored by Git and excluded from the Docker build context. When `DEEPSEEK_API_KEY` is empty, the AI endpoint returns a clear configuration error instead of silently presenting a mock answer. For local Node development, copy `server/.env.example` to `server/.env`, set `DEEPSEEK_API_KEY`, set `SERVE_FRONTEND=1`, and start the server from the `server` directory.
+
+```powershell
+cd server
+Copy-Item .env.example .env
+# Edit .env and set DEEPSEEK_API_KEY plus SERVE_FRONTEND=1
+npm start
+```
+
+The assistant's editable English and Chinese description, safety rules, and response behavior live in `server/ai-prompts.js`. Personalization uses only the authenticated user's aggregated records from the latest 90 days; diary content is treated as untrusted data rather than instructions.
 
 ## Troubleshooting
 

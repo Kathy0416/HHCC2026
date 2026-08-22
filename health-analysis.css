@@ -244,12 +244,12 @@
 .migraine-pill.no { color: #8edebd; background: rgba(75,202,151,.1); }
 .empty-state { margin-top: 18px; padding: 34px; border: 1px dashed rgba(120,148,218,.2); border-radius: 14px; text-align: center; color: var(--health-muted); }
 
-.health-footer { position: fixed; z-index: 110; left: 0; right: 0; bottom: 0; padding: 8px 18px 12px; border-top: 1px solid rgba(125,153,225,.14); background: rgba(15,21,35,.78); backdrop-filter: blur(24px) saturate(140%); }
-.health-navigation { display: flex; justify-content: space-around; align-items: flex-end; width: min(900px, 100%); margin: 0 auto; }
-.health-nav-link { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 74px; padding: 8px 10px; border-radius: 13px; color: #aab5ce; text-decoration: none; font-size: .7rem; transition: .18s ease; }
+.health-footer { position: fixed; z-index: 110; left: 0; right: 0; bottom: 0; padding: 0.5rem 0 1rem; border-top: 1px solid rgba(125,153,225,.14); background: rgba(15,21,35,.78); backdrop-filter: blur(24px) saturate(140%); }
+.health-navigation { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: flex-end; width: 100%; margin: 0; }
+.health-nav-link { display: flex; flex-direction: column; align-items: center; justify-self: center; box-sizing: border-box; width: 60px; gap: 4px; min-width: 0; padding: 8px 10px; border-radius: 13px; color: #aab5ce; text-decoration: none; font-size: .7rem; transition: .18s ease; }
 .health-nav-link > span:first-child { font-size: 1.25rem; }
 .health-nav-link:hover, .health-nav-link.is-active { color: #dce6ff; background: rgba(80,115,211,.12); transform: translateY(-2px); }
-.health-nav-link.journal-link { position: relative; top: -18px; width: 64px; height: 64px; min-width: 64px; justify-content: center; border-radius: 50%; background: linear-gradient(145deg, #739cff, #426bdd); color: white; box-shadow: 0 11px 28px rgba(52,91,202,.4); }
+.health-nav-link.journal-link { position: relative; top: -1.5rem; height: 60px; justify-content: center; border-radius: 50%; background: linear-gradient(145deg, #739cff, #426bdd); color: white; box-shadow: 0 11px 28px rgba(52,91,202,.4); }
 .health-nav-link.journal-link > span:last-child { display: none; }
 .chat-shortcut { position: fixed; z-index: 115; right: 24px; bottom: 94px; display: grid; place-items: center; width: 56px; height: 56px; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; background: linear-gradient(145deg, #7da6ff, #5077df); color: white; text-decoration: none; font-weight: 900; letter-spacing: 2px; box-shadow: 0 14px 30px rgba(43,78,176,.38); }
 
@@ -279,7 +279,6 @@
     .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .insights-content { grid-template-columns: 1fr 1fr; }
     .analysis-header { align-items: flex-end; }
-    .health-navigation { justify-content: space-between; }
     .health-nav-link { min-width: 48px; padding-inline: 6px; }
     .health-nav-link > span:last-child { max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
@@ -315,9 +314,7 @@
     .range-picker { align-self: flex-start; }
     .kpi-grid, .insights-content { grid-template-columns: 1fr; }
     .chart-frame, .chart-wide .chart-frame { height: 230px; }
-    .health-footer { padding-inline: 4px; }
-    .health-nav-link { min-width: 44px; font-size: .62rem; }
-    .health-nav-link.journal-link { width: 55px; height: 55px; min-width: 55px; }
+    .health-nav-link { font-size: .62rem; }
     .analysis-tools { justify-content: space-between; }
     .chat-shortcut { width: 50px; height: 50px; right: 15px; bottom: 80px; }
 }

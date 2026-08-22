@@ -1,8 +1,8 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const fs = require('fs');
 const db = require('./db');
 const { localeMiddleware } = require('./i18n');
@@ -44,7 +44,9 @@ app.use((req, res) => {
 // 统一错误处理
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ error: req.t('internal') });
+  const message = typeof req.t === 'function' ? req.t('internal') : 'Internal server error';
+  const status = err instanceof SyntaxError && Object.prototype.hasOwnProperty.call(err, 'body') ? 400 : 500;
+  res.status(status).json({ error: message });
 });
 
 if (require.main === module) {
@@ -54,7 +56,7 @@ if (require.main === module) {
     console.log('==============================================');
     console.log(`  ➜ 服务地址:   http://localhost:${PORT}`);
     console.log(`  ➜ 健康检查:   http://localhost:${PORT}/api/health`);
-    console.log(`  ➜ DeepSeek:   ${process.env.DEEPSEEK_API_KEY ? '已配置' : '未配置（AI 使用本地模拟回复）'}`);
+    console.log(`  ➜ DeepSeek:   ${process.env.DEEPSEEK_API_KEY ? '已配置' : '未配置（AI 请求将返回配置提示）'}`);
     console.log('==============================================');
   });
 }

@@ -1185,7 +1185,7 @@ html[lang="en"] .header h1 {
     bottom: 0;
     left: 0;
     width: 100%;
-    padding: 0.3rem 0;
+    padding: 0.5rem 0 1rem;
     background: rgba(18, 18, 18, 0.12);
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
@@ -1196,11 +1196,11 @@ html[lang="en"] .header h1 {
 
 /* 导航链接容器样式 */
 .navigation-links {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    gap: 1rem;
-    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: flex-end;
+    gap: 0;
+    margin: 0;
     padding: 0;
     width: 100%;
     max-width: 100%;
@@ -1216,16 +1216,15 @@ html[lang="en"] .header h1 {
     color: var(--text-primary);
     transition: all 0.3s ease;
     font-size: 0.8rem;
-    flex: 1;
-    max-width: none;
-    min-width: 60px;
-    padding: 0.2rem;
+    justify-self: center;
+    width: min(60px, 100%);
+    padding: 0;
 }
 
 /* 导航图标样式 */
 .nav-icon {
-    font-size: 1.4rem;
-    margin-bottom: 0.2rem;
+    font-size: 1.5rem;
+    margin-bottom: 0.3rem;
     display: inline-block;
     width: auto;
     height: auto;
@@ -1235,9 +1234,9 @@ html[lang="en"] .header h1 {
 
 /* 导航文字样式 - 横向排列，与图标居中对齐 */
 .nav-text {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     color: var(--text-secondary);
-    margin-top: 0.1rem;
+    margin-top: 0.2rem;
     white-space: nowrap;
     text-align: center;
 }
@@ -1245,21 +1244,21 @@ html[lang="en"] .header h1 {
 /* 中间突出的日历按钮 */
 .nav-link.calendar-btn {
     position: relative;
-    top: -1.3rem;
-    background: var(--accent-blue);
+    top: -1.5rem;
+    background: var(--accent-blue-light);
     border-radius: 50%;
-    width: 80px !important;
-    height: 80px !important;
+    width: 60px;
+    height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(14, 41, 115, 0.5);
+    box-shadow: 0 4px 12px rgba(65, 105, 225, 0.4);
     transition: all 0.3s ease;
     z-index: 101;
 }
 
 .nav-link.calendar-btn .nav-icon {
-    font-size: 2.7rem !important;
+    font-size: 2rem;
     margin-bottom: 0;
     color: white;
     width: auto;
@@ -1276,8 +1275,8 @@ html[lang="en"] .header h1 {
 }
 
 .nav-link.calendar-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(14, 41, 115, 0.6);
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(65, 105, 225, 0.5);
 }
 
 .nav-link:hover:not(.calendar-btn) {

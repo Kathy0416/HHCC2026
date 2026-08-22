@@ -52,9 +52,9 @@ npm run dev
 | `PORT` | 服务端口 | `3000` |
 | `JWT_SECRET` | JWT 签名密钥（生产务必修改） | `dev-secret-change-me` |
 | `DB_PATH` | SQLite 数据库文件路径 | `server/data.db` |
-| `DEEPSEEK_API_KEY` | DeepSeek API Key（留空则 AI 使用服务端本地模拟回复） | 空 |
+| `DEEPSEEK_API_KEY` | DeepSeek API Key（留空则 AI 返回未配置错误） | 空 |
 | `DEEPSEEK_API_URL` | DeepSeek 接口地址 | `https://api.deepseek.com/chat/completions` |
-| `DEEPSEEK_MODEL` | 模型名称 | `deepseek-chat` |
+| `DEEPSEEK_MODEL` | 模型名称 | `deepseek-v4-flash` |
 | `SERVE_FRONTEND` | 设为 `1` 时后端同端口托管前端静态文件 | 关闭 |
 
 ## API 文档
@@ -133,7 +133,7 @@ Tips 响应包含 `template` 字段；旧客户端省略该字段时默认使用
 | POST | `/api/ai/chat` | 对话（代理 DeepSeek） | `{ message, history: [{role, content}] }` |
 | GET | `/api/ai/history` | 当前用户聊天历史 | - |
 
-`chat` 返回 `{ reply, mock }`，`mock` 为 `true` 表示使用了服务端本地模拟回复（未配置 Key 或调用失败）。
+`chat` 返回 `{ reply, provider, personalized, usedDataCategories }`。登录用户的回答可结合最近 90 天的偏头痛、睡眠、可穿戴设备和环境汇总；未登录用户只使用通用模型知识。未配置 Key 或 DeepSeek 调用失败时会返回明确的错误状态。
 
 ## 前端接入说明
 

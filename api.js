@@ -8,7 +8,14 @@
 (function (global) {
   'use strict';
 
-  const defaultOrigin = /^https?:$/.test(global.location.protocol) ? global.location.origin : 'http://localhost:3000';
+  // A locally served frontend (for example VS Code Live Server on port 5500)
+  // must still call the API server on port 3000.  Deployed sites continue to
+  // use their own origin, and API_BASE_URL always takes precedence.
+  const isHttp = /^https?:$/.test(global.location.protocol);
+  const isLocalHost = /^(localhost|127(?:\.\d{1,3}){3}|\[::1\])$/i.test(global.location.hostname);
+  const defaultOrigin = isHttp && !(isLocalHost && global.location.port !== '3000')
+    ? global.location.origin
+    : 'http://localhost:3000';
   const API_BASE = (global.API_BASE_URL || defaultOrigin).replace(/\/+$/, '') + '/api';
 
   const ApiClient = {
