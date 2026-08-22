@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>我的 - 偏头痛记录应用</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="site-header.js"></script>
+    <script src="locales.js"></script>
+    <script src="i18n.js?v=7-content-boundary"></script>
+    <script src="runtime-config.js"></script>
+    <script src="native-auth.js"></script>
+    <script src="api.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
+    <style>
+        /* 我的界面样式 */
+        .my-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+            padding-bottom: 6rem;
+        }
+
+        .profile-section {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: var(--accent-blue-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            margin: 0 auto 1rem;
+            color: white;
+        }
+
+        .profile-info h2 {
+            margin: 0 0 0.5rem;
+            font-size: 1.8rem;
+        }
+
+        .profile-info p {
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-blue-light);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .activity-section {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 2rem;
+        }
+
+        .activity-section h3 {
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: var(--accent-blue-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-title {
+            margin: 0 0 0.3rem;
+            font-size: 1rem;
+        }
+
+        .activity-date {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin: 0;
+        }
+        
+        /* 底部图标导航栏样式 - 和其他页面保持一致 */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 0.5rem 0 1rem;
+            background: rgba(18, 18, 18, 0.12);
+            backdrop-filter: blur(20px) saturate(160%);
+            -webkit-backdrop-filter: blur(20px) saturate(160%);
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            z-index: 100;
+        }
+        
+        /* 导航链接样式 */
+        .navigation-links {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            gap: 0.5rem;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+        }
+        
+        /* 导航链接样式 */
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            font-size: 0.8rem;
+            flex: 1;
+            max-width: 60px;
+        }
+        
+        /* 导航图标样式 */
+        .nav-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        /* 中间突出的日历按钮 */
+        .nav-link.calendar-btn {
+            position: relative;
+            top: -1.5rem;
+            background: #6495ed;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(100, 149, 237, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link.calendar-btn .nav-icon {
+            font-size: 2rem;
+            margin-bottom: 0;
+            color: white;
+        }
+        
+        .nav-link.calendar-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 16px rgba(100, 149, 237, 0.5);
+        }
+        
+        .nav-link:hover:not(.calendar-btn) {
+            color: #6495ed;
+            transform: translateY(-2px);
+        }
+        
+        .nav-text {
+            font-size: 0.75rem;
+            margin-top: 0.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div data-site-header data-page-title="我的"></div>
+    <div class="container">
+        <main class="my-container">
+            <!-- 用户信息卡片 -->
+            <section class="profile-section">
+                <div class="profile-avatar">👤</div>
+                <div class="profile-info">
+                    <h2 id="username">未登录</h2>
+                    <p>点击登录查看个人信息</p>
+                </div>
+            </section>
+
+            <!-- 统计数据卡片 -->
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="migraineCount">0</div>
+                    <div class="stat-label">偏头痛记录</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="sleepCount">0</div>
+                    <div class="stat-label">睡眠记录</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="diaryCount">0</div>
+                    <div class="stat-label">日记记录</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="tipCount">0</div>
+                    <div class="stat-label">发布的Tips</div>
+                </div>
+            </section>
+
+            <!-- 最近活动 -->
+            <section class="activity-section">
+                <h3>最近活动</h3>
+                
+                <div id="activityList">
+                    <p style="text-align: center; color: var(--text-secondary);">登录后查看最近活动</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 导航栏 -->
+    <footer class="footer">
+        <nav class="navigation-links">
+            <a href="index.html" class="nav-link">
+                <span class="nav-icon">📅</span>
+                <span class="nav-text">首页</span>
+            </a>
+            <a href="sleep.html" class="nav-link">
+                <span class="nav-icon">💤</span>
+                <span class="nav-text" data-i18n="nav.healthAnalysis">健康分析</span>
+            </a>
+            <a href="diary.html" class="nav-link calendar-btn">
+                <span class="nav-icon">📔</span>
+                <span class="nav-text">日历</span>
+            </a>
+            <a href="tips.html" class="nav-link">
+                <span class="nav-icon">💡</span>
+                    <span class="nav-text" data-i18n="nav.tips">Tips</span>
+            </a>
+            <a href="my.html" class="nav-link">
+                <span class="nav-icon">👤</span>
+                <span class="nav-text">我的</span>
+            </a>
+        </nav>
+    </footer>
+
+    <!-- 登录模态框 -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content glass-effect auth-modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>用户登录</h2>
+            <form id="loginForm" class="auth-form">
+                <div class="auth-form-group">
+                    <label for="loginUsername">用户名</label>
+                    <input type="text" id="loginUsername" required>
+                </div>
+                <div class="auth-form-group">
+                    <label for="loginPassword">密码</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="auth-submit-btn">登录</button>
+            </form>
+            <div class="auth-switch">
+                还没有账号？ <a href="#" id="switchToRegister">立即注册</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 注册模态框 -->
+    <div id="registerModal" class="modal">
+        <div class="modal-content glass-effect auth-modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>用户注册</h2>
+            <form id="registerForm" class="auth-form">
+                <div class="auth-form-group">
+                    <label for="registerUsername">用户名</label>
+                    <input type="text" id="registerUsername" required>
+                </div>
+                <div class="auth-form-group">
+                    <label for="registerPassword">密码</label>
+                    <input type="password" id="registerPassword" required>
+                </div>
+                <div class="auth-form-group">
+                    <label for="registerConfirmPassword">确认密码</label>
+                    <input type="password" id="registerConfirmPassword" required>
+                </div>
+                <button type="submit" class="auth-submit-btn">注册</button>
+            </form>
+            <div class="auth-switch">
+                已有账号？ <a href="#" id="switchToLogin">立即登录</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 登录界面样式优化
+        const style = document.createElement('style');
+        style.textContent = `
+            /* 模态框动画 */
+            @keyframes modalSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            .modal {
+                backdrop-filter: blur(8px);
+            }
+            
+            .auth-modal-content {
+                animation: modalSlideIn 0.3s ease-out;
+                padding: 2.5rem;
+                max-width: 450px;
+            }
+            
+            .auth-modal-content h2 {
+                color: var(--text-primary);
+                margin-bottom: 1.5rem;
+                font-size: 1.8rem;
+                text-align: center;
+            }
+            
+            .auth-form {
+                display: flex;
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+            
+            .auth-form-group {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .auth-form-group label {
+                color: var(--text-secondary);
+                font-size: 0.9rem;
+                font-weight: 500;
+            }
+            
+            .auth-form-group input {
+                padding: 0.875rem 1rem;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 8px;
+                background: rgba(255, 255, 255, 0.05);
+                color: var(--text-primary);
+                font-size: 1rem;
+                transition: all 0.3s ease;
+                backdrop-filter: blur(10px);
+            }
+            
+            .auth-form-group input:focus {
+                outline: none;
+                border-color: var(--accent-blue-light);
+                background: rgba(255, 255, 255, 0.08);
+                box-shadow: 0 0 0 3px rgba(100, 149, 237, 0.1);
+            }
+            
+            .auth-submit-btn {
+                padding: 0.875rem;
+                border: none;
+                border-radius: 8px;
+                background: var(--accent-blue-light);
+                color: white;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                margin-top: 0.5rem;
+            }
+            
+            .auth-submit-btn:hover {
+                background: var(--accent-blue-hover);
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(100, 149, 237, 0.3);
+            }
+            
+            .auth-submit-btn:active {
+                transform: translateY(0);
+            }
+            
+            .auth-switch {
+                text-align: center;
+                margin-top: 1.5rem;
+                color: var(--text-secondary);
+                font-size: 0.9rem;
+            }
+            
+            .auth-switch a {
+                color: var(--accent-blue-light);
+                text-decoration: none;
+                font-weight: 500;
+                transition: color 0.2s ease;
+            }
+            
+            .auth-switch a:hover {
+                color: var(--accent-blue-hover);
+                text-decoration: underline;
+            }
+            
+            .close-modal {
+                position: absolute;
+                top: 1rem;
+                right: 1.5rem;
+                font-size: 1.5rem;
+                color: var(--text-secondary);
+                cursor: pointer;
+                transition: color 0.2s ease;
+                line-height: 1;
+            }
+            
+            .close-modal:hover {
+                color: var(--text-primary);
+            }
+            
+            /* 响应式设计 */
+            @media (max-width: 768px) {
+                .auth-modal-content {
+                    padding: 1.5rem;
+                    margin: 1rem;
+                }
+                
+                .auth-modal-content h2 {
+                    font-size: 1.5rem;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // 导航栏文字显示
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 初始化模态框
+            initModalEvents();
+            
+            // 检查用户登录状态
+            checkUserStatus();
+            
+            // 先从后端同步数据到本地（跨设备一致）
+            await syncDataFromBackend();
+            
+            // 从本地存储加载用户数据
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (currentUser) {
+                // 从本地存储加载日历数据
+                const calendarData = JSON.parse(localStorage.getItem('migraineCalendarData') || '{}');
+                
+                // 从本地存储加载睡眠数据
+                const sleepData = JSON.parse(localStorage.getItem('sleepData') || '{}');
+                
+                // 计算统计数据
+                const migraineCount = Object.values(calendarData).filter(item => item?.migraine).length;
+                const sleepCount = Object.keys(sleepData).length;
+                const diaryCount = Object.values(calendarData).filter(item => item?.diary && item.diary.trim() !== '').length;
+                const tipCount = 3; // 模拟数据，实际应从本地存储加载
+                
+                // 更新统计数据显示
+                document.getElementById('migraineCount').textContent = migraineCount;
+                document.getElementById('sleepCount').textContent = sleepCount;
+                document.getElementById('diaryCount').textContent = diaryCount;
+                document.getElementById('tipCount').textContent = tipCount;
+                
+                // 生成近期活动数据
+                const activities = [];
+                
+                // 处理日历数据
+                Object.entries(calendarData).forEach(([date, data]) => {
+                    if (data?.migraine) {
+                        activities.push({
+                            date: date,
+                            type: 'migraine',
+                            title: window.I18n ? window.I18n.t('profile.migraineActivity') : '添加了偏头痛记录',
+                            icon: '📅'
+                        });
+                    }
+                    if (data?.diary && data.diary.trim() !== '') {
+                        activities.push({
+                            date: date,
+                            type: 'diary',
+                            title: window.I18n ? window.I18n.t('profile.diaryActivity') : '添加了日记记录',
+                            icon: '📝'
+                        });
+                    }
+                });
+                
+                // 处理睡眠数据
+                Object.entries(sleepData).forEach(([date, data]) => {
+                    activities.push({
+                        date: date,
+                        type: 'sleep',
+                        title: window.I18n ? window.I18n.t('profile.sleepActivity') : '记录了睡眠数据',
+                        icon: '💤'
+                    });
+                });
+                
+                // 按日期排序（最新的在前面）
+                activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                // 只显示最近10条活动
+                const recentActivities = activities.slice(0, 10);
+                
+                // 渲染活动列表
+                const activityList = document.getElementById('activityList');
+                if (recentActivities.length > 0) {
+                    activityList.innerHTML = recentActivities.map(activity => `
+                        <div class="activity-item">
+                            <div class="activity-icon">${activity.icon}</div>
+                            <div class="activity-content">
+                                <h4 class="activity-title" data-activity-type="${activity.type}">${activity.title}</h4>
+                                <p class="activity-date" data-date-value="${activity.date}">${window.I18n ? window.I18n.formatDate(new Date(`${activity.date}T00:00:00`)) : activity.date}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    activityList.innerHTML = `<p style="text-align: center; color: var(--text-secondary);">${window.I18n ? window.I18n.t('profile.noActivities') : '暂无活动记录'}</p>`;
+                }
+            }
+        });
+
+        // 从后端同步日历/睡眠数据到本地
+        async function syncDataFromBackend() {
+            try {
+                if (!window.ApiClient || !(await window.ApiClient.health())) return;
+                const [cal, sleep] = await Promise.all([
+                    window.ApiClient.getCalendar().catch(() => null),
+                    window.ApiClient.getSleepRecords().catch(() => null)
+                ]);
+                if (cal && cal.byDate) {
+                    localStorage.setItem('migraineCalendarData', JSON.stringify(cal.byDate));
+                }
+                if (sleep && Array.isArray(sleep.records)) {
+                    // my 页面按日期对象使用睡眠数据，转成 {date: record} 形式
+                    const sleepMap = {};
+                    sleep.records.forEach(r => { sleepMap[r.date] = r; });
+                    localStorage.setItem('sleepData', JSON.stringify(sleepMap));
+                }
+            } catch (e) {
+                console.warn('从后端同步数据失败:', e);
+            }
+        }
+
+        // 模态框事件处理
+        function initModalEvents() {
+            const loginModal = document.getElementById('loginModal');
+            const registerModal = document.getElementById('registerModal');
+            const loginBtn = document.getElementById('loginBtn');
+            const registerBtn = document.getElementById('registerBtn');
+            const closeModals = document.querySelectorAll('.close-modal');
+            const switchToRegister = document.getElementById('switchToRegister');
+            const switchToLogin = document.getElementById('switchToLogin');
+
+            // 打开登录模态框
+            loginBtn.addEventListener('click', () => {
+                loginModal.style.display = 'flex';
+            });
+
+            // 打开注册模态框
+            registerBtn.addEventListener('click', () => {
+                registerModal.style.display = 'flex';
+            });
+
+            // 关闭所有模态框
+            closeModals.forEach(closeBtn => {
+                closeBtn.addEventListener('click', () => {
+                    loginModal.style.display = 'none';
+                    registerModal.style.display = 'none';
+                });
+            });
+
+            // 切换到注册
+            switchToRegister.addEventListener('click', (e) => {
+                e.preventDefault();
+                loginModal.style.display = 'none';
+                registerModal.style.display = 'flex';
+            });
+
+            // 切换到登录
+            switchToLogin.addEventListener('click', (e) => {
+                e.preventDefault();
+                registerModal.style.display = 'none';
+                loginModal.style.display = 'flex';
+            });
+
+            // 点击模态框外部关闭
+            window.addEventListener('click', (e) => {
+                if (e.target === loginModal) loginModal.style.display = 'none';
+                if (e.target === registerModal) registerModal.style.display = 'none';
+            });
+        }
+
+        // 检查用户登录状态
+        function checkUserStatus() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const userStatus = document.getElementById('userStatus');
+            const authBtns = document.getElementById('authBtns');
+            const usernameDisplay = document.getElementById('usernameDisplay');
+            const username = document.getElementById('username');
+
+            if (currentUser) {
+                userStatus.style.display = 'flex';
+                authBtns.style.display = 'none';
+                usernameDisplay.textContent = currentUser.username;
+                username.textContent = currentUser.username;
+            } else {
+                userStatus.style.display = 'none';
+                authBtns.style.display = 'flex';
+                username.textContent = window.I18n ? window.I18n.translate('未登录') : '未登录';
+            }
+        }
+
+        // 登录表单提交（后端优先，失败降级本地）
+        document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (window.ApiClient && await window.ApiClient.health()) {
+                try {
+                    const data = await window.ApiClient.login(username, password);
+                    window.ApiClient.setToken(data.token);
+                    localStorage.setItem('currentUser', JSON.stringify({ username: data.user.username }));
+                    alert('登录成功！');
+                    document.getElementById('loginModal').style.display = 'none';
+                    checkUserStatus();
+                    location.reload();
+                    return;
+                } catch (err) {
+                    alert(err.message || '登录失败！');
+                    return;
+                }
+            }
+
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                alert('登录成功！');
+                document.getElementById('loginModal').style.display = 'none';
+                checkUserStatus();
+                location.reload();
+            } else {
+                alert('用户名或密码错误！');
+            }
+        });
+
+        // 注册表单提交（后端优先，失败降级本地）
+        document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('registerUsername').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                alert('两次输入的密码不一致！');
+                return;
+            }
+
+            if (window.ApiClient && await window.ApiClient.health()) {
+                try {
+                    const data = await window.ApiClient.register(username, password);
+                    window.ApiClient.setToken(data.token);
+                    localStorage.setItem('currentUser', JSON.stringify({ username: data.user.username }));
+                    alert('注册成功！');
+                    document.getElementById('registerModal').style.display = 'none';
+                    checkUserStatus();
+                    location.reload();
+                    return;
+                } catch (err) {
+                    alert(err.message || '注册失败！');
+                    return;
+                }
+            }
+
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            if (users.some(u => u.username === username)) {
+                alert('用户名已存在！');
+                return;
+            }
+            
+            const newUser = { username, password };
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
+            localStorage.setItem('currentUser', JSON.stringify(newUser));
+            alert('注册成功！');
+            document.getElementById('registerModal').style.display = 'none';
+            checkUserStatus();
+            location.reload();
+        });
+
+        // 退出登录
+        document.getElementById('logoutBtn')?.addEventListener('click', () => {
+            localStorage.removeItem('currentUser');
+            if (window.ApiClient) {
+                window.ApiClient.setToken('');
+                window.ApiClient.clearLocalData();
+            }
+            checkUserStatus();
+            location.reload();
+        });
+        
+
+        window.addEventListener('migraine:languagechange', () => {
+            checkUserStatus();
+            const activityKeys = {
+                migraine: 'profile.migraineActivity',
+                sleep: 'profile.sleepActivity',
+                diary: 'profile.diaryActivity'
+            };
+            document.querySelectorAll('[data-activity-type]').forEach((element) => {
+                element.textContent = window.I18n.t(activityKeys[element.dataset.activityType]);
+            });
+            document.querySelectorAll('.activity-date[data-date-value]').forEach((element) => {
+                element.textContent = window.I18n.formatDate(new Date(`${element.dataset.dateValue}T00:00:00`));
+            });
+        });
+    </script>
+</body>
+</html>

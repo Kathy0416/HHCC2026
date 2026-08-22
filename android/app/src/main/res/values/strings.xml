@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Migraine Signal</string>
+    <string name="title_activity_main">Migraine Signal</string>
+    <string name="package_name">com.migrainesignal.app</string>
+    <string name="custom_url_scheme">com.migrainesignal.app</string>
+</resources>

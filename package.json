@@ -1,0 +1,29 @@
+{
+  "name": "migraine-signal-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Migraine Signal web app and Capacitor Android shell",
+  "scripts": {
+    "build:web": "node scripts/build-web.mjs",
+    "test:dist": "node scripts/test-dist.mjs",
+    "test:mobile-runtime": "node --test scripts/mobile-runtime.test.mjs",
+    "cap:sync": "npm run build:web && cap sync android",
+    "cap:open": "cap open android",
+    "android:assets": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/generate-android-assets.ps1",
+    "android:debug": "npm run cap:sync && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/android-gradle.ps1 assembleDebug",
+    "android:test": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/android-gradle.ps1 testDebugUnitTest",
+    "android:verify": "npm run test:mobile-runtime && npm run cap:sync && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/android-gradle.ps1",
+    "test:server": "npm --prefix server test"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.0",
+    "@capacitor/core": "8.5.0",
+    "chart.js": "4.5.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
