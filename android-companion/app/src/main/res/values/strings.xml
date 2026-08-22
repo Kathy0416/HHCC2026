@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Migraine Signal Sync</string>
+    <string name="title">Health Connect sync</string>
+    <string name="subtitle">Upload Xiaomi / Mi Fitness summaries to your private Migraine Signal account.</string>
+    <string name="server_url">Server URL</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="login">Log in</string>
+    <string name="logout">Log out</string>
+    <string name="permissions">Grant health permissions</string>
+    <string name="origins">Find data sources</string>
+    <string name="source_label">Health Connect source</string>
+    <string name="sync_now">Sync now</string>
+    <string name="idle">Sign in, grant permissions, and choose the Mi Fitness source.</string>
+    <string name="stress_note">Wearable stress is not uploaded because Health Connect has no standard stress-score record.</string>
+</resources>

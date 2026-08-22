@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#182036">
+    <link rel="icon" href="data:,">
+    <title>健康分析 - Migraine Signal</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="health-analysis.css?v=8-health-analysis">
+    <script src="site-header.js"></script>
+    <script src="locales.js"></script>
+    <script src="i18n.js?v=8-health-analysis"></script>
+    <script src="api.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="health-analysis.js?v=8-health-analysis" defer></script>
+</head>
+<body class="health-page">
+    <div data-site-header data-page-title="健康分析"></div>
+
+    <main class="health-shell">
+        <div id="pageStatus" class="page-status" role="status" aria-live="polite" data-i18n="health.common.loading">正在加载健康分析…</div>
+
+        <div class="health-top-grid">
+            <section class="health-card record-card" aria-labelledby="record-title">
+                <div class="section-heading">
+                    <div><p class="section-eyebrow">MANUAL FALLBACK</p><h2 id="record-title" data-i18n="health.record.title">记录睡眠</h2></div>
+                    <span class="section-icon" aria-hidden="true">☾</span>
+                </div>
+                <form id="sleepForm" class="sleep-form">
+                    <label class="form-field"><span data-i18n="health.record.date">日期</span><input type="date" id="date" required></label>
+                    <label class="form-field"><span data-i18n="health.record.bedtime">入睡时间</span><input type="time" id="sleepTime" required></label>
+                    <label class="form-field"><span data-i18n="health.record.wakeTime">起床时间</span><input type="time" id="wakeTime" required></label>
+                    <label class="form-field"><span data-i18n="health.record.quality">睡眠质量</span><select id="quality" required>
+                        <option value="excellent" data-i18n="sleep.quality.excellent">优秀</option>
+                        <option value="good" data-i18n="sleep.quality.good">良好</option>
+                        <option value="fair" data-i18n="sleep.quality.fair">一般</option>
+                        <option value="poor" data-i18n="sleep.quality.poor">较差</option>
+                    </select></label>
+                    <div class="duration-panel" aria-live="polite"><span data-i18n="health.record.duration">睡眠时长</span><strong id="durationValue">--:--</strong></div>
+                    <button type="submit" class="primary-action" data-i18n="health.record.save">保存记录</button>
+                </form>
+
+                <form id="migraineDurationForm" class="metric-form">
+                    <p class="metric-form-title" data-i18n="health.metric.migraineDuration">偏头痛时长</p>
+                    <label class="form-field"><span data-i18n="health.record.date">日期</span><input type="date" id="migraineDurationDate" required></label>
+                    <label class="form-field"><span data-i18n="health.metric.durationMinutes">时长（分钟）</span><input type="number" id="migraineDurationValue" min="0" step="1" inputmode="numeric" required></label>
+                    <button type="submit" class="primary-action" data-i18n="health.metric.save">保存</button>
+                </form>
+
+                <form id="vitalsForm" class="metric-form">
+                    <p class="metric-form-title" data-i18n="health.metric.vitals">血氧与心率</p>
+                    <label class="form-field"><span data-i18n="health.record.date">日期</span><input type="date" id="vitalsDate" required></label>
+                    <label class="form-field"><span data-i18n="health.metric.spo2">血氧（%）</span><input type="number" id="spo2Value" min="0" max="100" step="0.1" inputmode="decimal" required></label>
+                    <label class="form-field"><span data-i18n="health.metric.heartRate">心率（bpm）</span><input type="number" id="heartRateValue" min="0" step="1" inputmode="numeric" required></label>
+                    <button type="submit" class="primary-action" data-i18n="health.metric.save">保存</button>
+                </form>
+
+                <form id="stepsForm" class="metric-form">
+                    <p class="metric-form-title" data-i18n="health.connection.steps">步数</p>
+                    <label class="form-field"><span data-i18n="health.record.date">日期</span><input type="date" id="stepsDate" required></label>
+                    <label class="form-field"><span data-i18n="health.connection.steps">步数</span><input type="number" id="stepsValue" min="0" step="1" inputmode="numeric" required></label>
+                    <button type="submit" class="primary-action" data-i18n="health.metric.save">保存</button>
+                </form>
+            </section>
+
+            <section class="health-card connection-card" aria-labelledby="connection-title">
+                <div class="section-heading">
+                    <div><p class="section-eyebrow">HEALTH CONNECT</p><h2 id="connection-title" data-i18n="health.connection.title">手表连接</h2></div>
+                    <span id="connectionBadge" class="connection-badge is-offline" data-i18n="health.connection.disconnected">已断开</span>
+                </div>
+                <div class="connection-layout">
+                    <div class="device-block">
+                        <div class="watch-illustration" aria-hidden="true"><span class="watch-strap top"></span><span class="watch-face"><span>♥</span></span><span class="watch-strap bottom"></span></div>
+                        <p class="device-label" data-i18n="health.connection.device">设备</p><strong id="deviceName">Health Connect</strong><span id="lastSync" class="last-sync">—</span>
+                    </div>
+                    <dl class="latest-grid">
+                        <div class="latest-metric"><dt data-i18n="health.connection.heartRate">心率</dt><dd><span id="latestHeartRate">—</span> <small>bpm</small></dd></div>
+                        <div class="latest-metric"><dt data-i18n="health.connection.spo2">血氧</dt><dd><span id="latestSpo2">—</span> <small>%</small></dd></div>
+                        <div class="latest-metric"><dt data-i18n="health.connection.steps">步数</dt><dd><span id="latestSteps">—</span></dd></div>
+                        <div class="latest-metric"><dt data-i18n="health.connection.stress">压力</dt><dd class="text-value" id="latestStress" data-i18n="health.connection.stressDiary">来自日记触发因素</dd></div>
+                    </dl>
+                </div>
+                <div class="connection-actions">
+                    <button type="button" id="disconnectBtn" class="secondary-action danger" disabled data-i18n="health.connection.disconnect">断开连接</button>
+                    <button type="button" id="refreshBtn" class="secondary-action" data-i18n="health.connection.refresh">刷新</button>
+                    <button type="button" id="setupBtn" class="primary-action compact" aria-expanded="false" aria-controls="androidSetup" data-i18n="health.connection.setup">设置安卓同步</button>
+                </div>
+                <p class="connection-hint" data-i18n="health.connection.refreshHint">刷新只会加载安卓配套应用已上传的数据。</p>
+                <div id="androidSetup" class="setup-panel" hidden><h3 data-i18n="health.connection.setupTitle">通过 Health Connect 连接</h3><p data-i18n="health.connection.setupBody">安装配套应用，使用本账号登录，授权读取 Mi Fitness 数据，然后在手机上点击“立即同步”。</p><code>android-companion/README.md</code></div>
+            </section>
+        </div>
+
+        <section class="health-card analysis-card" aria-labelledby="analysis-title">
+            <div class="analysis-header">
+                <div class="section-heading compact-heading"><div><p class="section-eyebrow">PERSONAL TRENDS</p><h2 id="analysis-title" data-i18n="health.analysis.title">健康分析</h2></div></div>
+                <div class="range-picker" role="group" data-i18n-aria-label="health.analysis.rangeLabel" aria-label="分析周期"><button type="button" data-range="7">7D</button><button type="button" data-range="30" class="is-active">30D</button><button type="button" data-range="90">90D</button></div>
+            </div>
+            <div class="kpi-grid">
+                <article class="kpi-card"><span data-i18n="health.kpi.sleep">平均睡眠</span><strong id="kpiSleep">—</strong></article>
+                <article class="kpi-card"><span data-i18n="health.kpi.migraine">偏头痛天数</span><strong id="kpiMigraine">—</strong></article>
+                <article class="kpi-card"><span data-i18n="health.kpi.migraineDuration">平均偏头痛时长</span><strong id="kpiMigraineDuration">—</strong></article>
+                <article class="kpi-card"><span data-i18n="health.kpi.heartRate">平均心率</span><strong id="kpiHeartRate">—</strong></article>
+                <article class="kpi-card"><span data-i18n="health.kpi.spo2">平均血氧</span><strong id="kpiSpo2">—</strong></article>
+                <article class="kpi-card"><span data-i18n="health.kpi.steps">平均步数</span><strong id="kpiSteps">—</strong></article>
+            </div>
+            <p id="coverageSummary" class="coverage-summary">—</p>
+            <div class="chart-grid">
+                <article class="chart-card chart-wide"><h3 data-i18n="health.chart.sleep">睡眠与偏头痛日期</h3><div class="chart-frame"><canvas id="sleepMigraineChart"></canvas></div></article>
+                <article class="chart-card"><h3 data-i18n="health.chart.vitals">心率与血氧</h3><div class="chart-frame"><canvas id="vitalsChart"></canvas></div></article>
+                <article class="chart-card"><h3 data-i18n="health.chart.steps">每日活动</h3><div class="chart-frame"><canvas id="stepsChart"></canvas></div></article>
+            </div>
+            <section class="insights-panel" aria-labelledby="insights-title">
+                <div class="insights-heading"><h3 id="insights-title" data-i18n="health.insights.title">偏头痛日期对比</h3><span class="insight-tag">DESCRIPTIVE</span></div>
+                <div id="insightsContent" class="insights-content"></div>
+                <p class="disclaimer" data-i18n="health.insights.disclaimer">这些内容只是对个人记录的描述，不构成诊断，也不证明因果关系。</p>
+            </section>
+        </section>
+
+        <section class="health-card history-card" aria-labelledby="history-title">
+            <div class="section-heading compact-heading"><h2 id="history-title" data-i18n="health.history.title">近期每日记录</h2></div>
+            <div class="table-wrap"><table class="health-table"><thead><tr>
+                <th data-i18n="health.history.date">日期</th><th data-i18n="health.history.source">睡眠来源</th><th data-i18n="health.history.sleep">睡眠</th><th data-i18n="health.history.heartRate">心率</th><th data-i18n="health.history.spo2">血氧</th><th data-i18n="health.history.steps">步数</th><th data-i18n="health.history.migraineDuration">偏头痛时长</th><th data-i18n="health.history.migraine">偏头痛</th>
+            </tr></thead><tbody id="healthHistoryBody"></tbody></table></div>
+            <div id="emptyState" class="empty-state" hidden data-i18n="health.common.noData">此时间范围内还没有健康数据。</div>
+        </section>
+    </main>
+
+    <footer class="health-footer"><nav class="health-navigation" aria-label="Primary">
+        <a href="index.html" class="health-nav-link"><span aria-hidden="true">📅</span><span>首页</span></a>
+        <a href="sleep.html" class="health-nav-link is-active" aria-current="page"><span aria-hidden="true">⌁</span><span data-i18n="nav.healthAnalysis">健康分析</span></a>
+        <a href="diary.html" class="health-nav-link journal-link"><span aria-hidden="true">📔</span><span>日历</span></a>
+        <a href="tips.html" class="health-nav-link"><span aria-hidden="true">💡</span><span data-i18n="nav.tips">贴士</span></a>
+        <a href="my.html" class="health-nav-link"><span aria-hidden="true">👤</span><span>我的</span></a>
+    </nav></footer>
+    <a class="chat-shortcut" href="ai-chat.html" aria-label="AI 助手">•••</a>
+
+    <div id="loginModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle"><div class="modal-content glass-effect auth-modal-content">
+        <button class="close-modal" type="button" aria-label="Close">&times;</button><h2 id="loginTitle">用户登录</h2>
+        <form id="loginForm" class="auth-form"><label class="auth-form-group"><span>用户名</span><input type="text" id="loginUsername" required autocomplete="username"></label><label class="auth-form-group"><span>密码</span><input type="password" id="loginPassword" required autocomplete="current-password"></label><button type="submit" class="auth-submit-btn">登录</button></form>
+        <div class="auth-switch">还没有账号？ <a href="#" id="switchToRegister">立即注册</a></div>
+    </div></div>
+    <div id="registerModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="registerTitle"><div class="modal-content glass-effect auth-modal-content">
+        <button class="close-modal" type="button" aria-label="Close">&times;</button><h2 id="registerTitle">用户注册</h2>
+        <form id="registerForm" class="auth-form"><label class="auth-form-group"><span>用户名</span><input type="text" id="registerUsername" required autocomplete="username"></label><label class="auth-form-group"><span>密码</span><input type="password" id="registerPassword" required autocomplete="new-password"></label><label class="auth-form-group"><span>确认密码</span><input type="password" id="registerConfirmPassword" required autocomplete="new-password"></label><button type="submit" class="auth-submit-btn">注册</button></form>
+        <div class="auth-switch">已有账号？ <a href="#" id="switchToLogin">立即登录</a></div>
+    </div></div>
+</body>
+</html>

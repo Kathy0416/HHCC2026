@@ -1,0 +1,494 @@
+(function () {
+  'use strict';
+
+  const state = { range: 30, analysis: null, connection: null, latest: null, charts: {} };
+  const QUALITY = new Set(['excellent', 'good', 'fair', 'poor']);
+
+  function t(key, variables) {
+    return window.I18n ? window.I18n.t(key, variables) : key;
+  }
+
+  function locale() {
+    return window.I18n ? window.I18n.getLanguage() : 'en';
+  }
+
+  function setStatus(message, type) {
+    const element = document.getElementById('pageStatus');
+    element.textContent = message || '';
+    element.className = `page-status${type ? ` is-${type}` : ''}`;
+  }
+
+  function currentUser() {
+    try { return JSON.parse(localStorage.getItem('currentUser') || 'null'); } catch (error) { return null; }
+  }
+
+  function showModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function hideModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.style.display = 'none';
+  }
+
+  function updateAuthHeader() {
+    const user = currentUser();
+    const authButtons = document.getElementById('authBtns');
+    const userStatus = document.getElementById('userStatus');
+    const username = document.getElementById('usernameDisplay');
+    if (!authButtons || !userStatus) return;
+    authButtons.style.display = user ? 'none' : 'flex';
+    userStatus.style.display = user ? 'flex' : 'none';
+    if (username) username.textContent = user ? user.username : '';
+  }
+
+  function initAuth() {
+    updateAuthHeader();
+    document.getElementById('loginBtn')?.addEventListener('click', () => showModal('loginModal'));
+    document.getElementById('registerBtn')?.addEventListener('click', () => showModal('registerModal'));
+    document.getElementById('logoutBtn')?.addEventListener('click', () => {
+      window.ApiClient?.setToken('');
+      window.ApiClient?.clearLocalData();
+      localStorage.removeItem('currentUser');
+      updateAuthHeader();
+      state.connection = null;
+      state.latest = null;
+      renderConnection();
+      renderLocalAnalysis();
+      setStatus(t('health.record.loginRequired'));
+    });
+    document.querySelectorAll('.close-modal').forEach((button) => button.addEventListener('click', () => hideModal(button.closest('.modal').id)));
+    document.getElementById('switchToRegister')?.addEventListener('click', (event) => { event.preventDefault(); hideModal('loginModal'); showModal('registerModal'); });
+    document.getElementById('switchToLogin')?.addEventListener('click', (event) => { event.preventDefault(); hideModal('registerModal'); showModal('loginModal'); });
+    document.querySelectorAll('.modal').forEach((modal) => modal.addEventListener('click', (event) => { if (event.target === modal) hideModal(modal.id); }));
+
+    document.getElementById('loginForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        const data = await window.ApiClient.login(
+          document.getElementById('loginUsername').value.trim(),
+          document.getElementById('loginPassword').value
+        );
+        window.ApiClient.setToken(data.token);
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
+        hideModal('loginModal');
+        updateAuthHeader();
+        await loadAll();
+      } catch (error) {
+        setStatus(error.message, 'error');
+      }
+    });
+
+    document.getElementById('registerForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const password = document.getElementById('registerPassword').value;
+      if (password !== document.getElementById('registerConfirmPassword').value) {
+        setStatus(locale() === 'en' ? 'The passwords do not match.' : '两次输入的密码不一致。', 'error');
+        return;
+      }
+      try {
+        const data = await window.ApiClient.register(document.getElementById('registerUsername').value.trim(), password);
+        window.ApiClient.setToken(data.token);
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
+        hideModal('registerModal');
+        updateAuthHeader();
+        await loadAll();
+      } catch (error) {
+        setStatus(error.message, 'error');
+      }
+    });
+  }
+
+  function calculateDuration() {
+    const sleep = document.getElementById('sleepTime').value;
+    const wake = document.getElementById('wakeTime').value;
+    if (!sleep || !wake) {
+      document.getElementById('durationValue').textContent = '--:--';
+      return null;
+    }
+    const [sleepHour, sleepMinute] = sleep.split(':').map(Number);
+    const [wakeHour, wakeMinute] = wake.split(':').map(Number);
+    let minutes = wakeHour * 60 + wakeMinute - sleepHour * 60 - sleepMinute;
+    if (minutes <= 0) minutes += 1440;
+    const duration = { hours: Math.floor(minutes / 60), minutes: minutes % 60, totalMinutes: minutes };
+    document.getElementById('durationValue').textContent = `${String(duration.hours).padStart(2, '0')}:${String(duration.minutes).padStart(2, '0')}`;
+    return duration;
+  }
+
+  function localSleepRecords() {
+    try {
+      const records = JSON.parse(localStorage.getItem('sleepRecords') || '[]');
+      return Array.isArray(records) ? records : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveLocalSleep(record) {
+    const records = localSleepRecords();
+    const index = records.findIndex((item) => item.date === record.date);
+    if (index >= 0) records[index] = record;
+    else records.push(record);
+    localStorage.setItem('sleepRecords', JSON.stringify(records));
+  }
+
+  function initSleepForm() {
+    document.getElementById('date').valueAsDate = new Date();
+    document.getElementById('sleepTime').addEventListener('change', calculateDuration);
+    document.getElementById('wakeTime').addEventListener('change', calculateDuration);
+    document.getElementById('sleepForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!window.ApiClient?.isLoggedIn()) {
+        setStatus(t('health.record.loginRequired'), 'error');
+        showModal('loginModal');
+        return;
+      }
+      const duration = calculateDuration();
+      if (!duration) return;
+      const record = {
+        date: document.getElementById('date').value,
+        sleepTime: document.getElementById('sleepTime').value,
+        wakeTime: document.getElementById('wakeTime').value,
+        quality: QUALITY.has(document.getElementById('quality').value) ? document.getElementById('quality').value : 'good',
+        duration
+      };
+      saveLocalSleep(record);
+      try {
+        await window.ApiClient.saveSleepRecord(record.date, record);
+        setStatus(t('health.record.saved'), 'success');
+        document.getElementById('sleepForm').reset();
+        document.getElementById('date').valueAsDate = new Date();
+        document.getElementById('durationValue').textContent = '--:--';
+        await loadAll(false);
+      } catch (error) {
+        setStatus(t('health.common.offline'), 'error');
+        renderLocalAnalysis();
+      }
+    });
+  }
+
+  function initMetricForms() {
+    ['migraineDurationDate', 'vitalsDate', 'stepsDate'].forEach((id) => {
+      const input = document.getElementById(id);
+      if (input) input.valueAsDate = new Date();
+    });
+
+    async function saveMetric(key, date, value) {
+      if (!window.ApiClient?.isLoggedIn()) {
+        setStatus(t('health.record.loginRequired'), 'error');
+        showModal('loginModal');
+        return false;
+      }
+      try {
+        await window.ApiClient.saveMetric(key, date, value);
+        return true;
+      } catch (error) {
+        setStatus(error.status ? error.message : t('health.common.offline'), 'error');
+        return false;
+      }
+    }
+
+    document.getElementById('migraineDurationForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const date = document.getElementById('migraineDurationDate').value;
+      const value = Number(document.getElementById('migraineDurationValue').value);
+      if (!date || !Number.isFinite(value)) return;
+      if (await saveMetric('migraine-duration', date, value)) {
+        setStatus(t('health.metric.saved'), 'success');
+        event.target.reset();
+        document.getElementById('migraineDurationDate').valueAsDate = new Date();
+      }
+    });
+
+    document.getElementById('vitalsForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const date = document.getElementById('vitalsDate').value;
+      const spo2 = Number(document.getElementById('spo2Value').value);
+      const heartRate = Number(document.getElementById('heartRateValue').value);
+      if (!date || !Number.isFinite(spo2) || !Number.isFinite(heartRate)) return;
+      const okSpo2 = await saveMetric('spo2', date, spo2);
+      const okHeartRate = await saveMetric('heart-rate', date, heartRate);
+      if (okSpo2 && okHeartRate) {
+        setStatus(t('health.metric.saved'), 'success');
+        event.target.reset();
+        document.getElementById('vitalsDate').valueAsDate = new Date();
+      }
+    });
+
+    document.getElementById('stepsForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const date = document.getElementById('stepsDate').value;
+      const value = Number(document.getElementById('stepsValue').value);
+      if (!date || !Number.isFinite(value)) return;
+      if (await saveMetric('steps', date, value)) {
+        setStatus(t('health.metric.saved'), 'success');
+        event.target.reset();
+        document.getElementById('stepsDate').valueAsDate = new Date();
+      }
+    });
+  }
+
+  function formatDate(value) {
+    const date = new Date(`${value}T12:00:00`);
+    return new Intl.DateTimeFormat(locale(), { month: 'short', day: 'numeric' }).format(date);
+  }
+
+  function formatDateTime(value) {
+    if (!value) return '—';
+    const date = new Date(value.endsWith('Z') || /[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat(locale(), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+  }
+
+  function formatDuration(minutes) {
+    if (!Number.isFinite(Number(minutes))) return '—';
+    const value = Math.round(Number(minutes));
+    const hours = Math.floor(value / 60);
+    const remainder = value % 60;
+    return locale() === 'en' ? `${hours}h ${remainder}m` : `${hours}小时${remainder}分钟`;
+  }
+
+  function rounded(value, suffix, digits = 0) {
+    return value == null || !Number.isFinite(Number(value)) ? '—' : `${Number(value).toFixed(digits)}${suffix || ''}`;
+  }
+
+  function renderConnection() {
+    const connection = state.connection;
+    const latest = state.latest;
+    const active = !!(connection && connection.active);
+    const badge = document.getElementById('connectionBadge');
+    badge.className = `connection-badge ${active ? 'is-online' : 'is-offline'}`;
+    badge.textContent = t(active ? 'health.connection.connected' : 'health.connection.disconnected');
+
+    if (active && connection.lastSyncedAt) {
+      const age = Date.now() - new Date(`${connection.lastSyncedAt}Z`).getTime();
+      if (Number.isFinite(age) && age > 48 * 60 * 60 * 1000) {
+        badge.className = 'connection-badge is-stale';
+        badge.textContent = t('health.connection.stale');
+      }
+    }
+    document.getElementById('deviceName').textContent = connection
+      ? (connection.deviceName || [connection.manufacturer, connection.model].filter(Boolean).join(' ') || 'Health Connect')
+      : 'Health Connect';
+    document.getElementById('lastSync').textContent = connection?.lastSyncedAt
+      ? `${t('health.connection.lastSync')}: ${formatDateTime(connection.lastSyncedAt)}` : '—';
+    document.getElementById('latestHeartRate').textContent = latest?.heartRate?.avg == null ? '—' : Math.round(latest.heartRate.avg);
+    document.getElementById('latestSpo2').textContent = latest?.spo2?.avg == null ? '—' : Number(latest.spo2.avg).toFixed(1);
+    document.getElementById('latestSteps').textContent = latest?.steps == null ? '—' : Number(latest.steps).toLocaleString(locale());
+    const latestDay = state.analysis?.series?.find((day) => day.date === latest?.date);
+    document.getElementById('latestStress').textContent = connection
+      ? `${t(latestDay?.stressTrigger ? 'health.common.yes' : 'health.common.no')} · ${t('health.connection.stressDiary')}`
+      : t('health.connection.unavailable');
+    document.getElementById('disconnectBtn').disabled = !active;
+  }
+
+  function chartDefaults() {
+    return {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#aebbd5', usePointStyle: true, boxWidth: 8 } },
+        tooltip: { backgroundColor: 'rgba(10,15,27,.94)', titleColor: '#fff', bodyColor: '#cbd6ec', borderColor: 'rgba(112,148,241,.3)', borderWidth: 1 }
+      },
+      scales: {
+        x: { ticks: { color: '#8794af', maxTicksLimit: state.range === 90 ? 10 : 15 }, grid: { color: 'rgba(123,147,205,.07)' } },
+        y: { ticks: { color: '#8794af' }, grid: { color: 'rgba(123,147,205,.09)' } }
+      }
+    };
+  }
+
+  function replaceChart(name, canvas, config) {
+    if (!window.Chart) return;
+    state.charts[name]?.destroy();
+    state.charts[name] = new window.Chart(document.getElementById(canvas), config);
+  }
+
+  function renderCharts(analysis) {
+    const labels = analysis.series.map((day) => formatDate(day.date));
+    const sleep = analysis.series.map((day) => day.sleepMinutes == null ? null : Number((day.sleepMinutes / 60).toFixed(2)));
+    const migraineDuration = analysis.series.map((day) => (day.migraineDurationMinutes != null && day.migraineDurationMinutes > 0) ? Number((day.migraineDurationMinutes / 60).toFixed(2)) : null);
+    replaceChart('sleep', 'sleepMigraineChart', {
+      type: 'line',
+      data: { labels, datasets: [
+        { label: t('health.history.sleep'), data: sleep, borderColor: '#729cff', backgroundColor: 'rgba(96,137,244,.15)', fill: true, tension: .34, spanGaps: true, pointRadius: 4, pointHoverRadius: 5, pointBackgroundColor: '#729cff' },
+        { type: 'bar', label: t('health.metric.migraineDuration'), data: migraineDuration, barThickness: 2, backgroundColor: '#ff6c7c', borderColor: '#ff6c7c' },
+        { type: 'line', label: '', data: migraineDuration, showLine: false, pointRadius: 5, pointHoverRadius: 6, pointBackgroundColor: '#ff6c7c' }
+      ] },
+      options: { ...chartDefaults(), plugins: { ...chartDefaults().plugins, legend: { ...chartDefaults().plugins.legend, labels: { ...chartDefaults().plugins.legend.labels, filter: (item) => item.text !== '' } } }, scales: { ...chartDefaults().scales, y: { ...chartDefaults().scales.y, suggestedMin: 0, suggestedMax: 10, title: { display: true, text: locale() === 'en' ? 'Hours' : '小时', color: '#8794af' } } } }
+    });
+
+    const vitalsOptions = chartDefaults();
+    vitalsOptions.scales = {
+      x: vitalsOptions.scales.x,
+      heart: { type: 'linear', position: 'left', ticks: { color: '#8794af' }, grid: { color: 'rgba(123,147,205,.09)' } },
+      oxygen: { type: 'linear', position: 'right', min: 80, max: 100, ticks: { color: '#8794af' }, grid: { drawOnChartArea: false } }
+    };
+    replaceChart('vitals', 'vitalsChart', {
+      type: 'line', data: { labels, datasets: [
+        { label: t('health.connection.heartRate'), data: analysis.series.map((day) => day.heartRateAvg), yAxisID: 'heart', borderColor: '#ff8c9b', backgroundColor: '#ff8c9b', tension: .3, spanGaps: true, pointRadius: 2 },
+        { label: t('health.connection.spo2'), data: analysis.series.map((day) => day.spo2Avg), yAxisID: 'oxygen', borderColor: '#66d5dc', backgroundColor: '#66d5dc', tension: .3, spanGaps: true, pointRadius: 2 }
+      ] }, options: vitalsOptions
+    });
+    replaceChart('steps', 'stepsChart', {
+      type: 'bar', data: { labels, datasets: [{ label: t('health.connection.steps'), data: analysis.series.map((day) => day.steps), backgroundColor: analysis.series.map((day) => day.migraine ? 'rgba(255,108,124,.7)' : 'rgba(101,147,255,.62)'), borderRadius: 5 }] }, options: chartDefaults()
+    });
+  }
+
+  function addComparison(container, title, comparison, formatter) {
+    const card = document.createElement('article');
+    card.className = 'comparison-card';
+    const heading = document.createElement('h4');
+    heading.textContent = title;
+    const values = document.createElement('div');
+    values.className = 'comparison-values';
+    const migraine = document.createElement('span');
+    migraine.textContent = `${t('health.insights.migraineAverage')}: ${formatter(comparison.migraineAverage)}`;
+    const nonMigraine = document.createElement('span');
+    nonMigraine.textContent = `${t('health.insights.nonMigraineAverage')}: ${formatter(comparison.nonMigraineAverage)}`;
+    values.append(migraine, nonMigraine);
+    const difference = document.createElement('span');
+    difference.className = 'comparison-difference';
+    difference.textContent = `${t('health.insights.difference')}: ${formatter(comparison.difference, true)}`;
+    card.append(heading, values, difference);
+    container.appendChild(card);
+  }
+
+  function renderInsights(analysis) {
+    const container = document.getElementById('insightsContent');
+    container.replaceChildren();
+    if (!analysis.coverage.insightsAvailable || !analysis.comparisons) {
+      const message = document.createElement('p');
+      message.className = 'insufficient-message';
+      message.textContent = t('health.insights.insufficient');
+      container.appendChild(message);
+      return;
+    }
+    addComparison(container, t('health.kpi.sleep'), analysis.comparisons.sleepMinutes, (value) => formatDuration(value));
+    addComparison(container, t('health.kpi.heartRate'), analysis.comparisons.heartRate, (value, signed) => value == null ? '—' : `${signed && value > 0 ? '+' : ''}${Number(value).toFixed(1)} bpm`);
+    addComparison(container, t('health.kpi.spo2'), analysis.comparisons.spo2, (value, signed) => value == null ? '—' : `${signed && value > 0 ? '+' : ''}${Number(value).toFixed(1)}%`);
+    addComparison(container, t('health.kpi.steps'), analysis.comparisons.steps, (value, signed) => value == null ? '—' : `${signed && value > 0 ? '+' : ''}${Math.round(value).toLocaleString(locale())}`);
+    if (analysis.comparisons.stressTriggerRate != null) {
+      const stress = document.createElement('p');
+      stress.className = 'stress-insight';
+      stress.textContent = t('health.insights.stressRate', { rate: analysis.comparisons.stressTriggerRate });
+      container.appendChild(stress);
+    }
+  }
+
+  function renderHistory(analysis) {
+    const body = document.getElementById('healthHistoryBody');
+    body.replaceChildren();
+    const rows = analysis.series.filter((day) => day.sleepMinutes != null || day.heartRateAvg != null || day.spo2Avg != null || day.steps != null || day.hasDiaryEntry).slice().reverse();
+    document.getElementById('emptyState').hidden = rows.length > 0;
+    document.querySelector('.health-table').hidden = rows.length === 0;
+    rows.forEach((day) => {
+      const row = document.createElement('tr');
+      const source = day.sleepSource ? t(`health.source.${day.sleepSource}`) : '—';
+      const cells = [formatDate(day.date), source, formatDuration(day.sleepMinutes), rounded(day.heartRateAvg, ' bpm'), rounded(day.spo2Avg, '%', 1), day.steps == null ? '—' : Math.round(day.steps).toLocaleString(locale()), (day.migraineDurationMinutes == null || day.migraineDurationMinutes <= 0) ? '—' : formatDuration(day.migraineDurationMinutes)];
+      cells.forEach((value, index) => {
+        const cell = document.createElement('td');
+        if (index === 1 && day.sleepSource) {
+          const pill = document.createElement('span'); pill.className = 'source-pill'; pill.textContent = value; cell.appendChild(pill);
+        } else cell.textContent = value;
+        row.appendChild(cell);
+      });
+      const migraineCell = document.createElement('td');
+      const pill = document.createElement('span');
+      pill.className = `migraine-pill ${day.migraine ? 'yes' : 'no'}`;
+      pill.textContent = t(day.migraine ? 'health.common.yes' : 'health.common.no');
+      migraineCell.appendChild(pill); row.appendChild(migraineCell); body.appendChild(row);
+    });
+  }
+
+  function renderAnalysis(analysis) {
+    state.analysis = analysis;
+    document.getElementById('kpiSleep').textContent = formatDuration(analysis.kpis.averageSleepMinutes);
+    document.getElementById('kpiMigraine').textContent = analysis.kpis.migraineDays ?? '—';
+    document.getElementById('kpiMigraineDuration').textContent = formatDuration(analysis.kpis.averageMigraineDurationMinutes);
+    document.getElementById('kpiHeartRate').textContent = rounded(analysis.kpis.averageHeartRate, ' bpm');
+    document.getElementById('kpiSpo2').textContent = rounded(analysis.kpis.averageSpo2, '%', 1);
+    document.getElementById('kpiSteps').textContent = analysis.kpis.averageSteps == null ? '—' : Math.round(analysis.kpis.averageSteps).toLocaleString(locale());
+    document.getElementById('coverageSummary').textContent = t('health.coverage', { recorded: analysis.coverage.recordedDays, overlap: analysis.coverage.overlappingDays });
+    renderCharts(analysis);
+    renderInsights(analysis);
+    renderHistory(analysis);
+    renderConnection();
+  }
+
+  function localDate(offset) {
+    const date = new Date(); date.setDate(date.getDate() + offset);
+    const year = date.getFullYear(); const month = String(date.getMonth() + 1).padStart(2, '0'); const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function renderLocalAnalysis() {
+    const records = new Map(localSleepRecords().map((record) => [record.date, record]));
+    const series = Array.from({ length: state.range }, (_, index) => {
+      const date = localDate(index - state.range + 1); const record = records.get(date);
+      return { date, migraine: false, hasDiaryEntry: false, stressTrigger: false, sleepMinutes: record?.duration?.totalMinutes ?? null, sleepSource: record ? 'manual' : null, heartRateAvg: null, spo2Avg: null, steps: null };
+    });
+    const sleepValues = series.map((day) => day.sleepMinutes).filter(Number.isFinite);
+    renderAnalysis({ range: state.range, series, kpis: { averageSleepMinutes: sleepValues.length ? sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length : null, migraineDays: 0, averageHeartRate: null, averageSpo2: null, averageSteps: null }, coverage: { recordedDays: sleepValues.length, overlappingDays: 0, insightsAvailable: false }, comparisons: null });
+  }
+
+  async function loadAll(showLoading = true) {
+    if (showLoading) setStatus(t('health.common.loading'));
+    if (!window.ApiClient?.hasToken()) {
+      state.connection = null; state.latest = null; renderConnection(); renderLocalAnalysis(); setStatus(t('health.record.loginRequired'));
+      return;
+    }
+    try {
+      const [connectionData, analysis] = await Promise.all([window.ApiClient.getHealthConnection(), window.ApiClient.getHealthAnalysis(state.range)]);
+      state.connection = connectionData.connection;
+      state.latest = connectionData.latest;
+      renderAnalysis(analysis);
+      setStatus('');
+    } catch (error) {
+      if (error.status === 401) showModal('loginModal');
+      renderLocalAnalysis();
+      setStatus(error.status ? error.message : t('health.common.offline'), 'error');
+    }
+  }
+
+  function initControls() {
+    document.querySelectorAll('[data-range]').forEach((button) => button.addEventListener('click', async () => {
+      state.range = Number(button.dataset.range);
+      document.querySelectorAll('[data-range]').forEach((item) => item.classList.toggle('is-active', item === button));
+      await loadAll();
+    }));
+    document.getElementById('refreshBtn').addEventListener('click', () => loadAll());
+    document.getElementById('setupBtn').addEventListener('click', () => {
+      const panel = document.getElementById('androidSetup');
+      panel.hidden = !panel.hidden;
+      document.getElementById('setupBtn').setAttribute('aria-expanded', String(!panel.hidden));
+    });
+    document.getElementById('disconnectBtn').addEventListener('click', async () => {
+      if (!state.connection?.active || !window.confirm(t('health.connection.confirmDisconnect'))) return;
+      try {
+        await window.ApiClient.disconnectHealthConnection(state.connection.id);
+        state.connection.active = false;
+        renderConnection();
+        setStatus(t('health.connection.disconnectedNotice'), 'success');
+      } catch (error) {
+        setStatus(error.message, 'error');
+      }
+    });
+  }
+
+  function init() {
+    initAuth();
+    initSleepForm();
+    initMetricForms();
+    initControls();
+    loadAll();
+    window.addEventListener('migraine:languagechange', () => {
+      updateAuthHeader();
+      if (state.analysis) renderAnalysis(state.analysis);
+      else renderConnection();
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
+})();
