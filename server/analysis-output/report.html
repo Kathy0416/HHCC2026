@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Migraine event analysis</title><style>
+body{font-family:system-ui,sans-serif;margin:2rem auto;max-width:1100px;color:#0f172a}img{max-width:100%;border:1px solid #e2e8f0;margin:1rem 0}pre{background:#f8fafc;padding:1rem;overflow:auto}
+</style></head><body><h1>Migraine event analysis</h1><p>Event: <code>MOCK_LIVE_PIPELINE_20260822</code></p>
+<pre>{
+  &quot;eventId&quot;: &quot;MOCK_LIVE_PIPELINE_20260822&quot;,
+  &quot;dataSource&quot;: &quot;MOCK_ESP32&quot;,
+  &quot;uploadStatus&quot;: &quot;COMPLETE&quot;,
+  &quot;counts&quot;: {
+    &quot;events&quot;: 1,
+    &quot;samples&quot;: 1320,
+    &quot;baselineSamples&quot;: 24
+  },
+  &quot;selectedEvent&quot;: {
+    &quot;totalSamples&quot;: 1320,
+    &quot;preSamples&quot;: 720,
+    &quot;activeSamples&quot;: 600,
+    &quot;baselineSamples&quot;: 24
+  },
+  &quot;missingDataPercentage&quot;: 0,
+  &quot;invalidSampleCount&quot;: 0,
+  &quot;sensorStatistics&quot;: {
+    &quot;heart_rate&quot;: {
+      &quot;count&quot;: 1320,
+      &quot;missing&quot;: 0,
+      &quot;minimum&quot;: 65.9,
+      &quot;maximum&quot;: 87.5,
+      &quot;mean&quot;: 75.688,
+      &quot;standardDeviation&quot;: 5.287
+    },
+    &quot;temperature&quot;: {
+      &quot;count&quot;: 1320,
+      &quot;missing&quot;: 0,
+      &quot;minimum&quot;: 25.92,
+      &quot;maximum&quot;: 26.73,
+      &quot;mean&quot;: 26.29,
+      &quot;standardDeviation&quot;: 0.197
+    },
+    &quot;humidity&quot;: {
+      &quot;count&quot;: 1320,
+      &quot;missing&quot;: 0,
+      &quot;minimum&quot;: 55.54,
+      &quot;maximum&quot;: 60.8,
+      &quot;mean&quot;: 58.343,
+      &quot;standardDeviation&quot;: 1.424
+    },
+    &quot;light&quot;: {
+      &quot;count&quot;: 1320,
+      &quot;missing&quot;: 0,
+      &quot;minimum&quot;: 228.2,
+      &quot;maximum&quot;: 406.3,
+      &quot;mean&quot;: 308.522,
+      &quot;standardDeviation&quot;: 44.789
+    },
+    &quot;noise_db_spl&quot;: {
+      &quot;count&quot;: 1320,
+      &quot;missing&quot;: 0,
+      &quot;minimum&quot;: 43.1,
+      &quot;maximum&quot;: 55.9,
+      &quot;mean&quot;: 49.407,
+      &quot;standardDeviation&quot;: 3.251
+    }
+  },
+  &quot;samplingIntervals&quot;: {
+    &quot;eventPre&quot;: {
+      &quot;expectedMs&quot;: 5000,
+      &quot;count&quot;: 719,
+      &quot;minimumMs&quot;: 5000,
+      &quot;maximumMs&quot;: 5000,
+      &quot;meanMs&quot;: 5000,
+      &quot;medianMs&quot;: 5000,
+      &quot;standardDeviationMs&quot;: 0,
+      &quot;gaps&quot;: []
+    },
+    &quot;eventActive&quot;: {
+      &quot;expectedMs&quot;: 1000,
+      &quot;count&quot;: 599,
+      &quot;minimumMs&quot;: 1000,
+      &quot;maximumMs&quot;: 1000,
+      &quot;meanMs&quot;: 1000,
+      &quot;medianMs&quot;: 1000,
+      &quot;standardDeviationMs&quot;: 0,
+      &quot;gaps&quot;: []
+    },
+    &quot;baseline&quot;: {
+      &quot;expectedMs&quot;: 300000,
+      &quot;count&quot;: 23,
+      &quot;minimumMs&quot;: 300000,
+      &quot;maximumMs&quot;: 300000,
+      &quot;meanMs&quot;: 300000,
+      &quot;medianMs&quot;: 300000,
+      &quot;standardDeviationMs&quot;: 0,
+      &quot;gaps&quot;: []
+    }
+  }
+}</pre>
+<h2>heart rate pre</h2><img src="heart-rate-pre.svg" alt="heart-rate-pre.svg">
+<h2>temperature pre</h2><img src="temperature-pre.svg" alt="temperature-pre.svg">
+<h2>humidity pre</h2><img src="humidity-pre.svg" alt="humidity-pre.svg">
+<h2>light pre</h2><img src="light-pre.svg" alt="light-pre.svg">
+<h2>active period</h2><img src="active-period.svg" alt="active-period.svg">
+<h2>baseline vs pre</h2><img src="baseline-vs-pre.svg" alt="baseline-vs-pre.svg">
+</body></html>

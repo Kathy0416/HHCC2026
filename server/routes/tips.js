@@ -5,27 +5,89 @@ const catalog = require('../../locales');
 const { serializeTip } = require('../builtin-tips');
 
 const router = express.Router();
+const CLINICAL_REQUIRED_TAG = '医学建议';
 
-function toComment(row, locale = 'zh-CN') {
-  const isAnonymous = row.author === '__anonymous__' || row.author === '匿名' || row.author === 'Anonymous';
+function normalizeTags(tags, template) {
+  const normalized = Array.isArray(tags)
+    ? tags.map((tag) => String(tag).trim()).filter(Boolean)
+    : [];
+  const uniqueTags = [...new Set(normalized)];
+
+  if (template === 'clinical' && !uniqueTags.includes(CLINICAL_REQUIRED_TAG)) {
+    uniqueTags.push(CLINICAL_REQUIRED_TAG);
+  }
+
+  return uniqueTags;
+}
+
+function toTip(row) {
+  let tags = [];
+  try {
+    tags = JSON.parse(row.tags || '[]');
+  } catch (e) {
+    tags = [];
+  }
+  const template = row.template_type || 'normal';
   return {
     id: row.id,
     author: isAnonymous ? catalog.keys[locale]['common.anonymous'] : row.author,
     content: row.content,
-    date: row.date
+    image: row.image,
+    template,
+    author: {
+      name: row.author_name,
+      username: row.author_username,
+      bio: row.author_bio,
+      avatar: row.author_avatar
+    },
+    tags: normalizeTags(tags, template),
+    likes: Number(row.like_count == null ? row.likes : row.like_count),
+    liked: Boolean(row.liked_by_user),
+    comments: Number(row.comment_count || 0),
+    date: row.date,
+    createdAt: row.created_at
   };
 }
 
-function withCommentCount(tip) {
-  const { c } = db.prepare('SELECT COUNT(*) AS c FROM comments WHERE tip_id = ?').get(tip.id);
-  tip.comments = c;
-  return tip;
+function toComment(row) {
+  return { id: row.id, author: row.author, content: row.content, date: row.date };
+}
+
+function tipSelect(userId) {
+  return {
+    sql: `
+      SELECT
+        tips.*,
+        tips.likes + (SELECT COUNT(*) FROM tip_likes WHERE tip_likes.tip_id = tips.id) AS like_count,
+        (SELECT COUNT(*) FROM comments WHERE comments.tip_id = tips.id) AS comment_count,
+        CASE WHEN ? IS NULL THEN 0 ELSE EXISTS(
+          SELECT 1 FROM tip_likes
+          WHERE tip_likes.tip_id = tips.id AND tip_likes.user_id = ?
+        ) END AS liked_by_user
+      FROM tips
+    `,
+    params: [userId || null, userId || null]
+  };
+}
+
+function getTipLikeState(tipId, userId) {
+  return db.prepare(`
+    SELECT
+      tips.likes + (SELECT COUNT(*) FROM tip_likes WHERE tip_likes.tip_id = tips.id) AS likes,
+      EXISTS(
+        SELECT 1 FROM tip_likes
+        WHERE tip_likes.tip_id = tips.id AND tip_likes.user_id = ?
+      ) AS liked
+    FROM tips
+    WHERE tips.id = ?
+  `).get(userId, tipId);
 }
 
 // 获取 Tips 列表
-router.get('/', (req, res) => {
-  const rows = db.prepare('SELECT * FROM tips ORDER BY id DESC').all();
-  res.json({ tips: rows.map((r) => withCommentCount(serializeTip(r, req.locale))) });
+router.get('/', optionalAuth, (req, res) => {
+  const query = tipSelect(req.user && req.user.id);
+  const rows = db.prepare(`${query.sql} ORDER BY tips.id DESC`).all(...query.params);
+  res.json({ tips: rows.map(toTip) });
 });
 
 // 发布 Tips（需登录，支持图片 base64 和 markdown 文字）
@@ -37,9 +99,7 @@ router.post('/', requireAuth, (req, res) => {
   const template = req.body.template == null
     ? 'normal'
     : String(req.body.template).trim().toLowerCase();
-  const tags = Array.isArray(req.body.tags)
-    ? req.body.tags.map((t) => String(t).trim()).filter(Boolean)
-    : [];
+  const tags = normalizeTags(req.body.tags, template);
 
   if (!title) {
     return res.status(400).json({ error: req.t('emptyTitle') });
@@ -71,17 +131,19 @@ router.post('/', requireAuth, (req, res) => {
     `)
     .run(title, description, content, image, template, username, username, '', avatar, JSON.stringify(tags), date);
 
-  const row = db.prepare('SELECT * FROM tips WHERE id = ?').get(Number(info.lastInsertRowid));
-  res.status(201).json({ tip: withCommentCount(serializeTip(row, req.locale)) });
+const query = tipSelect(req.user.id);
+const row = db.prepare(`${query.sql} WHERE tips.id = ?`).get(...query.params, Number(info.lastInsertRowId));
+res.status(201).json({ tip: withCommentCount(serializeTip(row, req.locale)) });
 });
 
 // 获取单个 Tip
-router.get('/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM tips WHERE id = ?').get(Number(req.params.id));
+router.get('/:id', optionalAuth, (req, res) => {
+  const query = tipSelect(req.user && req.user.id);
+  const row = db.prepare(`${query.sql} WHERE tips.id = ?`).get(...query.params, Number(req.params.id));
   if (!row) {
     return res.status(404).json({ error: req.t('tipNotFound') });
   }
-  res.json({ tip: withCommentCount(serializeTip(row, req.locale)) });
+res.json({ tip: withCommentCount(serializeTip(row, req.locale)) });
 });
 
 // 获取某条 Tip 的评论
@@ -118,16 +180,32 @@ router.post('/:id/comments', optionalAuth, (req, res) => {
   res.status(201).json({ comment: toComment(row, req.locale) });
 });
 
-// 点赞
-router.post('/:id/like', (req, res) => {
+// 点赞（重复请求保持已点赞状态，不会创建重复数据）
+router.post('/:id/like', requireAuth, (req, res) => {
+  const tipId = Number(req.params.id);
+  const tip = db.prepare('SELECT id FROM tips WHERE id = ?').get(tipId);
+  if (!tip) {
+    return res.status(404).json({ error: '未找到该笔记' });
+  }
+
+  db.prepare('INSERT OR IGNORE INTO tip_likes (tip_id, user_id) VALUES (?, ?)')
+    .run(tipId, req.user.id);
+  const state = getTipLikeState(tipId, req.user.id);
+  res.json({ tipId, liked: Boolean(state.liked), likes: Number(state.likes) });
+});
+
+// 取消点赞（重复请求保持未点赞状态）
+router.delete('/:id/like', requireAuth, (req, res) => {
   const tipId = Number(req.params.id);
   const tip = db.prepare('SELECT id FROM tips WHERE id = ?').get(tipId);
   if (!tip) {
     return res.status(404).json({ error: req.t('tipNotFound') });
   }
-  db.prepare('UPDATE tips SET likes = likes + 1 WHERE id = ?').run(tipId);
-  const row = db.prepare('SELECT likes FROM tips WHERE id = ?').get(tipId);
-  res.json({ likes: row.likes });
+
+  db.prepare('DELETE FROM tip_likes WHERE tip_id = ? AND user_id = ?')
+    .run(tipId, req.user.id);
+  const state = getTipLikeState(tipId, req.user.id);
+  res.json({ tipId, liked: Boolean(state.liked), likes: Number(state.likes) });
 });
 
 module.exports = router;
