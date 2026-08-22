@@ -1248,8 +1248,8 @@ html[lang="en"] .header h1 {
     top: -1.3rem;
     background: var(--accent-blue);
     border-radius: 50%;
-    width: 72px !important;
-    height: 72px !important;
+    width: 80px !important;
+    height: 80px !important;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1259,7 +1259,7 @@ html[lang="en"] .header h1 {
 }
 
 .nav-link.calendar-btn .nav-icon {
-    font-size: 3.00rem !important;
+    font-size: 2.7rem !important;
     margin-bottom: 0;
     color: white;
     width: auto;
