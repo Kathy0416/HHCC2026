@@ -1245,11 +1245,11 @@ html[lang="en"] .header h1 {
 /* 中间突出的日历按钮 */
 .nav-link.calendar-btn {
     position: relative;
-    top: -1.3rem;
+    top: -1.8rem;
     background: var(--accent-blue);
     border-radius: 50%;
-    width: 56px;
-    height: 56px;
+    width: 72px;
+    height: 72px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1269,7 +1269,7 @@ html[lang="en"] .header h1 {
 
 .nav-link.calendar-btn .nav-text {
     position: absolute;
-    bottom: -1.2rem;
+    bottom: -1.7rem;
     color: var(--text-primary);
     font-size: 0.7rem;
     white-space: nowrap;
