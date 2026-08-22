@@ -1,18 +1,19 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v16-device-chooser';
+const CACHE_NAME = 'migraine-app-cache-v17-moon-icon';
 const urlsToCache = [
   '.',
   'index.html',
   'diary.html',
   'sleep.html',
-  'health-analysis.css?v=16-device-chooser',
-  'health-analysis.js?v=16-device-chooser',
+  'health-analysis.css?v=17-moon-icon',
+  'health-analysis.js?v=17-moon-icon',
   'esp32-parser.js?v=12-esp32-environment',
-  'locales.js?v=16-device-chooser',
-  'api.js?v=16-device-chooser',
+  'locales.js?v=17-moon-icon',
+  'api.js?v=17-moon-icon',
   'assets/apple-watch.svg',
   'assets/xiaomi-band.svg',
+  'assets/moon-icon.svg',
   'tips.html',
   'my.html',
   'ai-chat.html',
