@@ -146,16 +146,23 @@
       return this._request('DELETE', '/sleep/' + encodeURIComponent(date));
     },
 
-    // ---- 每日健康指标（偏头痛时长 / 血氧 / 心跳 / 步数，每个因素单独一张表）----
-    // key 取值：'migraine-duration' | 'spo2' | 'heart-rate' | 'steps'
-    getMetric(key) {
-      return this._request('GET', '/metrics/' + encodeURIComponent(key));
+    // ---- 读数（逐条时间戳记录，供 sleep 页面图表 / 调试表格调用）----
+    // 环境读数：温湿度 / 光照 / 噪音（来自 ESP32 上传）
+    getEnvironmentReadings(params) {
+      const query = params && typeof params === 'object'
+        ? '?' + new URLSearchParams(Object.entries(params).filter(([, value]) => value != null)).toString()
+        : '';
+      return this._request('GET', '/readings/environment' + query);
     },
-    saveMetric(key, date, value) {
-      return this._request('PUT', '/metrics/' + encodeURIComponent(key) + '/' + encodeURIComponent(date), { value });
+    // 体征读数：心率 / 血氧 / 步数
+    getVitalsReadings(params) {
+      const query = params && typeof params === 'object'
+        ? '?' + new URLSearchParams(Object.entries(params).filter(([, value]) => value != null)).toString()
+        : '';
+      return this._request('GET', '/readings/vitals' + query);
     },
-    deleteMetric(key, date) {
-      return this._request('DELETE', '/metrics/' + encodeURIComponent(key) + '/' + encodeURIComponent(date));
+    saveVitalsReadings(readings) {
+      return this._request('POST', '/readings/vitals', { readings });
     },
 
     // ---- 健康分析 / Health Connect ----

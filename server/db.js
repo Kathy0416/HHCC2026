@@ -190,43 +190,17 @@ function initSchema() {
       FOREIGN KEY(event_id) REFERENCES hardware_events(id) ON DELETE CASCADE
     );
 
-    CREATE TABLE IF NOT EXISTS migraine_duration_records (
+    -- 逐条时间戳记录的体征读数（心率 / 血氧 / 步数）。
+    -- 与 hardware_samples（温湿度/光照，来自 ESP32）并列，均按 UTC 毫秒时间戳逐条存储。
+    CREATE TABLE IF NOT EXISTS vitals_readings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      duration_minutes INTEGER NOT NULL DEFAULT 0,
-      last_updated TEXT,
-      UNIQUE(user_id, date),
-      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS spo2_records (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'wearable',
+      utc_epoch_ms INTEGER NOT NULL,
+      heart_rate REAL,
       spo2 REAL,
-      last_updated TEXT,
-      UNIQUE(user_id, date),
-      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS heart_rate_records (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      bpm REAL,
-      last_updated TEXT,
-      UNIQUE(user_id, date),
-      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS steps_records (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
       steps INTEGER,
-      last_updated TEXT,
-      UNIQUE(user_id, date),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -240,10 +214,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_hardware_devices_user ON hardware_devices(user_id);
     CREATE INDEX IF NOT EXISTS idx_hardware_events_user ON hardware_events(user_id, event_utc_ms);
     CREATE INDEX IF NOT EXISTS idx_hardware_samples_event ON hardware_samples(event_id, sample_index);
-    CREATE INDEX IF NOT EXISTS idx_migraine_duration_user_date ON migraine_duration_records(user_id, date);
-    CREATE INDEX IF NOT EXISTS idx_spo2_user_date ON spo2_records(user_id, date);
-    CREATE INDEX IF NOT EXISTS idx_heart_rate_user_date ON heart_rate_records(user_id, date);
-    CREATE INDEX IF NOT EXISTS idx_steps_user_date ON steps_records(user_id, date);
+    CREATE INDEX IF NOT EXISTS idx_vitals_readings_user_time ON vitals_readings(user_id, utc_epoch_ms);
   `);
 
   // 兼容已经存在的数据库：SQLite 的 CREATE TABLE IF NOT EXISTS 不会补充新列。

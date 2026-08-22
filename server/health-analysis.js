@@ -62,11 +62,10 @@ function metricComparison(days, field) {
   };
 }
 
-function buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows, migraineDurationRows }) {
+function buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows }) {
   const wearable = new Map(wearableRows.map((row) => [row.local_date, row]));
   const manual = new Map(manualRows.map((row) => [row.date, row]));
   const calendar = new Map(calendarRows.map((row) => [row.date, row]));
-  const durations = new Map((migraineDurationRows || []).map((row) => [row.date, row]));
 
   const series = dateSeries(endDate, range).map((date) => {
     const health = wearable.get(date);
@@ -74,7 +73,6 @@ function buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows,
     const diary = calendar.get(date);
     const triggers = safeJson(diary && diary.triggers, []);
     const wearableSleep = health && health.sleep_duration_minutes != null;
-    const duration = durations.get(date);
     return {
       date,
       migraine: !!(diary && diary.migraine),
@@ -89,8 +87,7 @@ function buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows,
       sleepEnd: wearableSleep ? health.sleep_end : (sleep && sleep.wake_time),
       heartRateAvg: finiteOrNull(health && health.heart_rate_avg),
       spo2Avg: finiteOrNull(health && health.spo2_avg),
-      steps: finiteOrNull(health && health.steps),
-      migraineDurationMinutes: finiteOrNull(duration && duration.duration_minutes)
+      steps: finiteOrNull(health && health.steps)
     };
   });
 
@@ -111,7 +108,6 @@ function buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows,
     kpis: {
       averageSleepMinutes: average(recordedDays.map((day) => day.sleepMinutes)),
       migraineDays: series.filter((day) => day.migraine).length,
-      averageMigraineDurationMinutes: average(series.filter((day) => day.migraine && day.migraineDurationMinutes != null && day.migraineDurationMinutes > 0).map((day) => day.migraineDurationMinutes)),
       averageHeartRate: average(recordedDays.map((day) => day.heartRateAvg)),
       averageSpo2: average(recordedDays.map((day) => day.spo2Avg)),
       averageSteps: average(recordedDays.map((day) => day.steps))

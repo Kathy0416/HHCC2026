@@ -1,19 +1,19 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v8-health-analysis';
+const CACHE_NAME = 'migraine-app-cache-v9-readings';
 const urlsToCache = [
   '.',
   'index.html',
   'diary.html',
   'sleep.html',
-  'health-analysis.css?v=8-health-analysis',
-  'health-analysis.js?v=8-health-analysis',
+  'health-analysis.css?v=9-readings',
+  'health-analysis.js?v=9-readings',
   'tips.html',
   'my.html',
   'ai-chat.html',
   'styles.css',
   'locales.js',
-  'i18n.js?v=8-health-analysis',
+  'i18n.js?v=9-readings',
   'script.js',
   'ai-chat.js',
   'api.js'
@@ -47,10 +47,16 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - 缓存优先 + 后台更新（stale-while-revalidate）
-// 既能离线使用，又不会一直卡在旧版本
+// Fetch event - 静态资源：缓存优先 + 后台更新（stale-while-revalidate）
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+  // API 请求一律走网络、不缓存，避免返回过期的空数据
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

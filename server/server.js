@@ -14,6 +14,17 @@ app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 app.use(localeMiddleware);
 
+// 调试日志中间件：设置 DEBUG=1 时打印每个请求的方法、路径、状态码与耗时，便于排查接口问题。
+if (process.env.DEBUG === '1') {
+  app.use((req, res, next) => {
+    const started = Date.now();
+    res.on('finish', () => {
+      console.log(`[DEBUG] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${Date.now() - started}ms)`);
+    });
+    next();
+  });
+}
+
 // 健康检查
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, time: new Date().toISOString() });
@@ -23,10 +34,10 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/sleep', require('./routes/sleep'));
-app.use('/api/metrics', require('./routes/metrics'));
 app.use('/api/health', require('./routes/health'));
 app.use('/api/tips', require('./routes/tips'));
 app.use('/api/hardware', require('./routes/hardware'));
+app.use('/api/readings', require('./routes/readings'));
 app.use('/api/ai', require('./routes/ai'));
 
 // 可选：同端口托管前端静态文件（需在 .env 设置 SERVE_FRONTEND=1）

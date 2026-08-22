@@ -1,7 +1,8 @@
 'use strict';
 
 // 生成测试账户（test / test1234）及模拟数据，覆盖：
-// 日历偏头痛记录、睡眠、偏头痛时长、血氧、心跳、步数、手表连接 + 每日健康数据
+// 日历偏头痛记录、睡眠、手表连接 + 每日健康数据、
+// 逐条体征读数（心率/血氧/步数）与逐条环境读数（温湿度/光照，模拟 ESP32 上传）
 const bcrypt = require('bcryptjs');
 const db = require('./db');
 
@@ -16,6 +17,12 @@ function isoDate(offset) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+// 由 'YYYY-MM-DD' + 小时/分钟换算为 UTC 毫秒时间戳（读数统一用 UTC 毫秒存储）
+function utcMs(dateStr, hour, minute = 0) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return Date.UTC(year, month - 1, day, hour, minute, 0, 0);
 }
 
 // SQLite 的 datetime('now') 格式（无时区后缀，前端按 UTC 解析）
@@ -39,16 +46,22 @@ function seed() {
   `).run(userId, 'Xiaomi Band 9', 'Xiaomi', 'Band 9', JSON.stringify(['com.mi.health']), sqliteNow());
   const connectionId = Number(db.prepare('SELECT id FROM health_connections WHERE user_id = ?').get(userId).id);
 
+  // 登记一台演示用 ESP32 设备，供环境读数样本归属
+  db.prepare('INSERT INTO hardware_devices (user_id, device_id, device_token, name) VALUES (?, ?, ?, ?)')
+    .run(userId, 'DEMO-ESP32', 'demo-token-' + Math.random().toString(16).slice(2), '演示环境传感器');
+  const deviceId = Number(db.prepare('SELECT id FROM hardware_devices WHERE user_id = ?').get(userId).id);
+
   const insertCalendar = db.prepare('INSERT INTO calendar_entries (user_id, date, migraine, diary, triggers, last_updated) VALUES (?, ?, ?, ?, ?, ?)');
   const insertSleep = db.prepare('INSERT INTO sleep_records (user_id, date, sleep_time, wake_time, duration_hours, duration_minutes, duration_total_minutes, quality) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-  const insertDuration = db.prepare('INSERT INTO migraine_duration_records (user_id, date, duration_minutes, last_updated) VALUES (?, ?, ?, ?)');
-  const insertSpo2 = db.prepare('INSERT INTO spo2_records (user_id, date, spo2, last_updated) VALUES (?, ?, ?, ?)');
-  const insertHeartRate = db.prepare('INSERT INTO heart_rate_records (user_id, date, bpm, last_updated) VALUES (?, ?, ?, ?)');
-  const insertSteps = db.prepare('INSERT INTO steps_records (user_id, date, steps, last_updated) VALUES (?, ?, ?, ?)');
   const insertDaily = db.prepare(`
     INSERT INTO health_daily (connection_id, user_id, local_date, timezone, heart_rate_min, heart_rate_avg, heart_rate_max, heart_rate_count, spo2_min, spo2_avg, spo2_max, spo2_count, steps, data_origins)
     VALUES (?, ?, ?, 'Asia/Shanghai', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
+  // 逐条时间戳的体征读数（心率 / 血氧 / 步数）
+  const insertVitals = db.prepare('INSERT INTO vitals_readings (user_id, source, utc_epoch_ms, heart_rate, spo2, steps) VALUES (?, ?, ?, ?, ?, ?)');
+  // 模拟 ESP32 上传的环境读数（温湿度 / 光照）：先写事件，再逐条写样本
+  const insertEvent = db.prepare(`INSERT INTO hardware_events (device_id, user_id, event_id, event_sequence, event_utc_ms, boot_id, time_quality, status, pre_count, active_count, sample_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const insertSample = db.prepare(`INSERT INTO hardware_samples (event_id, sample_index, monotonic_us, utc_epoch_ms, boot_id, sampling_mode, time_quality, light_lux, temperature_c, humidity_percent, noise_db_spl, valid_mask) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
   const now = new Date().toISOString();
   const qualities = ['excellent', 'good', 'fair', 'poor'];
@@ -67,28 +80,35 @@ function seed() {
     const wakeTime = `${String(Math.floor(wakeMinutes / 60)).padStart(2, '0')}:${String(wakeMinutes % 60).padStart(2, '0')}`;
     insertSleep.run(userId, date, sleepTime, wakeTime, Math.floor(sleepMinutesTotal / 60), sleepMinutesTotal % 60, sleepMinutesTotal, qualities[k % 4]);
 
-    // 偏头痛时长（仅偏头痛天，30~239 分钟）
-    const durationMinutes = migraine ? 30 + ((k * 53) % 210) : 0;
-    insertDuration.run(userId, date, durationMinutes, now);
-
     // 血氧 95.0 ~ 99.9
     const spo2 = Math.round((95 + ((k * 13) % 50) / 10) * 10) / 10;
-    insertSpo2.run(userId, date, spo2, now);
-
     // 心跳 58 ~ 88
     const bpm = 58 + ((k * 17) % 31);
-    insertHeartRate.run(userId, date, bpm, now);
-
     // 步数 3000 ~ 12499
     const steps = 3000 + ((k * 211) % 9500);
-    insertSteps.run(userId, date, steps, now);
 
-    // 手表每日数据（心率/血氧/步数；睡眠字段留空，让睡眠走手动记录）
+    // 手表每日汇总（心率/血氧/步数；睡眠字段留空，让睡眠走手动记录）
     const heartMin = bpm - 8;
     const heartMax = bpm + 22;
     const spo2Min = Math.max(90, Math.round((spo2 - 2) * 10) / 10);
     const spo2Max = Math.min(100, Math.round((spo2 + 1) * 10) / 10);
     insertDaily.run(connectionId, userId, date, heartMin, bpm, heartMax, 120, spo2Min, spo2, spo2Max, 40, steps, JSON.stringify(['com.mi.health']));
+
+    // 逐条时间戳的体征读数（每天 4 条：0 / 8 / 12 / 20 点）
+    [0, 8, 12, 20].forEach((hour, index) => {
+      const drift = ((k + index) % 7) - 3;
+      insertVitals.run(userId, 'wearable', utcMs(date, hour), bpm + drift, Math.round((spo2 + drift / 10) * 10) / 10, Math.round(steps / 4) + index * 50);
+    });
+
+    // 模拟 ESP32 上传的环境读数（每天 4 条样本，带 UTC 时间戳）
+    const eventInfo = insertEvent.run(deviceId, userId, `DEMO-${date}`, k, utcMs(date, 0), 1, 1, 1, 0, 0, 4);
+    const eventPk = Number(eventInfo.lastInsertRowid);
+    [0, 6, 12, 18].forEach((hour, index) => {
+      const light = hour === 0 ? 5 : (hour === 6 ? 120 : (hour === 12 ? 800 : 40));
+      const temp = Math.round((20 + Math.sin((k + index) / 3) * 4) * 10) / 10;
+      const humidity = 45 + ((k * 7 + index * 11) % 25);
+      insertSample.run(eventPk, index, utcMs(date, hour), utcMs(date, hour), 1, 1, 1, light, temp, humidity, 35, 0x07);
+    });
 
     // 日历记录
     const diary = migraine
@@ -105,7 +125,7 @@ function seed() {
   console.log(`   用户名: ${USERNAME}`);
   console.log(`   密码:   ${PASSWORD}`);
   console.log(`   模拟数据: ${DAYS} 天（偏头痛 ${migraineCount} 天）`);
-  console.log('   覆盖: 日历偏头痛记录 / 睡眠 / 偏头痛时长 / 血氧 / 心跳 / 步数 / 手表数据');
+  console.log('   覆盖: 日历偏头痛记录 / 睡眠 / 手表数据 / 逐条体征读数(心率·血氧·步数) / 逐条环境读数(温湿度·光照)');
   console.log('==============================================');
 }
 

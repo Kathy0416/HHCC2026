@@ -323,10 +323,7 @@ function createHealthRouter(db = defaultDb) {
     const calendarRows = db.prepare(`
       SELECT * FROM calendar_entries WHERE user_id = ? AND date BETWEEN ? AND ? ORDER BY date ASC
     `).all(req.user.id, start, endDate);
-    const migraineDurationRows = db.prepare(`
-      SELECT * FROM migraine_duration_records WHERE user_id = ? AND date BETWEEN ? AND ? ORDER BY date ASC
-    `).all(req.user.id, start, endDate);
-    const analysis = buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows, migraineDurationRows });
+    const analysis = buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows });
     res.json({ connection: connectionJson(connection), latest: latestJson(latest), ...analysis });
   });
 

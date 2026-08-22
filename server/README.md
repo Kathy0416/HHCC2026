@@ -13,12 +13,20 @@ server/
 ├── server.js          # 入口：Express 应用、路由挂载、启动
 ├── db.js              # SQLite 连接、建表、预置 Tips 数据
 ├── middleware.js      # JWT 签名/校验中间件
+├── health-analysis.js # 健康分析聚合逻辑
+├── seed-test-user.js  # 生成测试账户 + 演示数据（含逐条读数）
+├── lib/
+│   └── binary_codec.js # 解析 ESP32 上传的二进制事件
 ├── routes/
 │   ├── auth.js        # 注册 / 登录 / 当前用户
 │   ├── calendar.js    # 日历记录 CRUD
 │   ├── sleep.js       # 睡眠记录 CRUD
+│   ├── health.js      # 健康连接 / 同步 / 分析
+│   ├── hardware.js    # ESP32 设备登记与事件上传
+│   ├── readings.js    # 环境/体征读数查询与写入
 │   ├── tips.js        # Tips 列表 / 评论 / 点赞
 │   └── ai.js          # DeepSeek 代理 + 聊天历史
+├── test/              # node:test 测试套件
 ├── package.json
 ├── .env.example       # 环境变量模板
 └── README.md
@@ -85,6 +93,30 @@ npm run dev
 | GET | `/api/sleep` | 获取全部记录 | - |
 | PUT | `/api/sleep/:date` | 保存某天记录 | `{ sleepTime, wakeTime, duration: { hours, minutes, totalMinutes }, quality }` |
 | DELETE | `/api/sleep/:date` | 删除某天记录 | - |
+
+### 读数 `/api/readings`（需登录）
+
+逐条时间戳记录的读数，供睡眠分析页图表与调试页表格调用。
+
+| 方法 | 路径 | 说明 | 参数/请求体 |
+|------|------|------|-----------|
+| GET | `/api/readings/environment` | 环境读数（温湿度/光照/噪音，来自 ESP32 上传） | `?start=<ms>&end=<ms>&limit=<n>` |
+| GET | `/api/readings/vitals` | 体征读数（心率/血氧/步数） | `?start=<ms>&end=<ms>&limit=<n>` |
+| POST | `/api/readings/vitals` | 批量写入体征读数 | `[ { utcEpochMs, heartRate?, spo2?, steps?, source? } ]` |
+
+`start` / `end` 为 UTC 毫秒时间戳，用于按时间过滤。响应形如 `{ readings: [...] }`。
+
+### 硬件 `/api/hardware`（需登录；事件上传用设备令牌）
+
+ESP32 固件通过设备令牌上传二进制事件，环境样本逐条落库到 `hardware_samples`。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/hardware/devices` | 登记设备，返回 `device_token` |
+| GET | `/api/hardware/devices` | 列出当前用户设备 |
+| POST | `/api/hardware/events` | 上传二进制事件（`Bearer <device_token>` + `application/octet-stream`） |
+| GET | `/api/hardware/events` | 列出事件 |
+| GET | `/api/hardware/events/:id/samples` | 查看某事件的样本 |
 
 ### Tips `/api/tips`
 

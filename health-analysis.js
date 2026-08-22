@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const state = { range: 30, analysis: null, connection: null, latest: null, charts: {} };
+  const state = { range: 30, analysis: null, connection: null, latest: null, environment: [], vitals: [], dataSource: null, charts: {} };
   const QUALITY = new Set(['excellent', 'good', 'fair', 'poor']);
 
   function t(key, variables) {
@@ -168,67 +168,6 @@
     });
   }
 
-  function initMetricForms() {
-    ['migraineDurationDate', 'vitalsDate', 'stepsDate'].forEach((id) => {
-      const input = document.getElementById(id);
-      if (input) input.valueAsDate = new Date();
-    });
-
-    async function saveMetric(key, date, value) {
-      if (!window.ApiClient?.isLoggedIn()) {
-        setStatus(t('health.record.loginRequired'), 'error');
-        showModal('loginModal');
-        return false;
-      }
-      try {
-        await window.ApiClient.saveMetric(key, date, value);
-        return true;
-      } catch (error) {
-        setStatus(error.status ? error.message : t('health.common.offline'), 'error');
-        return false;
-      }
-    }
-
-    document.getElementById('migraineDurationForm')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const date = document.getElementById('migraineDurationDate').value;
-      const value = Number(document.getElementById('migraineDurationValue').value);
-      if (!date || !Number.isFinite(value)) return;
-      if (await saveMetric('migraine-duration', date, value)) {
-        setStatus(t('health.metric.saved'), 'success');
-        event.target.reset();
-        document.getElementById('migraineDurationDate').valueAsDate = new Date();
-      }
-    });
-
-    document.getElementById('vitalsForm')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const date = document.getElementById('vitalsDate').value;
-      const spo2 = Number(document.getElementById('spo2Value').value);
-      const heartRate = Number(document.getElementById('heartRateValue').value);
-      if (!date || !Number.isFinite(spo2) || !Number.isFinite(heartRate)) return;
-      const okSpo2 = await saveMetric('spo2', date, spo2);
-      const okHeartRate = await saveMetric('heart-rate', date, heartRate);
-      if (okSpo2 && okHeartRate) {
-        setStatus(t('health.metric.saved'), 'success');
-        event.target.reset();
-        document.getElementById('vitalsDate').valueAsDate = new Date();
-      }
-    });
-
-    document.getElementById('stepsForm')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const date = document.getElementById('stepsDate').value;
-      const value = Number(document.getElementById('stepsValue').value);
-      if (!date || !Number.isFinite(value)) return;
-      if (await saveMetric('steps', date, value)) {
-        setStatus(t('health.metric.saved'), 'success');
-        event.target.reset();
-        document.getElementById('stepsDate').valueAsDate = new Date();
-      }
-    });
-  }
-
   function formatDate(value) {
     const date = new Date(`${value}T12:00:00`);
     return new Intl.DateTimeFormat(locale(), { month: 'short', day: 'numeric' }).format(date);
@@ -239,6 +178,11 @@
     const date = new Date(value.endsWith('Z') || /[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`);
     if (Number.isNaN(date.getTime())) return value;
     return new Intl.DateTimeFormat(locale(), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+  }
+
+  function formatTs(ms) {
+    if (!Number.isFinite(Number(ms))) return '—';
+    return new Intl.DateTimeFormat(locale(), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(Number(ms)));
   }
 
   function formatDuration(minutes) {
@@ -276,11 +220,27 @@
     document.getElementById('latestHeartRate').textContent = latest?.heartRate?.avg == null ? '—' : Math.round(latest.heartRate.avg);
     document.getElementById('latestSpo2').textContent = latest?.spo2?.avg == null ? '—' : Number(latest.spo2.avg).toFixed(1);
     document.getElementById('latestSteps').textContent = latest?.steps == null ? '—' : Number(latest.steps).toLocaleString(locale());
+    document.getElementById('latestSleep').textContent = latest?.sleep?.durationMinutes == null ? '—' : formatDuration(latest.sleep.durationMinutes);
     const latestDay = state.analysis?.series?.find((day) => day.date === latest?.date);
     document.getElementById('latestStress').textContent = connection
       ? `${t(latestDay?.stressTrigger ? 'health.common.yes' : 'health.common.no')} · ${t('health.connection.stressDiary')}`
       : t('health.connection.unavailable');
     document.getElementById('disconnectBtn').disabled = !active;
+  }
+
+  function renderDataSource() {
+    const badge = document.getElementById('dataSourceBadge');
+    if (!badge) return;
+    if (state.dataSource === 'backend') {
+      badge.className = 'connection-badge is-online';
+      badge.textContent = t('health.source.backend');
+    } else if (state.dataSource === 'local') {
+      badge.className = 'connection-badge is-offline';
+      badge.textContent = t('health.source.local');
+    } else {
+      badge.className = 'connection-badge is-offline';
+      badge.textContent = '—';
+    }
   }
 
   function chartDefaults() {
@@ -307,16 +267,51 @@
   function renderCharts(analysis) {
     const labels = analysis.series.map((day) => formatDate(day.date));
     const sleep = analysis.series.map((day) => day.sleepMinutes == null ? null : Number((day.sleepMinutes / 60).toFixed(2)));
-    const migraineDuration = analysis.series.map((day) => (day.migraineDurationMinutes != null && day.migraineDurationMinutes > 0) ? Number((day.migraineDurationMinutes / 60).toFixed(2)) : null);
+    const migraineSleep = analysis.series.map((day, index) => day.migraine ? (sleep[index] == null ? 0 : sleep[index]) : null);
     replaceChart('sleep', 'sleepMigraineChart', {
       type: 'line',
       data: { labels, datasets: [
-        { label: t('health.history.sleep'), data: sleep, borderColor: '#729cff', backgroundColor: 'rgba(96,137,244,.15)', fill: true, tension: .34, spanGaps: true, pointRadius: 4, pointHoverRadius: 5, pointBackgroundColor: '#729cff' },
-        { type: 'bar', label: t('health.metric.migraineDuration'), data: migraineDuration, barThickness: 2, backgroundColor: '#ff6c7c', borderColor: '#ff6c7c' },
-        { type: 'line', label: '', data: migraineDuration, showLine: false, pointRadius: 5, pointHoverRadius: 6, pointBackgroundColor: '#ff6c7c' }
+        { label: t('health.history.sleep'), data: sleep, borderColor: '#729cff', backgroundColor: 'rgba(96,137,244,.15)', fill: true, tension: .34, spanGaps: true, pointRadius: 2 },
+        { label: t('health.history.migraine'), data: migraineSleep, showLine: false, pointRadius: 6, pointHoverRadius: 7, pointBackgroundColor: '#ff6c7c', pointBorderColor: '#ffd1d6', pointBorderWidth: 2 }
       ] },
-      options: { ...chartDefaults(), plugins: { ...chartDefaults().plugins, legend: { ...chartDefaults().plugins.legend, labels: { ...chartDefaults().plugins.legend.labels, filter: (item) => item.text !== '' } } }, scales: { ...chartDefaults().scales, y: { ...chartDefaults().scales.y, suggestedMin: 0, suggestedMax: 10, title: { display: true, text: locale() === 'en' ? 'Hours' : '小时', color: '#8794af' } } } }
+      options: { ...chartDefaults(), scales: { ...chartDefaults().scales, y: { ...chartDefaults().scales.y, suggestedMin: 0, suggestedMax: 10, title: { display: true, text: locale() === 'en' ? 'Hours' : '小时', color: '#8794af' } } } }
     });
+  }
+
+  function renderReadingsCharts() {
+    if (!window.Chart) return;
+
+    const sortByTime = (list) => (list || []).slice().sort((a, b) => a.utcEpochMs - b.utcEpochMs);
+
+    // 环境读数（温湿度 / 光照）——原始逐条时间序列
+    const env = sortByTime(state.environment);
+    const envLabels = env.map((r) => formatTs(r.utcEpochMs));
+    const temperature = env.map((r) => r.temperatureC);
+    const humidity = env.map((r) => r.humidityPercent);
+    const light = env.map((r) => r.lightLux);
+
+    const envOptions = chartDefaults();
+    envOptions.scales = {
+      x: envOptions.scales.x,
+      temperature: { type: 'linear', position: 'left', ticks: { color: '#8794af' }, grid: { color: 'rgba(123,147,205,.09)' } },
+      humidity: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { color: '#8794af' }, grid: { drawOnChartArea: false } }
+    };
+    replaceChart('environment', 'environmentChart', {
+      type: 'line', data: { labels: envLabels, datasets: [
+        { label: t('health.environment.temperature'), data: temperature, yAxisID: 'temperature', borderColor: '#ffb86b', backgroundColor: '#ffb86b', tension: .2, spanGaps: true, pointRadius: 2 },
+        { label: t('health.environment.humidity'), data: humidity, yAxisID: 'humidity', borderColor: '#7bc9ff', backgroundColor: '#7bc9ff', tension: .2, spanGaps: true, pointRadius: 2 }
+      ] }, options: envOptions
+    });
+    replaceChart('light', 'lightChart', {
+      type: 'bar', data: { labels: envLabels, datasets: [{ label: t('health.environment.light'), data: light, backgroundColor: 'rgba(255,214,102,.7)', borderRadius: 3 }] }, options: chartDefaults()
+    });
+
+    // 体征读数（心率 / 血氧 / 步数）——原始逐条时间序列
+    const vitals = sortByTime(state.vitals);
+    const vitalsLabels = vitals.map((r) => formatTs(r.utcEpochMs));
+    const heartRate = vitals.map((r) => r.heartRate);
+    const spo2 = vitals.map((r) => r.spo2);
+    const steps = vitals.map((r) => r.steps);
 
     const vitalsOptions = chartDefaults();
     vitalsOptions.scales = {
@@ -325,13 +320,13 @@
       oxygen: { type: 'linear', position: 'right', min: 80, max: 100, ticks: { color: '#8794af' }, grid: { drawOnChartArea: false } }
     };
     replaceChart('vitals', 'vitalsChart', {
-      type: 'line', data: { labels, datasets: [
-        { label: t('health.connection.heartRate'), data: analysis.series.map((day) => day.heartRateAvg), yAxisID: 'heart', borderColor: '#ff8c9b', backgroundColor: '#ff8c9b', tension: .3, spanGaps: true, pointRadius: 2 },
-        { label: t('health.connection.spo2'), data: analysis.series.map((day) => day.spo2Avg), yAxisID: 'oxygen', borderColor: '#66d5dc', backgroundColor: '#66d5dc', tension: .3, spanGaps: true, pointRadius: 2 }
+      type: 'line', data: { labels: vitalsLabels, datasets: [
+        { label: t('health.connection.heartRate'), data: heartRate, yAxisID: 'heart', borderColor: '#ff8c9b', backgroundColor: '#ff8c9b', tension: .2, spanGaps: true, pointRadius: 2 },
+        { label: t('health.connection.spo2'), data: spo2, yAxisID: 'oxygen', borderColor: '#66d5dc', backgroundColor: '#66d5dc', tension: .2, spanGaps: true, pointRadius: 2 }
       ] }, options: vitalsOptions
     });
     replaceChart('steps', 'stepsChart', {
-      type: 'bar', data: { labels, datasets: [{ label: t('health.connection.steps'), data: analysis.series.map((day) => day.steps), backgroundColor: analysis.series.map((day) => day.migraine ? 'rgba(255,108,124,.7)' : 'rgba(101,147,255,.62)'), borderRadius: 5 }] }, options: chartDefaults()
+      type: 'line', data: { labels: vitalsLabels, datasets: [{ label: t('health.connection.steps'), data: steps, borderColor: '#8ea9ff', backgroundColor: 'rgba(101,147,255,.15)', fill: true, tension: .2, spanGaps: true, pointRadius: 2 }] }, options: chartDefaults()
     });
   }
 
@@ -385,7 +380,7 @@
     rows.forEach((day) => {
       const row = document.createElement('tr');
       const source = day.sleepSource ? t(`health.source.${day.sleepSource}`) : '—';
-      const cells = [formatDate(day.date), source, formatDuration(day.sleepMinutes), rounded(day.heartRateAvg, ' bpm'), rounded(day.spo2Avg, '%', 1), day.steps == null ? '—' : Math.round(day.steps).toLocaleString(locale()), (day.migraineDurationMinutes == null || day.migraineDurationMinutes <= 0) ? '—' : formatDuration(day.migraineDurationMinutes)];
+      const cells = [formatDate(day.date), source, formatDuration(day.sleepMinutes), rounded(day.heartRateAvg, ' bpm'), rounded(day.spo2Avg, '%', 1), day.steps == null ? '—' : Math.round(day.steps).toLocaleString(locale())];
       cells.forEach((value, index) => {
         const cell = document.createElement('td');
         if (index === 1 && day.sleepSource) {
@@ -405,15 +400,16 @@
     state.analysis = analysis;
     document.getElementById('kpiSleep').textContent = formatDuration(analysis.kpis.averageSleepMinutes);
     document.getElementById('kpiMigraine').textContent = analysis.kpis.migraineDays ?? '—';
-    document.getElementById('kpiMigraineDuration').textContent = formatDuration(analysis.kpis.averageMigraineDurationMinutes);
     document.getElementById('kpiHeartRate').textContent = rounded(analysis.kpis.averageHeartRate, ' bpm');
     document.getElementById('kpiSpo2').textContent = rounded(analysis.kpis.averageSpo2, '%', 1);
     document.getElementById('kpiSteps').textContent = analysis.kpis.averageSteps == null ? '—' : Math.round(analysis.kpis.averageSteps).toLocaleString(locale());
     document.getElementById('coverageSummary').textContent = t('health.coverage', { recorded: analysis.coverage.recordedDays, overlap: analysis.coverage.overlappingDays });
     renderCharts(analysis);
+    renderReadingsCharts();
     renderInsights(analysis);
     renderHistory(analysis);
     renderConnection();
+    renderDataSource();
   }
 
   function localDate(offset) {
@@ -423,6 +419,7 @@
   }
 
   function renderLocalAnalysis() {
+    state.dataSource = 'local';
     const records = new Map(localSleepRecords().map((record) => [record.date, record]));
     const series = Array.from({ length: state.range }, (_, index) => {
       const date = localDate(index - state.range + 1); const record = records.get(date);
@@ -435,13 +432,27 @@
   async function loadAll(showLoading = true) {
     if (showLoading) setStatus(t('health.common.loading'));
     if (!window.ApiClient?.hasToken()) {
-      state.connection = null; state.latest = null; renderConnection(); renderLocalAnalysis(); setStatus(t('health.record.loginRequired'));
+      state.connection = null; state.latest = null; state.dataSource = null; renderConnection(); renderLocalAnalysis(); setStatus(t('health.record.loginRequired'));
       return;
     }
     try {
       const [connectionData, analysis] = await Promise.all([window.ApiClient.getHealthConnection(), window.ApiClient.getHealthAnalysis(state.range)]);
       state.connection = connectionData.connection;
       state.latest = connectionData.latest;
+      try {
+        const startMs = Date.parse(`${analysis.startDate}T00:00:00Z`);
+        const endMs = Date.parse(`${analysis.endDate}T23:59:59.999Z`);
+        const [environment, vitals] = await Promise.all([
+          window.ApiClient.getEnvironmentReadings({ start: startMs, end: endMs, limit: 5000 }),
+          window.ApiClient.getVitalsReadings({ start: startMs, end: endMs, limit: 5000 })
+        ]);
+        state.environment = environment.readings || [];
+        state.vitals = vitals.readings || [];
+      } catch (environmentError) {
+        state.environment = [];
+        state.vitals = [];
+      }
+      state.dataSource = 'backend';
       renderAnalysis(analysis);
       setStatus('');
     } catch (error) {
@@ -479,7 +490,6 @@
   function init() {
     initAuth();
     initSleepForm();
-    initMetricForms();
     initControls();
     loadAll();
     window.addEventListener('migraine:languagechange', () => {
