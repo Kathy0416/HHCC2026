@@ -14,13 +14,13 @@ function signToken(user) {
 function requireAuth(req, res, next) {
   const token = extractToken(req);
   if (!token) {
-    return res.status(401).json({ error: '未登录或登录已过期' });
+    return res.status(401).json({ error: req.t ? req.t('loginRequired') : '未登录或登录已过期' });
   }
   try {
     req.user = jwt.verify(token, JWT_SECRET);
     return next();
   } catch (e) {
-    return res.status(401).json({ error: '登录状态无效，请重新登录' });
+    return res.status(401).json({ error: req.t ? req.t('invalidSession') : '登录状态无效，请重新登录' });
   }
 }
 

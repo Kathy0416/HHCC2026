@@ -1,6 +1,8 @@
 const express = require('express');
 const { optionalAuth, requireAuth } = require('../middleware');
 const db = require('../db');
+const catalog = require('../../locales');
+const { serializeTip } = require('../builtin-tips');
 
 const router = express.Router();
 const CLINICAL_REQUIRED_TAG = '医学建议';
@@ -28,8 +30,7 @@ function toTip(row) {
   const template = row.template_type || 'normal';
   return {
     id: row.id,
-    title: row.title,
-    description: row.description,
+    author: isAnonymous ? catalog.keys[locale]['common.anonymous'] : row.author,
     content: row.content,
     image: row.image,
     template,
@@ -101,22 +102,22 @@ router.post('/', requireAuth, (req, res) => {
   const tags = normalizeTags(req.body.tags, template);
 
   if (!title) {
-    return res.status(400).json({ error: '标题不能为空' });
+    return res.status(400).json({ error: req.t('emptyTitle') });
   }
   if (!content) {
-    return res.status(400).json({ error: '内容不能为空' });
+    return res.status(400).json({ error: req.t('emptyContent') });
   }
   if (title.length > 100) {
-    return res.status(400).json({ error: '标题过长（最多 100 字）' });
+    return res.status(400).json({ error: req.t('titleTooLong') });
   }
   if (content.length > 20000) {
-    return res.status(400).json({ error: '内容过长（最多 20000 字）' });
+    return res.status(400).json({ error: req.t('contentTooLong') });
   }
   if (image && image.length > 10 * 1024 * 1024) {
-    return res.status(400).json({ error: '图片过大（最大约 7MB）' });
+    return res.status(400).json({ error: req.t('imageTooLarge') });
   }
   if (!['clinical', 'daily', 'normal'].includes(template)) {
-    return res.status(400).json({ error: '模板类型无效' });
+    return res.status(400).json({ error: req.t('invalidTemplate') });
   }
 
   const username = req.user.username;
@@ -130,9 +131,9 @@ router.post('/', requireAuth, (req, res) => {
     `)
     .run(title, description, content, image, template, username, username, '', avatar, JSON.stringify(tags), date);
 
-  const query = tipSelect(req.user.id);
-  const row = db.prepare(`${query.sql} WHERE tips.id = ?`).get(...query.params, Number(info.lastInsertRowid));
-  res.status(201).json({ tip: toTip(row) });
+const query = tipSelect(req.user.id);
+const row = db.prepare(`${query.sql} WHERE tips.id = ?`).get(...query.params, Number(info.lastInsertRowId));
+res.status(201).json({ tip: withCommentCount(serializeTip(row, req.locale)) });
 });
 
 // 获取单个 Tip
@@ -140,9 +141,9 @@ router.get('/:id', optionalAuth, (req, res) => {
   const query = tipSelect(req.user && req.user.id);
   const row = db.prepare(`${query.sql} WHERE tips.id = ?`).get(...query.params, Number(req.params.id));
   if (!row) {
-    return res.status(404).json({ error: '未找到该笔记' });
+    return res.status(404).json({ error: req.t('tipNotFound') });
   }
-  res.json({ tip: toTip(row) });
+res.json({ tip: withCommentCount(serializeTip(row, req.locale)) });
 });
 
 // 获取某条 Tip 的评论
@@ -150,7 +151,7 @@ router.get('/:id/comments', (req, res) => {
   const rows = db
     .prepare('SELECT * FROM comments WHERE tip_id = ? ORDER BY created_at DESC, id DESC')
     .all(Number(req.params.id));
-  res.json({ comments: rows.map(toComment) });
+  res.json({ comments: rows.map((row) => toComment(row, req.locale)) });
 });
 
 // 发表评论（未登录时为匿名）
@@ -158,25 +159,25 @@ router.post('/:id/comments', optionalAuth, (req, res) => {
   const tipId = Number(req.params.id);
   const tip = db.prepare('SELECT id FROM tips WHERE id = ?').get(tipId);
   if (!tip) {
-    return res.status(404).json({ error: '未找到该笔记' });
+    return res.status(404).json({ error: req.t('tipNotFound') });
   }
 
   const content = String(req.body.content || '').trim();
   if (!content) {
-    return res.status(400).json({ error: '评论内容不能为空' });
+    return res.status(400).json({ error: req.t('emptyComment') });
   }
   if (content.length > 1000) {
-    return res.status(400).json({ error: '评论内容过长' });
+    return res.status(400).json({ error: req.t('commentTooLong') });
   }
 
-  const author = req.user ? req.user.username : '匿名';
+  const author = req.user ? req.user.username : '__anonymous__';
   const date = new Date().toISOString().split('T')[0];
   const info = db
     .prepare('INSERT INTO comments (tip_id, user_id, author, content, date) VALUES (?, ?, ?, ?, ?)')
     .run(tipId, req.user ? req.user.id : null, author, content, date);
 
   const row = db.prepare('SELECT * FROM comments WHERE id = ?').get(Number(info.lastInsertRowid));
-  res.status(201).json({ comment: toComment(row) });
+  res.status(201).json({ comment: toComment(row, req.locale) });
 });
 
 // 点赞（重复请求保持已点赞状态，不会创建重复数据）
@@ -198,7 +199,7 @@ router.delete('/:id/like', requireAuth, (req, res) => {
   const tipId = Number(req.params.id);
   const tip = db.prepare('SELECT id FROM tips WHERE id = ?').get(tipId);
   if (!tip) {
-    return res.status(404).json({ error: '未找到该笔记' });
+    return res.status(404).json({ error: req.t('tipNotFound') });
   }
 
   db.prepare('DELETE FROM tip_likes WHERE tip_id = ? AND user_id = ?')

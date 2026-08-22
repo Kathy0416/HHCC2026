@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>偏头痛记录日历</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="locales.js"></script>
+    <script src="i18n.js?v=7-content-boundary"></script>
     <script src="api.js"></script>
     <style>
         /* Ensure consistent spacing between trigger categories */
@@ -257,9 +259,10 @@
             // Register Service Worker for PWA support
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('sw.js')
+                    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
                         .then((registration) => {
                             console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                            return registration.update();
                         })
                         .catch((error) => {
                             console.log('ServiceWorker registration failed: ', error);
@@ -566,7 +569,7 @@
                 </a>
                 <a href="tips.html" class="nav-link">
                     <span class="nav-icon">💡</span>
-                    <span class="nav-text">Tips</span>
+                    <span class="nav-text" data-i18n="nav.tips">Tips</span>
                 </a>
                 <a href="my.html" class="nav-link">
                     <span class="nav-icon">👤</span>
