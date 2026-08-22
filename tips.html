@@ -31,11 +31,14 @@
             overflow-y: auto;
             margin: 0;
             padding: 0 0 90px;
+            /* 封面与模态框图片共用底色 */
+            --cover-background: rgba(15, 23, 42, 0.45);
         }
         
         /* 笔记卡片网格：同一断点内的卡片尺寸完全一致 */
         .tips-grid {
             --tip-card-height: 420px;
+            --tip-card-image-height: 56%;
             display: grid;
             grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 1rem;
@@ -168,16 +171,21 @@
             box-shadow: 0 12px 36px rgba(139, 92, 246, 0.22);
         }
         
-        /* 固定的封面区域；contain 可保留上传图片的完整比例和内容 */
+        /* 封面区域：占比由 --tip-card-image-height 统一控制，contain 保留上传图片的完整比例和内容 */
         .tip-card-image {
+            display: block;
             width: 100%;
-            height: 56%;
-            flex: 0 0 56%;
+            /* flex 主轴为纵向，用 flex-basis 控制高度即可，无需再重复写 height */
+            flex: 0 0 var(--tip-card-image-height, 56%);
             object-fit: contain;
             object-position: center;
-            background: rgba(15, 23, 42, 0.45);
-            border-right: none;
+            /* 与模态框图片区域共用同一底色，保证 letterbox 观感一致 */
+            background: var(--cover-background, rgba(15, 23, 42, 0.45));
             border-bottom: 1px solid var(--glass-border);
+            /* 图片不拦截指针事件，点击/拖动统一交由卡片处理，避免误拖图片 */
+            pointer-events: none;
+            -webkit-user-drag: none;
+            user-select: none;
         }
         
         /* 卡片内容样式 - 仅显示标题 */
@@ -409,7 +417,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(15, 23, 42, 0.45);
+            background: var(--cover-background);
         }
         
         .tip-modal-image {
@@ -974,17 +982,13 @@
             
             .tips-grid {
                 --tip-card-height: 330px;
+                --tip-card-image-height: 50%;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 0.8rem;
             }
             
             .tip-card {
                 border-radius: 12px;
-            }
-
-            .tip-card-image {
-                height: 50%;
-                flex-basis: 50%;
             }
             
             .tip-card-content {
@@ -1037,17 +1041,13 @@
         @media (max-width: 576px) {
             /* 手机显示2列，铺满页面 */
             .tips-grid {
+                --tip-card-image-height: 48%;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 0.6rem;
             }
             
             .tip-card {
                 border-radius: 10px;
-            }
-
-            .tip-card-image {
-                height: 48%;
-                flex-basis: 48%;
             }
             
             .tip-card-content {
