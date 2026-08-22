@@ -23,7 +23,11 @@
 }
 
 .health-page [data-site-header] { position: sticky; top: 0; z-index: 120; }
-.health-page .site-header { background: rgba(20, 27, 45, .84); backdrop-filter: blur(22px); }
+.health-page .site-header {
+    background:
+        linear-gradient(118deg, rgba(82, 112, 184, 0.18), rgba(29, 37, 61, 0.42) 46%, rgba(43, 83, 125, 0.2)),
+        rgba(17, 22, 35, 0.48);
+}
 
 .health-shell { width: min(1440px, calc(100% - 48px)); margin: 0 auto; padding: 34px 0 24px; }
 .page-status { min-height: 24px; margin: 0 4px 14px; color: var(--health-muted); font-size: .9rem; }

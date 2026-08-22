@@ -64,65 +64,15 @@
         }
         
         /* 导航链接样式 - 确保全屏宽度 */
-        .navigation-links {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 1.5rem;
-            padding: 1rem 0;
-            width: 100%;
-        }
         
         /* 导航链接样式 */
-        .nav-link {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            color: var(--text-primary);
-            transition: all 0.3s ease;
-            font-size: 0.8rem;
-            flex: 1;
-            max-width: 60px;
-        }
         
         /* 导航图标样式 */
-        .nav-icon {
-            font-size: 1.5rem;
-            margin-bottom: 0.3rem;
-        }
         
         /* 中间突出的日历按钮 */
-        .nav-link.calendar-btn {
-            position: relative;
-            top: -1.5rem;
-            background: var(--accent-blue-light);
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 12px rgba(65, 105, 225, 0.4);
-            transition: all 0.3s ease;
-        }
         
-        .nav-link.calendar-btn .nav-icon {
-            font-size: 2rem;
-            margin-bottom: 0;
-            color: white;
-        }
         
-        .nav-link.calendar-btn:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 6px 16px rgba(65, 105, 225, 0.5);
-        }
         
-        .nav-link:hover:not(.calendar-btn) {
-            color: var(--accent-blue-light);
-            transform: translateY(-2px);
-        }
         
         /* 笔记卡片样式 */
         .tip-card {
@@ -448,29 +398,7 @@
         
         
         /* 底部导航样式 - 固定在页面底部，类似小红书风格 */
-        .footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            padding: 0.5rem 0 1rem;
-            background: rgba(18, 18, 18, 0.12);
-            backdrop-filter: blur(20px) saturate(160%);
-            -webkit-backdrop-filter: blur(20px) saturate(160%);
-            border-top: 1px solid rgba(255, 255, 255, 0.12);
-            z-index: 100;
-        }
         
-        .footer .navigation-links {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: space-around;
-            align-items: flex-end;
-            gap: 0.5rem;
-            width: 100%;
-        }
-
         .publish-tip-fab {
             position: fixed;
             right: calc(1.25rem + env(safe-area-inset-right));
