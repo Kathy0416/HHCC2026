@@ -44,7 +44,9 @@ app.use((req, res) => {
 // 统一错误处理
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ error: req.t('internal') });
+  const message = typeof req.t === 'function' ? req.t('internal') : 'Internal server error';
+  const status = err instanceof SyntaxError && Object.prototype.hasOwnProperty.call(err, 'body') ? 400 : 500;
+  res.status(status).json({ error: message });
 });
 
 if (require.main === module) {
