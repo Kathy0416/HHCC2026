@@ -20,37 +20,22 @@ function normalizeTags(tags, template) {
   return uniqueTags;
 }
 
-function toTip(row) {
-  let tags = [];
-  try {
-    tags = JSON.parse(row.tags || '[]');
-  } catch (e) {
-    tags = [];
-  }
-  const template = row.template_type || 'normal';
-  return {
-    id: row.id,
-    author: isAnonymous ? catalog.keys[locale]['common.anonymous'] : row.author,
-    content: row.content,
-    image: row.image,
-    template,
-    author: {
-      name: row.author_name,
-      username: row.author_username,
-      bio: row.author_bio,
-      avatar: row.author_avatar
-    },
-    tags: normalizeTags(tags, template),
-    likes: Number(row.like_count == null ? row.likes : row.like_count),
-    liked: Boolean(row.liked_by_user),
-    comments: Number(row.comment_count || 0),
-    date: row.date,
-    createdAt: row.created_at
-  };
+function toTip(row, locale = 'zh-CN') {
+  const tip = serializeTip(row, locale);
+  tip.likes = Number(row.like_count == null ? row.likes : row.like_count);
+  tip.liked = Boolean(row.liked_by_user);
+  tip.comments = Number(row.comment_count || 0);
+  return tip;
 }
 
 function toComment(row) {
   return { id: row.id, author: row.author, content: row.content, date: row.date };
+}
+
+function withCommentCount(tip) {
+  const { c } = db.prepare('SELECT COUNT(*) AS c FROM comments WHERE tip_id = ?').get(tip.id);
+  tip.comments = c;
+  return tip;
 }
 
 function tipSelect(userId) {
@@ -87,7 +72,7 @@ function getTipLikeState(tipId, userId) {
 router.get('/', optionalAuth, (req, res) => {
   const query = tipSelect(req.user && req.user.id);
   const rows = db.prepare(`${query.sql} ORDER BY tips.id DESC`).all(...query.params);
-  res.json({ tips: rows.map(toTip) });
+  res.json({ tips: rows.map((row) => toTip(row, req.locale)) });
 });
 
 // 发布 Tips（需登录，支持图片 base64 和 markdown 文字）
@@ -133,7 +118,7 @@ router.post('/', requireAuth, (req, res) => {
 
 const query = tipSelect(req.user.id);
 const row = db.prepare(`${query.sql} WHERE tips.id = ?`).get(...query.params, Number(info.lastInsertRowId));
-res.status(201).json({ tip: withCommentCount(serializeTip(row, req.locale)) });
+res.status(201).json({ tip: toTip(row, req.locale) });
 });
 
 // 获取单个 Tip
@@ -143,7 +128,7 @@ router.get('/:id', optionalAuth, (req, res) => {
   if (!row) {
     return res.status(404).json({ error: req.t('tipNotFound') });
   }
-res.json({ tip: withCommentCount(serializeTip(row, req.locale)) });
+res.json({ tip: toTip(row, req.locale) });
 });
 
 // 获取某条 Tip 的评论

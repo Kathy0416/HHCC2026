@@ -1,6 +1,6 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v22-health-icon';
+const CACHE_NAME = 'migraine-app-cache-v23-tips-restore';
 const urlsToCache = [
   '.',
   'index.html',

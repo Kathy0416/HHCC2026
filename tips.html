@@ -1416,15 +1416,8 @@ const knownBuiltIn = source.builtinKey
   && window.MigraineLocales.tips[source.builtinKey];
 
 // 构建最终对象
-const normalized = {
-  ...source,
-  template,
-  tags: normalizedTags,
-  builtinKey: knownBuiltIn ? source.builtinKey : null,
-};
-
 // 返回结果（或继续使用 normalized）
-return normalized;
+            const normalized = {
                 title: String(source.title || '未命名 Tips'),
                 description: String(source.description || ''),
                 content: String(source.content || ''),
@@ -1927,6 +1920,7 @@ return normalized;
             
             tips.forEach(rawTip => {
                 const tip = normalizeTip(rawTip);
+                tipStateById.set(String(tip.id), tip);
                 const templateConfig = localizedTemplateConfig(tip.template);
                 const tipCard = document.createElement('div');
                 tipCard.className = `tip-card template-${tip.template}`;
