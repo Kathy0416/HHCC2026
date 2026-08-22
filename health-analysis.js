@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const state = { range: 30, analysis: null, connection: null, latest: null, environmentLatest: null, devicePreference: null, devicePreferenceSaving: false, esp32Syncing: false, esp32Synced: false, charts: {} };
+  const state = { range: 30, analysis: null, connection: null, latest: null, environmentLatest: null, environmentSeries: null, devicePreference: null, devicePreferenceSaving: false, esp32Syncing: false, esp32Synced: false, charts: {} };
   const QUALITY = new Set(['excellent', 'good', 'fair', 'poor']);
   const ESP32_ENDPOINT_KEY = 'esp32EndpointUrl';
   const DEVICE_PREVIEW_KEY = 'healthDevicePreview';
@@ -11,6 +11,12 @@
     miband: 'assets/xiaomi-band.svg'
   });
   const DEVICE_TYPES = new Set(['apple', 'miband']);
+  const SENSOR_CHARTS = Object.freeze([
+    { name: 'sensorTemperature', canvas: 'sensorTemperatureChart', key: 'temperatureC', unit: '°C', color: '#ff9b75' },
+    { name: 'sensorHumidity', canvas: 'sensorHumidityChart', key: 'humidityPct', unit: '%', color: '#66d5dc' },
+    { name: 'sensorLight', canvas: 'sensorLightChart', key: 'lightLux', unit: 'lux', color: '#ffd36a' },
+    { name: 'sensorNoise', canvas: 'sensorNoiseChart', key: 'noiseDb', unit: 'dB', color: '#bd8cff' }
+  ]);
   const deviceChooserState = { open: false, type: 'miband', trigger: null };
   const pickerState = {
     open: false, type: null, targetId: null, trigger: null,
@@ -68,9 +74,11 @@
       state.connection = null;
       state.latest = null;
       state.environmentLatest = null;
+      state.environmentSeries = null;
       state.devicePreference = null;
       renderConnection();
       renderLocalAnalysis();
+      renderEnvironmentSeries(null);
       setStatus(t('health.record.loginRequired'));
     });
     document.querySelectorAll('.close-modal').forEach((button) => button.addEventListener('click', () => hideModal(button.closest('.modal').id)));
@@ -498,6 +506,15 @@
     return new Intl.DateTimeFormat(locale(), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
   }
 
+  function formatSensorTimestamp(value, includeDate = true) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value || '');
+    const options = includeDate
+      ? { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }
+      : { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+    return new Intl.DateTimeFormat(locale(), options).format(date);
+  }
+
   function formatDuration(minutes) {
     if (!Number.isFinite(Number(minutes))) return '—';
     const value = Math.round(Number(minutes));
@@ -796,6 +813,119 @@
     });
   }
 
+  function sensorPoints(readings, metricKey, sourceKey, gapThresholdMs) {
+    const points = [];
+    let previousTimestamp = null;
+    for (const reading of readings) {
+      const timestamp = Date.parse(reading.recordedAt);
+      if (!Number.isFinite(timestamp)) continue;
+      if (previousTimestamp != null && Number.isFinite(gapThresholdMs) && timestamp - previousTimestamp > gapThresholdMs) {
+        points.push({ x: previousTimestamp + (timestamp - previousTimestamp) / 2, y: null });
+      }
+      const source = reading[sourceKey];
+      const value = source && Number.isFinite(Number(source[metricKey])) ? Number(source[metricKey]) : null;
+      points.push({ x: timestamp, y: value });
+      previousTimestamp = timestamp;
+    }
+    return points;
+  }
+
+  function destroySensorCharts() {
+    for (const config of SENSOR_CHARTS) {
+      state.charts[config.name]?.destroy();
+      delete state.charts[config.name];
+    }
+  }
+
+  function sensorChartOptions(config, session) {
+    const options = chartDefaults();
+    options.animation = false;
+    options.interaction = { mode: 'index', axis: 'x', intersect: false };
+    options.plugins.tooltip.callbacks = {
+      title(items) {
+        return items.length ? formatSensorTimestamp(items[0].parsed.x) : '';
+      },
+      label(context) {
+        if (context.parsed.y == null) return '';
+        return `${context.dataset.label}: ${Number(context.parsed.y).toLocaleString(locale(), { maximumFractionDigits: 3 })} ${config.unit}`;
+      }
+    };
+    options.scales = {
+      x: {
+        type: 'linear', min: Date.parse(session.startAt), max: Date.parse(session.endAt),
+        ticks: { color: '#8794af', maxTicksLimit: 8, callback: (value) => formatSensorTimestamp(value, false) },
+        grid: { color: 'rgba(123,147,205,.07)' },
+        title: { display: true, text: locale() === 'en' ? 'Time' : '时间', color: '#8794af' }
+      },
+      y: {
+        ticks: { color: '#8794af' }, grid: { color: 'rgba(123,147,205,.09)' },
+        title: { display: true, text: config.unit, color: '#8794af' }
+      }
+    };
+    return options;
+  }
+
+  function renderEnvironmentSeries(series) {
+    state.environmentSeries = series;
+    const grid = document.getElementById('sensorChartGrid');
+    const empty = document.getElementById('sensorSessionEmpty');
+    const metadata = document.getElementById('sensorSessionMeta');
+    const notice = document.getElementById('sensorSessionNotice');
+    const session = series?.session;
+    const readings = Array.isArray(series?.readings) ? series.readings : [];
+    if (!session || !readings.length) {
+      destroySensorCharts();
+      grid.hidden = true;
+      empty.hidden = false;
+      metadata.textContent = '';
+      notice.textContent = '';
+      notice.hidden = true;
+      return;
+    }
+
+    grid.hidden = false;
+    empty.hidden = true;
+    const cadence = session.medianIntervalMs == null
+      ? '—'
+      : (session.medianIntervalMs >= 1000
+        ? `${Number(session.medianIntervalMs / 1000).toLocaleString(locale(), { maximumFractionDigits: 2 })} s`
+        : `${Number(session.medianIntervalMs).toLocaleString(locale(), { maximumFractionDigits: 1 })} ms`);
+    metadata.textContent = t('health.sensor.meta', {
+      start: formatSensorTimestamp(session.startAt),
+      end: formatSensorTimestamp(session.endAt),
+      count: Number(session.sampleCount).toLocaleString(locale()),
+      cadence
+    });
+    const notices = [];
+    if (!series.quality?.fittedSampleCount) notices.push(t('health.sensor.warmup'));
+    if (session.truncated) notices.push(t('health.sensor.truncated'));
+    notice.textContent = notices.join(' ');
+    notice.hidden = notices.length === 0;
+
+    const gapThresholdValue = series.quality?.displayGapThresholdMs;
+    const gapThresholdMs = gapThresholdValue == null ? null : Number(gapThresholdValue);
+    for (const config of SENSOR_CHARTS) {
+      replaceChart(config.name, config.canvas, {
+        type: 'line',
+        data: {
+          datasets: [
+            {
+              label: t('health.sensor.raw'), data: sensorPoints(readings, config.key, 'raw', gapThresholdMs),
+              parsing: false, borderColor: `${config.color}70`, backgroundColor: `${config.color}70`,
+              borderWidth: 1, tension: 0, spanGaps: false, pointRadius: 0, pointHoverRadius: 3
+            },
+            {
+              label: t('health.sensor.trend'), data: sensorPoints(readings, config.key, 'fitted', gapThresholdMs),
+              parsing: false, borderColor: config.color, backgroundColor: config.color,
+              borderWidth: 2.5, tension: 0, spanGaps: false, pointRadius: 0, pointHoverRadius: 3
+            }
+          ]
+        },
+        options: sensorChartOptions(config, session)
+      });
+    }
+  }
+
   function addComparison(container, title, comparison, formatter) {
     const card = document.createElement('article');
     card.className = 'comparison-card';
@@ -944,21 +1074,27 @@
   async function loadAll(showLoading = true) {
     if (showLoading) setStatus(t('health.common.loading'));
     if (!window.ApiClient?.hasToken()) {
-      state.connection = null; state.latest = null; state.environmentLatest = null; state.devicePreference = null; renderConnection(); renderLocalAnalysis(); setStatus(t('health.record.loginRequired'));
+      state.connection = null; state.latest = null; state.environmentLatest = null; state.environmentSeries = null; state.devicePreference = null; renderConnection(); renderLocalAnalysis(); renderEnvironmentSeries(null); setStatus(t('health.record.loginRequired'));
       return;
     }
     try {
       sessionStorage.removeItem(DEVICE_PREVIEW_KEY);
-      const [connectionData, analysis] = await Promise.all([window.ApiClient.getHealthConnection(), window.ApiClient.getHealthAnalysis(state.range)]);
+      const [connectionData, analysis, environmentSeries] = await Promise.all([
+        window.ApiClient.getHealthConnection(),
+        window.ApiClient.getHealthAnalysis(state.range),
+        window.ApiClient.getEnvironmentSeries()
+      ]);
       state.connection = connectionData.connection;
       state.latest = connectionData.latest;
       state.environmentLatest = connectionData.environmentLatest;
       state.devicePreference = connectionData.devicePreference;
       renderAnalysis(analysis);
+      renderEnvironmentSeries(environmentSeries);
       setStatus('');
     } catch (error) {
       if (error.status === 401) showModal('loginModal');
       renderLocalAnalysis();
+      renderEnvironmentSeries(null);
       setStatus(error.status ? error.message : t('health.common.offline'), 'error');
     }
   }
@@ -1156,6 +1292,7 @@
       refreshOpenPicker();
       if (state.analysis) renderAnalysis(state.analysis);
       else renderConnection();
+      renderEnvironmentSeries(state.environmentSeries);
     });
   }
 

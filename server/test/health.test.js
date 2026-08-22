@@ -9,7 +9,7 @@ const express = require('express');
 const { DatabaseSync } = require('node:sqlite');
 const { signToken } = require('../middleware');
 const { localeMiddleware } = require('../i18n');
-const { buildAnalysis, parseRange } = require('../health-analysis');
+const { ENVIRONMENT_SESSION_LIMIT, buildAnalysis, buildEnvironmentSeries, parseRange } = require('../health-analysis');
 const { createHealthRouter } = require('../routes/health');
 
 function schema(db) {
@@ -32,6 +32,21 @@ function isoDate(offset) {
   return date.toISOString().slice(0, 10);
 }
 
+function environmentRow(index, options = {}) {
+  const intervalMs = options.intervalMs || 1000;
+  const timestamp = (options.startMs || 1787340000000) + index * intervalMs;
+  const seconds = index * intervalMs / 1000;
+  const cubic = 20 + 0.02 * seconds - 0.0001 * seconds ** 2 + 0.0000002 * seconds ** 3;
+  return {
+    id: options.id == null ? index + 1 : options.id,
+    recorded_at: new Date(timestamp).toISOString(),
+    temperature_c: options.temperature == null ? cubic : options.temperature,
+    humidity_pct: options.humidity == null ? cubic + 30 : options.humidity,
+    light_lux: options.light == null ? cubic * 10 : options.light,
+    noise_db: options.noise == null ? cubic + 20 : options.noise
+  };
+}
+
 test('analysis prefers wearable sleep and enforces evidence thresholds', () => {
   const dates = Array.from({ length: 7 }, (_, index) => isoDate(index - 6));
   const analysis = buildAnalysis({
@@ -49,6 +64,58 @@ test('analysis prefers wearable sleep and enforces evidence thresholds', () => {
   assert.equal(analysis.series[0].temperatureAvg, 24.8);
   assert.equal(analysis.series[0].humidityAvg, 62.5);
   assert.equal(parseRange('8'), null);
+});
+
+test('latest environment session uses a stable full-window trailing cubic fit', () => {
+  const rows = Array.from({ length: 321 }, (_, index) => environmentRow(index)).reverse();
+  const series = buildEnvironmentSeries(rows);
+  assert.equal(series.session.sampleCount, 321);
+  assert.equal(series.session.medianIntervalMs, 1000);
+  assert.equal(series.smoothing.degree, 3);
+  assert.equal(series.readings[299].fitted, null);
+  assert.ok(series.readings[300].fitted);
+  assert.ok(Math.abs(series.readings[300].fitted.temperatureC - series.readings[300].raw.temperatureC) < 1e-8);
+  assert.ok(series.readings.slice(300).every((reading) => Object.values(reading.fitted).every(Number.isFinite)));
+});
+
+test('environment smoothing reduces deterministic noise and remains stable for epoch timestamps', () => {
+  const rows = Array.from({ length: 340 }, (_, index) => environmentRow(index, {
+    startMs: 4102444800000,
+    temperature: 50 + (index % 2 ? 2 : -2),
+    humidity: 60 + (index % 2 ? 2 : -2),
+    light: 500 + (index % 2 ? 20 : -20),
+    noise: 45 + (index % 2 ? 2 : -2)
+  })).reverse();
+  const series = buildEnvironmentSeries(rows);
+  const fitted = series.readings.slice(300).map((reading) => reading.fitted.temperatureC);
+  assert.ok(fitted.every(Number.isFinite));
+  const rawError = series.readings.slice(300).reduce((sum, reading) => sum + Math.abs(reading.raw.temperatureC - 50), 0);
+  const fittedError = fitted.reduce((sum, value) => sum + Math.abs(value - 50), 0);
+  assert.ok(fittedError < rawError / 10);
+});
+
+test('environment series splits sessions, rejects sparse windows, handles duplicates, and caps output', () => {
+  const oldSession = Array.from({ length: 20 }, (_, index) => environmentRow(index));
+  const newStart = 1787340000000 + 10 * 60 * 1000;
+  const newSession = Array.from({ length: 321 }, (_, index) => environmentRow(index, { startMs: newStart }));
+  const latest = buildEnvironmentSeries([...oldSession, ...newSession].reverse());
+  assert.equal(latest.session.sampleCount, 321);
+  assert.equal(latest.session.startAt, new Date(newStart).toISOString());
+
+  const sparseIndexes = [...Array.from({ length: 120 }, (_, index) => index), 149, 179, 209, 239, 269, 299, 300];
+  const sparse = buildEnvironmentSeries(sparseIndexes.map((index) => environmentRow(index)).reverse());
+  assert.equal(sparse.readings.at(-1).fitted, null);
+
+  const duplicateRows = Array.from({ length: 10 }, (_, index) => environmentRow(0, { id: index + 1 }));
+  const duplicates = buildEnvironmentSeries(duplicateRows);
+  assert.equal(duplicates.session.medianIntervalMs, null);
+  assert.ok(duplicates.readings.every((reading) => reading.fitted == null));
+
+  const cappedRows = Array.from({ length: ENVIRONMENT_SESSION_LIMIT + 1 }, (_, index) => environmentRow(0, { id: index + 1 }));
+  const capped = buildEnvironmentSeries(cappedRows);
+  assert.equal(capped.session.sampleCount, ENVIRONMENT_SESSION_LIMIT);
+  assert.equal(capped.session.truncated, true);
+  assert.equal(capped.readings.at(-1).recordedAt, cappedRows.at(-1).recorded_at);
 });
 
 test('authenticated health flow is isolated, idempotent, and retains history after disconnect', async (t) => {
@@ -76,6 +143,8 @@ test('authenticated health flow is isolated, idempotent, and retains history aft
   let response = await fetch(base + '/environment-sync', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
   });
+  assert.equal(response.status, 401);
+  response = await fetch(base + '/environment-series');
   assert.equal(response.status, 401);
 
   response = await call('/connections', {
@@ -145,6 +214,18 @@ test('authenticated health flow is isolated, idempotent, and retains history aft
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM environment_readings WHERE user_id = 1').get().count, 2);
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM health_daily WHERE user_id = 1').get().count, 7);
 
+  response = await call('/environment-series');
+  assert.equal(response.status, 200);
+  const environmentSeries = await response.json();
+  assert.equal(environmentSeries.session.sampleCount, 2);
+  assert.equal(environmentSeries.readings[0].raw.lightLux, 428.3);
+  assert.equal(environmentSeries.readings[1].raw.lightLux, 465.8);
+  assert.ok(environmentSeries.readings.every((reading) => reading.fitted == null));
+  response = await call('/environment-series', {}, tokenTwo);
+  const otherEnvironmentSeries = await response.json();
+  assert.equal(otherEnvironmentSeries.session, null);
+  assert.deepEqual(otherEnvironmentSeries.readings, []);
+
   response = await call('/environment-sync', { method: 'POST', body: JSON.stringify(environmentBody) }, tokenTwo);
   assert.equal(response.status, 404);
   response = await call('/environment-sync', { method: 'POST', body: JSON.stringify({ ...environmentBody, readings: [{ ...environmentBody.readings[0], recordedAt: null }] }) });
@@ -184,6 +265,8 @@ test('authenticated health flow is isolated, idempotent, and retains history aft
   assert.equal(response.status, 409);
   response = await call('/environment-sync', { method: 'POST', body: JSON.stringify(environmentBody) });
   assert.equal(response.status, 409);
+  response = await call('/environment-series');
+  assert.equal((await response.json()).session.sampleCount, 2);
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM health_daily WHERE user_id = 1').get().count, 7);
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM environment_readings WHERE user_id = 1').get().count, 2);
 });

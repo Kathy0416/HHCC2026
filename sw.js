@@ -1,16 +1,16 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v24-api-routing';
+const CACHE_NAME = 'migraine-app-cache-v25-sensor-series';
 const urlsToCache = [
   '.',
   'index.html',
   'diary.html',
   'sleep.html',
-  'health-analysis.css?v=18-health-export',
-  'health-analysis.js?v=18-health-export',
+  'health-analysis.css?v=19-sensor-series',
+  'health-analysis.js?v=19-sensor-series',
   'esp32-parser.js?v=12-esp32-environment',
-  'locales.js?v=18-health-export',
-  'api.js?v=18-health-export',
+  'locales.js?v=19-sensor-series',
+  'api.js?v=19-sensor-series',
   'assets/apple-watch.svg',
   'assets/xiaomi-band.svg',
   'assets/moon-icon.svg',

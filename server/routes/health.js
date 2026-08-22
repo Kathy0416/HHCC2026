@@ -3,7 +3,9 @@
 const express = require('express');
 const { requireAuth } = require('../middleware');
 const defaultDb = require('../db');
-const { DATE_RE, buildAnalysis, parseRange, safeJson, todayInZone } = require('../health-analysis');
+const {
+  DATE_RE, ENVIRONMENT_SESSION_LIMIT, buildAnalysis, buildEnvironmentSeries, parseRange, safeJson, todayInZone
+} = require('../health-analysis');
 
 const MAX_DAYS_PER_SYNC = 100;
 const MAX_SESSIONS_PER_SYNC = 300;
@@ -453,6 +455,17 @@ function createHealthRouter(db = defaultDb) {
       SELECT * FROM environment_readings WHERE user_id = ? AND connection_id = ? ORDER BY recorded_at DESC, id DESC LIMIT 1
     `).get(req.user.id, connection.id);
     res.json({ ok: true, readingsUpserted: readings.length, environmentLatest: environmentLatestJson(latest) });
+  });
+
+  router.get('/environment-series', (req, res) => {
+    const rows = db.prepare(`
+      SELECT id, recorded_at, temperature_c, humidity_pct, light_lux, noise_db
+      FROM environment_readings
+      WHERE user_id = ?
+      ORDER BY recorded_at DESC, id DESC
+      LIMIT ?
+    `).all(req.user.id, ENVIRONMENT_SESSION_LIMIT + 1);
+    res.json(buildEnvironmentSeries(rows));
   });
 
   router.get('/analysis', (req, res) => {

@@ -8,14 +8,14 @@
     <title>健康分析 - Migraine Signal</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="ai-chat.css?v=1">
-    <link rel="stylesheet" href="health-analysis.css?v=18-health-export">
+    <link rel="stylesheet" href="health-analysis.css?v=19-sensor-series">
     <script src="site-header.js"></script>
-    <script src="locales.js?v=18-health-export"></script>
+    <script src="locales.js?v=19-sensor-series"></script>
     <script src="i18n.js?v=8-health-analysis"></script>
-    <script src="api.js?v=18-health-export"></script>
+    <script src="api.js?v=19-sensor-series"></script>
     <script src="esp32-parser.js?v=12-esp32-environment"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="health-analysis.js?v=18-health-export" defer></script>
+    <script src="health-analysis.js?v=19-sensor-series" defer></script>
 </head>
 <body class="health-page">
     <div data-site-header data-page-title="健康分析"></div>
@@ -98,6 +98,23 @@
                 <div id="insightsContent" class="insights-content"></div>
                 <p class="disclaimer" data-i18n="health.insights.disclaimer">这些内容只是对个人记录的描述，不构成诊断，也不证明因果关系。</p>
             </section>
+        </section>
+
+        <section class="health-card sensor-session-card" aria-labelledby="sensor-session-title">
+            <div class="section-heading compact-heading sensor-session-heading">
+                <div><p class="section-eyebrow">RAW SENSOR SIGNALS</p><h2 id="sensor-session-title" data-i18n="health.sensor.title">最近传感器会话</h2></div>
+                <span class="insight-tag">5 MIN · CUBIC</span>
+            </div>
+            <p id="sensorSessionMeta" class="sensor-session-meta" aria-live="polite"></p>
+            <p id="sensorSessionNotice" class="sensor-session-notice" aria-live="polite" hidden></p>
+            <div id="sensorChartGrid" class="chart-grid sensor-chart-grid" hidden>
+                <article class="chart-card"><h3 data-i18n="health.environment.temperature">温度</h3><div class="chart-frame"><canvas id="sensorTemperatureChart"></canvas></div></article>
+                <article class="chart-card"><h3 data-i18n="health.environment.humidity">湿度</h3><div class="chart-frame"><canvas id="sensorHumidityChart"></canvas></div></article>
+                <article class="chart-card"><h3 data-i18n="health.environment.light">光照强度</h3><div class="chart-frame"><canvas id="sensorLightChart"></canvas></div></article>
+                <article class="chart-card"><h3 data-i18n="health.environment.noise">噪声</h3><div class="chart-frame"><canvas id="sensorNoiseChart"></canvas></div></article>
+            </div>
+            <div id="sensorSessionEmpty" class="empty-state sensor-session-empty" data-i18n="health.sensor.empty">暂无已同步的传感器会话。</div>
+            <p class="disclaimer sensor-session-disclaimer" data-i18n="health.sensor.disclaimer">三次多项式趋势仅用于平滑显示，不代表预测、诊断或置信区间；原始读数始终保留。</p>
         </section>
 
         <section class="health-card history-card" aria-labelledby="history-title">

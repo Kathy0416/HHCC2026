@@ -186,6 +186,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_health_daily_user_date ON health_daily(user_id, local_date);
     CREATE INDEX IF NOT EXISTS idx_health_sleep_user_date ON health_sleep_sessions(user_id, local_date);
     CREATE INDEX IF NOT EXISTS idx_environment_user_date ON environment_readings(user_id, local_date);
+    CREATE INDEX IF NOT EXISTS idx_environment_user_time ON environment_readings(user_id, recorded_at);
     CREATE INDEX IF NOT EXISTS idx_environment_connection_time ON environment_readings(connection_id, recorded_at);
     CREATE INDEX IF NOT EXISTS idx_comments_tip ON comments(tip_id);
     CREATE INDEX IF NOT EXISTS idx_tip_likes_tip ON tip_likes(tip_id);

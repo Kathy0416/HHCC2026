@@ -101,6 +101,7 @@ for (const viewport of [
       deviceArtworkLoaded: Boolean(document.getElementById('deviceIllustration')?.complete && document.getElementById('deviceIllustration')?.naturalWidth),
       rangeButtons: document.querySelectorAll('[data-range]').length,
       chartCanvases: document.querySelectorAll('.chart-card canvas').length,
+      sensorSectionPresent: Boolean(document.getElementById('sensor-session-title') && document.getElementById('sensorChartGrid')),
       compactEspControl: document.querySelectorAll('.connection-card #esp32SyncBtn').length === 1 && !document.querySelector('.connection-card #esp32Endpoint') && !document.querySelector('.esp32-panel'),
       stressTileRemoved: !document.getElementById('latestStress'),
       controlsMatch: triggers.length === 4 && triggers.every((trigger) => trigger.querySelector('.picker-trigger-chevron')) && triggerStyles.every((item) => Math.abs(item.height - firstTriggerStyle.height) < 1 && item.border === firstTriggerStyle.border && item.radius === firstTriggerStyle.radius && item.background === firstTriggerStyle.background && item.font === firstTriggerStyle.font),
@@ -536,6 +537,7 @@ const esp32Sync = await evaluate(`(async () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   const ranges = await Promise.all([7, 30, 90].map((range) => window.ApiClient.getHealthAnalysis(range)));
+  const sensorSeries = await window.ApiClient.getEnvironmentSeries();
   return {
     success: document.getElementById('pageStatus').classList.contains('is-success'),
     status: document.getElementById('pageStatus').textContent,
@@ -546,6 +548,18 @@ const esp32Sync = await evaluate(`(async () => {
     historyRows: document.querySelectorAll('#healthHistoryBody tr').length,
     historyColumns: document.querySelector('#healthHistoryBody tr')?.children.length || 0,
     environmentCharts: !window.Chart || Boolean(Chart.getChart('environmentClimateChart') && Chart.getChart('environmentExposureChart')),
+    sensorSeries: {
+      sampleCount: sensorSeries.session?.sampleCount,
+      fittedSampleCount: sensorSeries.quality?.fittedSampleCount,
+      degree: sensorSeries.smoothing?.degree,
+      alignment: sensorSeries.smoothing?.alignment
+    },
+    sensorCharts: !window.Chart || ['sensorTemperatureChart', 'sensorHumidityChart', 'sensorLightChart', 'sensorNoiseChart'].every((id) => {
+      const chart = Chart.getChart(id);
+      return chart && chart.data.datasets.length === 2 && chart.data.datasets.every((dataset) => dataset.tension === 0);
+    }),
+    sensorMeta: document.getElementById('sensorSessionMeta').textContent,
+    sensorGridVisible: !document.getElementById('sensorChartGrid').hidden,
     rangeCoverage: ranges.map((analysis) => ({
       range: analysis.range,
       seriesLength: analysis.series.length,
@@ -572,6 +586,7 @@ const english = await evaluate(`({
   nav: document.querySelector('.health-nav-link.is-active span:last-child').textContent,
   record: document.querySelector('#record-title').textContent,
   connectionTitle: document.getElementById('connection-title').textContent,
+  sensorTitle: document.getElementById('sensor-session-title').textContent,
   pickerTitle: document.getElementById('pickerTitle').textContent,
   today: document.getElementById('pickerToday').textContent,
   cancel: document.getElementById('pickerCancel').textContent,
@@ -598,7 +613,8 @@ const failures = layouts.flatMap((layout) => [
   layout.defaultDeviceName !== 'Mi Band' && `${layout.name}: inferred product name is not shown`,
   !layout.deviceArtworkLoaded && `${layout.name}: fallback artwork did not load`,
   layout.rangeButtons !== 3 && `${layout.name}: range buttons missing`,
-  layout.chartCanvases !== 5 && `${layout.name}: environmental chart canvases missing`,
+  layout.chartCanvases !== 9 && `${layout.name}: environmental chart canvases missing`,
+  !layout.sensorSectionPresent && `${layout.name}: recent sensor session section is missing`,
   !layout.compactEspControl && `${layout.name}: connection card does not contain exactly one compact ESP32 control`,
   !layout.stressTileRemoved && `${layout.name}: Stress tile still exists`,
   !layout.controlsMatch && `${layout.name}: selection controls do not share one visual style`,
@@ -655,9 +671,11 @@ if (esp32Sync.endpointSaved !== 'http://esp32.test/data') failures.push('ESP32 e
 if (!esp32Sync.oneVisibleControl || !esp32Sync.buttonShowsCompletion) failures.push('Compact ESP32 sync control did not show completion');
 if (esp32Sync.historyRows < 1 || esp32Sync.historyColumns !== 11) failures.push('Environmental history columns or rows are missing');
 if (!esp32Sync.environmentCharts) failures.push('Environmental charts were not created');
+if (!esp32Sync.sensorCharts || !esp32Sync.sensorGridVisible || !esp32Sync.sensorMeta) failures.push('Recent sensor charts were not created after ESP32 sync');
+if (esp32Sync.sensorSeries?.sampleCount !== 501 || esp32Sync.sensorSeries?.fittedSampleCount !== 201 || esp32Sync.sensorSeries?.degree !== 3 || esp32Sync.sensorSeries?.alignment !== 'trailing') failures.push('Recent sensor series does not contain the expected raw and fitted samples');
 if (esp32Sync.rangeCoverage.some((item) => item.seriesLength !== item.range || !item.hasEnvironment)) failures.push('Environmental analysis is missing from a 7/30/90-day range');
 if (esp32Reload.endpoint !== 'http://esp32.test/data' || !esp32Reload.syncEnabled || !esp32Reload.oneVisibleControl || !esp32Reload.stressTileRemoved) failures.push('ESP32 state did not reload correctly');
-if (english.title !== 'Health Analysis' || english.nav !== 'Health Analysis' || english.record !== 'Record Sleep' || english.connectionTitle !== 'Data Sync') failures.push('English translations did not apply');
+if (english.title !== 'Health Analysis' || english.nav !== 'Health Analysis' || english.record !== 'Record Sleep' || english.connectionTitle !== 'Data Sync' || english.sensorTitle !== 'Recent sensor session') failures.push('English translations did not apply');
 if (english.pickerTitle !== 'Choose date' || english.today !== 'Today' || english.cancel !== 'Cancel' || english.apply !== 'Apply' || !/[A-Za-z]/.test(english.dateDisplay)) failures.push('English picker translations did not apply');
 if (englishDeviceChooser.title !== 'Choose your device' || englishDeviceChooser.nameLabel !== 'Device name' || englishDeviceChooser.availableSoon !== 'Available soon' || englishDeviceChooser.triggerLabel !== 'Choose or rename device') failures.push('English device chooser translations did not apply');
 const actionableErrors = errors.filter((error) => !error.includes('net::ERR_NETWORK_ACCESS_DENIED'));
