@@ -43,7 +43,7 @@ router.get('/', (req, res) => {
 router.put('/:date', (req, res) => {
   const { date } = req.params;
   if (!DATE_RE.test(date)) {
-    return res.status(400).json({ error: '日期格式应为 YYYY-MM-DD' });
+    return res.status(400).json({ error: req.t('invalidDate') });
   }
 
   const migraine = req.body.migraine ? 1 : 0;
@@ -69,7 +69,7 @@ router.put('/:date', (req, res) => {
 router.delete('/:date', (req, res) => {
   const { date } = req.params;
   if (!DATE_RE.test(date)) {
-    return res.status(400).json({ error: '日期格式应为 YYYY-MM-DD' });
+    return res.status(400).json({ error: req.t('invalidDate') });
   }
   db.prepare('DELETE FROM calendar_entries WHERE user_id = ? AND date = ?').run(req.user.id, date);
   res.json({ ok: true });

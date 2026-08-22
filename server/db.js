@@ -1,6 +1,7 @@
 // 数据库初始化与连接（使用 Node.js 内置的 node:sqlite，无需额外原生依赖）
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
+const { migrateBuiltInTipKeys } = require('./builtin-tips');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
 const db = new DatabaseSync(DB_PATH);
@@ -91,6 +92,11 @@ function initSchema() {
   if (!tipColumns.some((column) => column.name === 'template_type')) {
     db.exec("ALTER TABLE tips ADD COLUMN template_type TEXT NOT NULL DEFAULT 'normal'");
   }
+  if (!tipColumns.some((column) => column.name === 'builtin_key')) {
+    db.exec('ALTER TABLE tips ADD COLUMN builtin_key TEXT');
+  }
+
+  migrateBuiltInTipKeys(db);
 }
 
 // 预置 Tips 数据（仅当表为空时）
@@ -104,6 +110,7 @@ function seedTips(force = false) {
 
   const tips = [
     {
+      builtin_key: 'trigger_factors',
       title: '识别偏头痛触发因素',
       description: '了解常见的偏头痛触发因素，学会如何识别并记录自己的发作规律。',
       content: '偏头痛的常见触发因素包括：压力、睡眠不足或过多、饮食（酒精、咖啡因、巧克力、含硝酸盐食物）、荷尔蒙变化、环境因素（强光、噪音、天气变化）等。建议坚持记录发作时间、持续时长、当天饮食与睡眠，逐步找到属于自己的规律。',
@@ -111,6 +118,7 @@ function seedTips(force = false) {
       tags: ['触发因素', '自我监测', '健康科普'], likes: 128, date: '2024-01-15'
     },
     {
+      builtin_key: 'acute_relief',
       title: '偏头痛急性发作的缓解方法',
       description: '发作时如何第一时间缓解疼痛，这些实用技巧请收好。',
       content: '急性发作时建议：1. 到安静、黑暗的房间休息；2. 多喝水帮助代谢；3. 冷敷额头或太阳穴；4. 必要时服用医生建议的止痛药；5. 尝试深呼吸等放松技巧。如果症状严重或频率增加，请及时就医。',
@@ -118,6 +126,7 @@ function seedTips(force = false) {
       tags: ['缓解方法', '急性发作', '实用技巧'], likes: 96, date: '2024-02-20'
     },
     {
+      builtin_key: 'sleep_migraine',
       title: '睡眠与偏头痛的关系',
       description: '规律睡眠是预防偏头痛的重要一环，学会建立健康的睡眠习惯。',
       content: '睡眠不足和睡眠过多都可能诱发偏头痛。建议保持固定的入睡和起床时间，营造舒适的睡眠环境，睡前避免咖啡因和电子屏幕。使用本应用的睡眠记录功能，观察睡眠时长与偏头痛发作之间的关联。',
@@ -125,6 +134,7 @@ function seedTips(force = false) {
       tags: ['睡眠', '预防发作', '生活习惯'], likes: 154, date: '2024-03-10'
     },
     {
+      builtin_key: 'food_diary',
       title: '偏头痛患者的饮食日记',
       description: '记录饮食可以帮助识别偏头痛触发因素，学习如何正确记录。',
       content: '饮食日记是识别偏头痛触发因素的有效工具。建议记录每天摄入的食物与饮品，尤其是巧克力、咖啡因、酒精、奶酪等常见嫌疑食物，并同时记录是否出现头痛。坚持 4-6 周后回顾，更容易发现规律。',
@@ -132,6 +142,7 @@ function seedTips(force = false) {
       tags: ['饮食日记', '触发因素', '自我监测'], likes: 75, date: '2024-04-05'
     },
     {
+      builtin_key: 'stress_management',
       title: '压力管理与偏头痛预防',
       description: '压力是最常见的偏头痛触发因素之一，学习有效的放松技巧。',
       content: '压力是偏头痛最常见的触发因素之一。建议尝试：深呼吸练习、正念冥想、规律运动、合理安排作息、寻求社交支持。定期放松能有效降低偏头痛发作频率。',
@@ -139,6 +150,7 @@ function seedTips(force = false) {
       tags: ['压力管理', '放松技巧', '预防措施'], likes: 88, date: '2024-05-12'
     },
     {
+      builtin_key: 'exercise_guide',
       title: '偏头痛患者的运动指南',
       description: '适度运动有助于预防偏头痛，但需注意方式方法。',
       content: '规律的中等强度有氧运动（如快走、游泳、骑行）有助于降低偏头痛发作频率。但应避免突然的剧烈运动，运动前充分热身，并保持充足饮水。若运动反而诱发头痛，请调整强度并咨询医生。',
@@ -148,12 +160,12 @@ function seedTips(force = false) {
   ];
 
   const insert = db.prepare(`
-    INSERT INTO tips (title, description, content, image, author_name, author_username, author_bio, author_avatar, tags, likes, date)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tips (builtin_key, title, description, content, image, author_name, author_username, author_bio, author_avatar, tags, likes, date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const t of tips) {
-    insert.run(t.title, t.description, t.content, null, t.author_name, t.author_username, t.author_bio, t.author_avatar, JSON.stringify(t.tags), t.likes, t.date);
+    insert.run(t.builtin_key, t.title, t.description, t.content, null, t.author_name, t.author_username, t.author_bio, t.author_avatar, JSON.stringify(t.tags), t.likes, t.date);
   }
 
   console.log(`✅ 已预置 ${tips.length} 条 Tips 数据`);

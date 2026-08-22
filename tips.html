@@ -6,6 +6,8 @@
     <title>Tips广场 - 偏头痛记录应用</title>
     <!-- 引入外部样式 -->
     <link rel="stylesheet" href="styles.css">
+    <script src="locales.js"></script>
+    <script src="i18n.js?v=7-content-boundary"></script>
     <script src="api.js"></script>
     
     <style>
@@ -1144,7 +1146,7 @@
                 </a>
                 <a href="tips.html" class="nav-link">
                     <span class="nav-icon">💡</span>
-                    <span class="nav-text">Tips</span>
+                    <span class="nav-text" data-i18n="nav.tips">Tips</span>
                 </a>
                 <a href="my.html" class="nav-link">
                     <span class="nav-icon">👤</span>
@@ -1155,12 +1157,78 @@
     </div>
     
     <script>
+        const TIPS_CACHE_KEY = 'tipsCache:v2-neutral';
+        let tipSourceData = [];
+
+        function readTipsCache(key) {
+            try {
+                const value = JSON.parse(localStorage.getItem(key) || 'null');
+                return Array.isArray(value) ? value : [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function tipCacheIdentity(tip, index) {
+            const source = tip || {};
+            const knownBuiltIn = source.builtinKey
+                && window.MigraineLocales
+                && window.MigraineLocales.tips
+                && window.MigraineLocales.tips[source.builtinKey];
+            if (knownBuiltIn) return `builtin:${source.builtinKey}`;
+            if (source.id != null) return `user:${source.id}`;
+            const author = source.author && source.author.username ? source.author.username : '';
+            return `user:${author}:${source.title || ''}:${source.date || ''}:${index}`;
+        }
+
+        function loadNeutralTipsCache() {
+            const current = readTipsCache(TIPS_CACHE_KEY);
+            if (current.length) return current;
+
+            const locale = window.I18n ? window.I18n.getLanguage() : 'zh-CN';
+            const legacyKeys = [`tipsCache:${locale}`, 'tipsCache:zh-CN', 'tipsCache:en'];
+            const merged = [];
+            const seen = new Set();
+            legacyKeys.forEach((key) => {
+                readTipsCache(key).forEach((tip, index) => {
+                    const identity = tipCacheIdentity(tip, index);
+                    if (seen.has(identity)) return;
+                    seen.add(identity);
+                    merged.push(tip);
+                });
+            });
+            if (merged.length) saveNeutralTipsCache(merged);
+            return merged;
+        }
+
+        function saveNeutralTipsCache(tips) {
+            tipSourceData = Array.isArray(tips) ? tips : [];
+            try {
+                localStorage.setItem(TIPS_CACHE_KEY, JSON.stringify(tipSourceData));
+                localStorage.removeItem('tipsCache:en');
+                localStorage.removeItem('tipsCache:zh-CN');
+            } catch (error) {
+                console.warn('Unable to update the offline Tips cache:', error);
+            }
+        }
+
+        function renderCurrentTips() {
+            renderTipCards(tipSourceData.length ? tipSourceData : localizedBuiltInTips());
+        }
+
         // 等待DOM加载完成
         document.addEventListener('DOMContentLoaded', () => {
             // 初始化页面
             initTipsApp();
             // 初始化用户认证
             initUserAuth();
+        });
+
+        window.addEventListener('migraine:languagechange', () => {
+            renderCurrentTips();
+            const tipModal = document.getElementById('tipModal');
+            if (tipModal) tipModal.style.display = 'none';
+            syncTipsFromBackend();
         });
         
         // 生成SVG占位图
@@ -1246,6 +1314,39 @@
             }
         });
 
+        function localizedTemplateConfig(template) {
+            const config = TIP_TEMPLATE_CONFIG[template] || TIP_TEMPLATE_CONFIG.normal;
+            if (!window.I18n) return config;
+            const localized = {};
+            Object.entries(config).forEach(([key, value]) => {
+                localized[key] = typeof value === 'string' ? window.I18n.translate(value) : value;
+            });
+            return localized;
+        }
+
+        function localizedBuiltInTips() {
+            const locale = window.I18n ? window.I18n.getLanguage() : 'zh-CN';
+            const entries = window.MigraineLocales && window.MigraineLocales.tips
+                ? Object.entries(window.MigraineLocales.tips)
+                : [];
+            return entries.map(([key, translations], index) => {
+                const copy = translations[locale] || translations['zh-CN'];
+                return {
+                    id: `builtin-${key}`,
+                    builtinKey: key,
+                    title: copy.title,
+                    description: copy.description,
+                    content: copy.content,
+                    template: index < 2 ? 'clinical' : 'normal',
+                    author: { name: copy.authorName, username: key, bio: copy.authorBio, avatar: copy.authorName.charAt(0) },
+                    tags: copy.tags,
+                    likes: 0,
+                    comments: 0,
+                    date: ''
+                };
+            });
+        }
+
         function getTipTemplate(tip) {
             const requested = String((tip && tip.template) || '').toLowerCase();
             if (TIP_TEMPLATE_CONFIG[requested]) return requested;
@@ -1255,8 +1356,13 @@
         function normalizeTip(tip) {
             const source = tip || {};
             const author = source.author || {};
-            return {
+            const knownBuiltIn = source.builtinKey
+                && window.MigraineLocales
+                && window.MigraineLocales.tips
+                && window.MigraineLocales.tips[source.builtinKey];
+            const normalized = {
                 ...source,
+                builtinKey: knownBuiltIn ? source.builtinKey : null,
                 template: getTipTemplate(source),
                 title: String(source.title || '未命名 Tips'),
                 description: String(source.description || ''),
@@ -1270,6 +1376,24 @@
                 },
                 likes: Number(source.likes) || 0,
                 date: String(source.date || '')
+            };
+            if (!knownBuiltIn) return normalized;
+
+            const locale = window.I18n ? window.I18n.getLanguage() : 'zh-CN';
+            const copy = window.MigraineLocales.tips[source.builtinKey][locale]
+                || window.MigraineLocales.tips[source.builtinKey]['zh-CN'];
+            return {
+                ...normalized,
+                title: copy.title,
+                description: copy.description,
+                content: copy.content,
+                tags: copy.tags.slice(),
+                author: {
+                    ...normalized.author,
+                    name: copy.authorName,
+                    bio: copy.authorBio,
+                    avatar: copy.authorName.charAt(0)
+                }
             };
         }
 
@@ -1287,7 +1411,30 @@
         }
 
         function wrapCoverTitle(title, maxCharacters = 15, maxLines = 3) {
-            const characters = Array.from(String(title || '未命名 Tips').trim() || '未命名 Tips');
+            const normalizedTitle = String(title || '未命名 Tips').trim() || '未命名 Tips';
+            if (window.I18n && window.I18n.getLanguage() === 'en') {
+                const words = normalizedTitle.split(/\s+/);
+                const lines = [];
+                let currentLine = '';
+                words.forEach((word) => {
+                    const candidate = currentLine ? `${currentLine} ${word}` : word;
+                    if (candidate.length <= maxCharacters || !currentLine) {
+                        currentLine = candidate;
+                    } else if (lines.length < maxLines - 1) {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    } else {
+                        currentLine = `${currentLine} ${word}`;
+                    }
+                });
+                if (currentLine) lines.push(currentLine);
+                if (lines.length > maxLines) lines.length = maxLines;
+                if (lines[maxLines - 1] && lines[maxLines - 1].length > maxCharacters + 5) {
+                    lines[maxLines - 1] = `${lines[maxLines - 1].slice(0, maxCharacters + 2).trim()}…`;
+                }
+                return lines;
+            }
+            const characters = Array.from(normalizedTitle);
             const lines = [];
             for (let index = 0; index < characters.length && lines.length < maxLines; index += maxCharacters) {
                 lines.push(characters.slice(index, index + maxCharacters).join(''));
@@ -1300,8 +1447,9 @@
 
         function generateTitleCover(title, template = 'normal') {
             const safeTemplate = TIP_TEMPLATE_CONFIG[template] ? template : 'normal';
-            const config = TIP_TEMPLATE_CONFIG[safeTemplate];
-            const titleLines = wrapCoverTitle(title);
+            const config = localizedTemplateConfig(safeTemplate);
+            const isEnglish = window.I18n && window.I18n.getLanguage() === 'en';
+            const titleLines = wrapCoverTitle(title, isEnglish ? 24 : 15, isEnglish ? 4 : 3);
             const firstLineY = 350 - ((titleLines.length - 1) * 48);
             const titleMarkup = titleLines.map((line, index) => (
                 `<text x="64" y="${firstLineY + index * 96}" fill="#ffffff" font-size="58" font-weight="700" font-family="Arial, 'Microsoft YaHei', sans-serif">${escapeSVGText(line)}</text>`
@@ -1331,7 +1479,9 @@
             const normalizedTip = normalizeTip(tip);
             const fallbackCover = generateTitleCover(normalizedTip.title, normalizedTip.template);
             const uploadedImage = typeof normalizedTip.image === 'string' ? normalizedTip.image.trim() : '';
-            imageElement.alt = `${normalizedTip.title} 封面`;
+            imageElement.alt = window.I18n && window.I18n.getLanguage() === 'en'
+                ? `${normalizedTip.title} cover`
+                : `${normalizedTip.title} 封面`;
             imageElement.onerror = () => {
                 imageElement.onerror = null;
                 imageElement.src = fallbackCover;
@@ -1340,449 +1490,12 @@
         }
         
         // 生成模拟笔记数据
-        function generateMockTips() {
-            // 模拟笔记数据
-            const tips = [
-                {
-                    id: 1,
-                    title: "偏头痛发作时的紧急缓解方法",
-                    description: "分享几个在偏头痛发作时可以快速缓解疼痛的方法，包括冷敷、深呼吸和特定的穴位按摩技巧...",
-                    content: "偏头痛发作时，以下方法可能有助于缓解疼痛：<br><br>1. **冷敷法**：将冰袋或冷毛巾敷在额头或太阳穴上，每次15-20分钟，可减轻炎症和疼痛。<br><br>2. **深呼吸放松**：缓慢深呼吸，吸气4秒，屏息4秒，呼气6秒，重复几次，有助于放松紧张的肌肉和神经。<br><br>3. **穴位按摩**：按摩太阳穴、风池穴和合谷穴，每个穴位按摩1-2分钟，力度适中。<br><br>4. **安静休息**：找一个安静、黑暗的房间休息，避免强光和噪音刺激。<br><br>5. **适量饮水**：脱水可能加重偏头痛，确保充足的水分摄入。<br><br>这些方法可能对轻度至中度偏头痛有帮助，但如果疼痛严重或持续时间较长，建议及时就医。",
-                    image: generatePlaceholderImage(600, 400, '#4169E1', '💊'),
-                    author: {
-                        name: "偏头痛管理专家",
-                        username: "migraine_expert",
-                        bio: "专注于偏头痛研究与管理10年",
-                        avatar: "专"
-                    },
-                    tags: ["紧急缓解", "自我护理", "穴位按摩"],
-                    likes: 128,
-                    comments: 24,
-                    date: "2024-01-15",
-                    isMedical: true
-                },
-                {
-                    id: 2,
-                    title: "如何识别偏头痛的触发因素",
-                    description: "了解偏头痛的常见触发因素，以及如何通过记录来识别自己的个人触发因素...",
-                    content: "识别偏头痛触发因素是管理偏头痛的重要一步。以下是一些常见的触发因素和识别方法：<br><br>**常见触发因素：**<br>1. 饮食因素：酒精、咖啡因、巧克力、硝酸盐类食物<br>2. 睡眠问题：睡眠不足或过多、睡眠不规律<br>3. 压力：工作压力、情绪波动<br>4. 环境因素：强光、噪音、天气变化<br>5. 荷尔蒙变化：女性月经周期<br><br>**识别方法：**<br>1. 保持详细的偏头痛日记，记录每次发作的时间、症状、持续时间、之前24小时内的饮食、睡眠、压力水平等<br>2. 寻找发作前的共同模式<br>3. 尝试排除法，逐步减少可能的触发因素<br>4. 注意身体的警告信号，如视觉异常、情绪变化等<br><br>通过长期记录和分析，你可以更好地了解自己的偏头痛触发因素，从而采取相应的预防措施。",
-                    image: generatePlaceholderImage(600, 400, '#4CAF50', '📋'),
-                    author: {
-                        name: "健康顾问小李",
-                        username: "health_guide",
-                        bio: "健康管理师，擅长偏头痛预防",
-                        avatar: "李"
-                    },
-                    tags: ["触发因素", "预防", "记录"],
-                    likes: 96,
-                    comments: 18,
-                    date: "2024-01-10",
-                    isMedical: true
-                },
-                {
-                    id: 3,
-                    title: "适合偏头痛患者的饮食建议",
-                    description: "偏头痛患者在饮食上需要注意什么？哪些食物应该避免，哪些食物可能有助于缓解症状...",
-                    content: "饮食对偏头痛有重要影响，以下是一些适合偏头痛患者的饮食建议：<br><br>**建议多吃的食物：**<br>1. 富含镁的食物：菠菜、杏仁、腰果、黑豆<br>2. 富含维生素B2的食物：鸡蛋、瘦肉、绿叶蔬菜<br>3. 富含Omega-3脂肪酸的食物：三文鱼、亚麻籽、核桃<br>4. 新鲜水果和蔬菜：尤其是富含抗氧化剂的蓝莓、草莓等<br><br>**建议少吃或避免的食物：**<br>1. 含酒精的饮料：尤其是红酒和啤酒<br>2. 含咖啡因的饮料：咖啡、茶、能量饮料（可适量饮用，但避免突然改变摄入量）<br>3. 加工食品：含有硝酸盐、亚硝酸盐的火腿、香肠等<br>4. 含味精的食物：许多加工食品和餐厅菜肴中含有味精<br>5. 巧克力：尤其是黑巧克力（对某些人可能触发偏头痛）<br><br>每个人的偏头痛触发因素不同，建议通过日记记录来确定哪些食物对你有影响。",
-                    image: generatePlaceholderImage(600, 400, '#FF9800', '🥗'),
-                    author: {
-                        name: "营养师小王",
-                        username: "nutrition_king",
-                        bio: "注册营养师，专注于慢性病饮食管理",
-                        avatar: "王"
-                    },
-                    tags: ["饮食建议", "营养", "健康饮食"],
-                    isMedical: true,
-                    likes: 156,
-                    comments: 32,
-                    date: "2024-01-05"
-                },
-                {
-                    id: 4,
-                    title: "偏头痛患者的睡眠管理技巧",
-                    description: "良好的睡眠对偏头痛患者至关重要。分享一些改善睡眠质量的实用技巧...",
-                    content: "睡眠问题是偏头痛的常见触发因素，以下是一些改善睡眠质量的技巧：<br><br>1. **保持规律的睡眠时间**：每天固定时间上床睡觉和起床，包括周末<br>2. **创建舒适的睡眠环境**：保持卧室黑暗、安静、凉爽，使用舒适的床垫和枕头<br>3. **避免睡前刺激**：睡前1小时避免使用电子设备，避免摄入咖啡因和酒精<br>4. **建立睡前仪式**：可以尝试阅读、冥想、深呼吸或温水浴，帮助放松身心<br>5. **限制午睡时间**：午睡时间控制在30分钟以内，避免影响夜间睡眠<br>6. **适当运动**：白天进行适量的体育锻炼，但避免在睡前2小时内进行剧烈运动<br>7. **管理压力**：尝试使用放松技巧，如瑜伽、冥想等，减轻压力<br><br>良好的睡眠习惯可以显著减少偏头痛发作的频率和严重程度，建议患者重视睡眠管理。",
-                    image: generatePlaceholderImage(600, 400, '#9C27B0', '💤'),
-                    author: {
-                        name: "睡眠专家张医生",
-                        username: "sleep_doctor",
-                        bio: "睡眠医学专家，擅长失眠和睡眠障碍治疗",
-                        avatar: "张"
-                    },
-                    tags: ["睡眠管理", "失眠", "放松技巧"],
-                    likes: 112,
-                    comments: 28,
-                    date: "2024-01-01"
-                },
-                {
-                    id: 5,
-                    title: "偏头痛的药物治疗选择",
-                    description: "介绍偏头痛的常见药物治疗方法，包括急性发作治疗和预防性治疗...",
-                    content: "偏头痛的药物治疗主要分为两类：急性发作治疗和预防性治疗。<br><br>**急性发作治疗药物：**<br>1. **非处方止痛药**：如对乙酰氨基酚、布洛芬等，适用于轻度至中度偏头痛<br>2. **曲坦类药物**：如舒马曲坦、利扎曲坦等，适用于中度至重度偏头痛，能有效缓解疼痛和其他症状<br>3. **麦角胺类药物**：如麦角胺咖啡因，适用于某些类型的偏头痛<br>4. **止吐药**：如甲氧氯普胺，可缓解偏头痛伴随的恶心呕吐<br><br>**预防性治疗药物：**<br>1. **β受体阻滞剂**：如普萘洛尔，适用于频繁发作的偏头痛<br>2. **抗癫痫药物**：如托吡酯、丙戊酸钠，对某些类型的偏头痛有效<br>3. **抗抑郁药物**：如阿米替林、文拉法辛，可用于伴有抑郁或焦虑的偏头痛患者<br>4. **钙通道阻滞剂**：如氟桂利嗪，可预防偏头痛发作<br><br>药物治疗应在医生的指导下进行，根据个体情况选择合适的药物和剂量。同时，结合生活方式调整，可以获得更好的治疗效果。",
-                    image: generatePlaceholderImage(600, 400, '#E91E63', '🏥'),
-                    author: {
-                        name: "神经科医生刘教授",
-                        username: "neurology_prof",
-                        bio: "神经内科教授，偏头痛研究专家",
-                        avatar: "刘"
-                    },
-                    tags: ["药物治疗", "医学建议", "专业指导"],
-                    likes: 189,
-                    comments: 45,
-                    date: "2023-12-28"
-                },
-                {
-                    id: 6,
-                    title: "偏头痛患者的日常运动建议",
-                    description: "适当的运动有助于预防偏头痛，但需要选择合适的运动方式和强度...",
-                    content: "适当的运动对偏头痛患者有益，但需要注意运动方式和强度：<br><br>**适合的运动：**<br>1. **有氧运动**：快走、慢跑、游泳、骑自行车等，每周3-5次，每次30分钟<br>2. **瑜伽**：有助于放松身心，减轻压力，改善睡眠<br>3. **太极**：缓慢的动作和深呼吸，有助于平衡身心<br>4. **拉伸运动**：放松颈部、肩部和背部肌肉，减少紧张性头痛<br><br>**运动注意事项：**<br>1. **逐渐增加运动强度**：避免突然进行高强度运动，容易触发偏头痛<br>2. **选择合适的时间**：避免在偏头痛发作期或疲劳时运动<br>3. **保持充足的水分**：运动前后和运动中及时补充水分<br>4. **注意环境**：避免在高温、高湿度或强光环境下运动<br>5. **倾听身体信号**：如果运动中出现偏头痛症状，应立即停止并休息<br><br>适当的运动可以增强体质，减轻压力，改善睡眠，从而减少偏头痛发作的频率。建议患者根据自己的身体状况选择合适的运动方式。",
-                    image: generatePlaceholderImage(600, 400, '#009688', '💪'),
-                    author: {
-                        name: "健身教练小陈",
-                        username: "fitness_chen",
-                        bio: "健身教练，擅长慢性病患者的运动指导",
-                        avatar: "陈"
-                    },
-                    tags: ["运动建议", "健身", "健康生活"],
-                    likes: 87,
-                    comments: 16,
-                    date: "2023-12-20"
-                },
-                {
-                    id: 7,
-                    title: "偏头痛患者的压力管理",
-                    description: "压力是偏头痛的常见触发因素，学习如何有效管理压力...",
-                    content: "压力管理对偏头痛患者至关重要...",
-                    image: generatePlaceholderImage(600, 400, '#4169E1', '🧠'),
-                    author: {
-                        name: "心理咨询师赵老师",
-                        username: "psychology_teacher",
-                        bio: "心理咨询师，擅长压力管理和情绪调节",
-                        avatar: "赵"
-                    },
-                    tags: ["压力管理", "情绪调节", "心理健康"],
-                    likes: 78,
-                    comments: 21,
-                    date: "2023-12-15"
-                },
-                {
-                    id: 8,
-                    title: "偏头痛患者的眼部护理",
-                    description: "长时间使用电子设备会加重偏头痛，学习正确的眼部护理方法...",
-                    content: "眼部疲劳是偏头痛的常见触发因素...",
-                    image: generatePlaceholderImage(600, 400, '#4169E1', '👁️'),
-                    author: {
-                        name: "眼科医生孙医生",
-                        username: "eye_doctor",
-                        bio: "眼科医生，擅长眼部保健和视力矫正",
-                        avatar: "孙"
-                    },
-                    tags: ["眼部护理", "视力保健", "电子设备"],
-                    likes: 92,
-                    comments: 19,
-                    date: "2023-12-10"
-                },
-                {
-                    id: 9,
-                    title: "偏头痛发作时的姿势调整",
-                    description: "正确的姿势可以缓解偏头痛症状，学习这些简单的姿势调整...",
-                    content: "偏头痛发作时，调整姿势可以帮助缓解疼痛...",
-                    image: generatePlaceholderImage(600, 400, '#4CAF50', '💆'),
-                    author: {
-                        name: "物理治疗师周医生",
-                        username: "physio_therapist",
-                        bio: "物理治疗师，擅长姿势矫正和疼痛管理",
-                        avatar: "周"
-                    },
-                    tags: ["姿势调整", "物理治疗", "疼痛缓解"],
-                    likes: 65,
-                    comments: 14,
-                    date: "2023-12-05"
-                },
-                {
-                    id: 10,
-                    title: "偏头痛患者的水分管理",
-                    description: "脱水会加重偏头痛症状，学习如何保持充足的水分摄入...",
-                    content: "水分摄入不足是偏头痛的常见触发因素...",
-                    image: generatePlaceholderImage(600, 400, '#009688', '💧'),
-                    author: {
-                        name: "营养师林医生",
-                        username: "nutrition_doctor",
-                        bio: "营养师，擅长慢性病营养管理",
-                        avatar: "林"
-                    },
-                    tags: ["水分管理", " hydration", "健康生活"],
-                    likes: 58,
-                    comments: 12,
-                    date: "2023-12-01"
-                },
-                {
-                    id: 11,
-                    title: "偏头痛患者的光线管理",
-                    description: "强光会触发偏头痛，学习如何有效管理光线环境...",
-                    content: "光线是偏头痛的常见触发因素...",
-                    image: generatePlaceholderImage(600, 400, '#FF9800', '💡'),
-                    author: {
-                        name: "健康顾问吴老师",
-                        username: "health_consultant",
-                        bio: "健康顾问，擅长环境健康管理",
-                        avatar: "吴"
-                    },
-                    tags: ["光线管理", "环境健康", "触发因素"],
-                    likes: 83,
-                    comments: 17,
-                    date: "2023-11-25"
-                },
-                {
-                    id: 12,
-                    title: "偏头痛患者的饮食日记",
-                    description: "记录饮食可以帮助识别偏头痛触发因素，学习如何正确记录...",
-                    content: "饮食日记是识别偏头痛触发因素的有效工具...",
-                    image: generatePlaceholderImage(600, 400, '#4CAF50', '📝'),
-                    author: {
-                        name: "营养师黄医生",
-                        username: "dietitian",
-                        bio: "营养师，擅长饮食记录和分析",
-                        avatar: "黄"
-                    },
-                    tags: ["饮食日记", "触发因素", "自我监测"],
-                    likes: 75,
-                    comments: 18,
-                    date: "2023-11-20"
-                },
-                {
-                    id: 13,
-                    title: "偏头痛患者的旅行技巧",
-                    description: "旅行中如何管理偏头痛，避免发作...",
-                    content: "旅行中的环境变化可能触发偏头痛...",
-                    image: generatePlaceholderImage(600, 400, '#9C27B0', '✈️'),
-                    author: {
-                        name: "旅行顾问郑老师",
-                        username: "travel_consultant",
-                        bio: "旅行顾问，擅长慢性病患者旅行指导",
-                        avatar: "郑"
-                    },
-                    tags: ["旅行技巧", "环境适应", "预防发作"],
-                    likes: 69,
-                    comments: 15,
-                    date: "2023-11-15"
-                },
-                {
-                    id: 14,
-                    title: "偏头痛患者的工作环境调整",
-                    description: "优化工作环境，减少偏头痛发作...",
-                    content: "工作环境中的许多因素可能触发偏头痛...",
-                    image: generatePlaceholderImage(600, 400, '#4169E1', '💼'),
-                    author: {
-                        name: "职业健康专家钱老师",
-                        username: "occupational_health",
-                        bio: "职业健康专家，擅长工作环境优化",
-                        avatar: "钱"
-                    },
-                    tags: ["工作环境", "职业健康", "预防措施"],
-                    likes: 88,
-                    comments: 22,
-                    date: "2023-11-10"
-                },
-                {
-                    id: 15,
-                    title: "偏头痛患者的社交生活",
-                    description: "如何在社交场合管理偏头痛，享受生活...",
-                    content: "社交场合中的各种因素可能触发偏头痛...",
-                    image: generatePlaceholderImage(600, 400, '#E91E63', '👥'),
-                    author: {
-                        name: "生活方式教练冯老师",
-                        username: "lifestyle_coach",
-                        bio: "生活方式教练，擅长慢性病患者生活指导",
-                        avatar: "冯"
-                    },
-                    tags: ["社交生活", "生活方式", "自我管理"],
-                    likes: 72,
-                    comments: 16,
-                    date: "2023-11-05"
-                },
-                {
-                    id: 16,
-                    title: "偏头痛患者的冥想练习",
-                    description: "冥想可以帮助缓解偏头痛症状，学习简单的冥想技巧...",
-                    content: "冥想是一种有效的压力管理和放松技巧...",
-                    image: generatePlaceholderImage(600, 400, '#9C27B0', '🧘'),
-                    author: {
-                        name: "冥想教练沈老师",
-                        username: "meditation_coach",
-                        bio: "冥想教练，擅长正念冥想和减压技巧",
-                        avatar: "沈"
-                    },
-                    tags: ["冥想", "放松", "正念"],
-                    likes: 105,
-                    comments: 26,
-                    date: "2023-11-01"
-                },
-                {
-                    id: 17,
-                    title: "偏头痛患者的穴位按摩",
-                    description: "学习几个有效的穴位按摩方法，缓解偏头痛症状...",
-                    content: "穴位按摩是一种传统的中医疗法...",
-                    image: generatePlaceholderImage(600, 400, '#FF9800', '🎯'),
-                    author: {
-                        name: "中医按摩师韩医生",
-                        username: "acupressure_doctor",
-                        bio: "中医按摩师，擅长穴位按摩和经络调理",
-                        avatar: "韩"
-                    },
-                    tags: ["穴位按摩", "中医", "疼痛缓解"],
-                    likes: 94,
-                    comments: 20,
-                    date: "2023-10-25"
-                },
-                {
-                    id: 18,
-                    title: "偏头痛患者的饮食补充剂",
-                    description: "了解哪些饮食补充剂可能有助于预防偏头痛...",
-                    content: "某些饮食补充剂可能对偏头痛患者有益...",
-                    image: generatePlaceholderImage(600, 400, '#009688', '🌿'),
-                    author: {
-                        name: "营养师杨医生",
-                        username: "supplement_expert",
-                        bio: "营养师，擅长饮食补充剂和营养咨询",
-                        avatar: "杨"
-                    },
-                    tags: ["饮食补充剂", "营养", "预防"],
-                    likes: 81,
-                    comments: 17,
-                    date: "2023-10-20"
-                },
-                {
-                    id: 19,
-                    title: "偏头痛患者的季节变化应对",
-                    description: "季节变化可能触发偏头痛，学习如何应对...",
-                    content: "季节变化是偏头痛的常见触发因素...",
-                    image: generatePlaceholderImage(600, 400, '#4CAF50', '🌡️'),
-                    author: {
-                        name: "健康顾问朱老师",
-                        username: "seasonal_health",
-                        bio: "健康顾问，擅长季节健康管理",
-                        avatar: "朱"
-                    },
-                    tags: ["季节变化", "预防", "环境适应"],
-                    likes: 76,
-                    comments: 19,
-                    date: "2023-10-15"
-                },
-                {
-                    id: 20,
-                    title: "偏头痛患者的睡眠环境优化",
-                    description: "优化睡眠环境，减少偏头痛发作...",
-                    content: "睡眠环境对偏头痛患者至关重要...",
-                    image: generatePlaceholderImage(600, 400, '#9C27B0', '💤'),
-                    author: {
-                        name: "睡眠专家郭医生",
-                        username: "sleep_environment",
-                        bio: "睡眠专家，擅长睡眠环境优化",
-                        avatar: "郭"
-                    },
-                    tags: ["睡眠环境", "优化", "预防"],
-                    likes: 97,
-                    comments: 23,
-                    date: "2023-10-10"
-                },
-                {
-                    id: 21,
-                    title: "偏头痛患者的情绪管理",
-                    description: "情绪波动可能触发偏头痛，学习如何管理情绪...",
-                    content: "情绪管理对偏头痛患者非常重要...",
-                    image: generatePlaceholderImage(600, 400, '#4169E1', '😊'),
-                    author: {
-                        name: "心理咨询师何老师",
-                        username: "emotion_management",
-                        bio: "心理咨询师，擅长情绪管理和心理调节",
-                        avatar: "何"
-                    },
-                    tags: ["情绪管理", "心理健康", "预防"],
-                    likes: 89,
-                    comments: 21,
-                    date: "2023-10-05"
-                },
-                {
-                    id: 22,
-                    title: "偏头痛患者的运动选择",
-                    description: "了解哪些运动最适合偏头痛患者...",
-                    content: "选择合适的运动对偏头痛患者非常重要...",
-                    image: generatePlaceholderImage(600, 400, '#009688', '🏃'),
-                    author: {
-                        name: "健身教练罗老师",
-                        username: "exercise_selection",
-                        bio: "健身教练，擅长运动选择和训练计划",
-                        avatar: "罗"
-                    },
-                    tags: ["运动选择", "健身", "预防"],
-                    likes: 73,
-                    comments: 16,
-                    date: "2023-09-25"
-                },
-                {
-                    id: 23,
-                    title: "偏头痛患者的工作效率",
-                    description: "如何在偏头痛的情况下保持工作效率...",
-                    content: "偏头痛可能影响工作效率...",
-                    image: generatePlaceholderImage(600, 400, '#4169E1', '⏰'),
-                    author: {
-                        name: "职业顾问梁老师",
-                        username: "work_efficiency",
-                        bio: "职业顾问，擅长工作效率和时间管理",
-                        avatar: "梁"
-                    },
-                    tags: ["工作效率", "职业健康", "时间管理"],
-                    likes: 85,
-                    comments: 20,
-                    date: "2023-09-20"
-                },
-                {
-                    id: 24,
-                    title: "偏头痛患者的家庭护理",
-                    description: "学习如何在家中护理偏头痛患者...",
-                    content: "家庭护理对偏头痛患者非常重要...",
-                    image: generatePlaceholderImage(600, 400, '#E91E63', '🏠'),
-                    author: {
-                        name: "护理专家谢老师",
-                        username: "home_care",
-                        bio: "护理专家，擅长家庭护理和慢性病管理",
-                        avatar: "谢"
-                    },
-                    tags: ["家庭护理", "护理", "慢性病管理"],
-                    likes: 91,
-                    comments: 22,
-                    date: "2023-09-15"
-                },
-                {
-                    id: 25,
-                    title: "偏头痛患者的就医指南",
-                    description: "了解什么时候应该就医，如何与医生沟通...",
-                    content: "及时就医对偏头痛患者非常重要...",
-                    image: generatePlaceholderImage(600, 400, '#E91E63', '🏥'),
-                    author: {
-                        name: "神经科医生高医生",
-                        username: "medical_guide",
-                        bio: "神经科医生，擅长偏头痛诊断和治疗",
-                        avatar: "高"
-                    },
-                    tags: ["就医指南", "医疗", "诊断"],
-                    likes: 102,
-                    comments: 28,
-                    date: "2023-09-10"
-                }
-            ];
-            
-            return tips;
-        }
-        
-        // 初始化Tips应用
         function initTipsApp() {
-            // 生成模拟数据
-            const tips = generateMockTips();
+            tipSourceData = loadNeutralTipsCache();
+            if (!tipSourceData.length) tipSourceData = localizedBuiltInTips();
             
             // 渲染笔记卡片
-            renderTipCards(tips);
+            renderCurrentTips();
             
             // 初始化模态框事件
             initModalEvents();
@@ -1841,12 +1554,14 @@
                 }
                 imagePreview.src = imageBase64 || generateTitleCover(title, currentTemplate);
                 imagePreview.style.display = 'block';
-                imagePreview.alt = imageBase64 ? '已上传的封面预览' : `${title} 自动生成封面预览`;
+                imagePreview.alt = window.I18n && window.I18n.getLanguage() === 'en'
+                    ? (imageBase64 ? 'Uploaded cover preview' : `Generated cover preview for ${title}`)
+                    : (imageBase64 ? '已上传的封面预览' : `${title} 自动生成封面预览`);
             }
 
             function applyPublishTemplate(template) {
                 currentTemplate = TIP_TEMPLATE_CONFIG[template] ? template : 'normal';
-                const config = TIP_TEMPLATE_CONFIG[currentTemplate];
+                const config = localizedTemplateConfig(currentTemplate);
                 titleLabel.textContent = config.titleLabel;
                 titleInput.placeholder = config.titlePlaceholder;
                 descriptionLabel.textContent = config.descriptionLabel;
@@ -1910,6 +1625,10 @@
                 input.addEventListener('change', () => {
                     if (input.checked) applyPublishTemplate(input.value);
                 });
+            });
+
+            window.addEventListener('migraine:languagechange', () => {
+                applyPublishTemplate(currentTemplate);
             });
 
             // 标签点选逻辑
@@ -1981,7 +1700,8 @@
                 if (!window.ApiClient || !(await window.ApiClient.health())) return;
                 const data = await window.ApiClient.getTips();
                 if (data && Array.isArray(data.tips) && data.tips.length > 0) {
-                    renderTipCards(data.tips);
+                    saveNeutralTipsCache(data.tips);
+                    renderCurrentTips();
                 }
             } catch (e) {
                 console.warn('从后端加载 Tips 失败，使用本地数据:', e);
@@ -1995,10 +1715,11 @@
             
             tips.forEach(rawTip => {
                 const tip = normalizeTip(rawTip);
-                const templateConfig = TIP_TEMPLATE_CONFIG[tip.template];
+                const templateConfig = localizedTemplateConfig(tip.template);
                 const tipCard = document.createElement('div');
                 tipCard.className = `tip-card template-${tip.template}`;
                 tipCard.dataset.tipId = tip.id;
+                tipCard.dataset.contentSource = tip.builtinKey ? 'builtin' : 'user';
                 
                 const img = document.createElement('img');
                 img.className = 'tip-card-image';
@@ -2013,6 +1734,8 @@
 
                 const title = document.createElement('h3');
                 title.className = 'tip-card-title';
+                title.setAttribute('data-i18n-skip', '');
+                if (!tip.builtinKey) title.setAttribute('data-user-content', '');
                 title.textContent = tip.title;
 
                 const tags = document.createElement('div');
@@ -2020,6 +1743,8 @@
                 tip.tags.forEach((tag) => {
                     const tagElement = document.createElement('span');
                     tagElement.className = 'tip-card-tag';
+                    tagElement.setAttribute('data-i18n-skip', '');
+                    if (!tip.builtinKey) tagElement.setAttribute('data-user-content', '');
                     tagElement.textContent = tag;
                     tags.appendChild(tagElement);
                 });
@@ -2067,7 +1792,7 @@
         function showTipModal(rawTip) {
             const tip = normalizeTip(rawTip);
             const isClinical = tip.template === 'clinical';
-            const templateConfig = TIP_TEMPLATE_CONFIG[tip.template];
+            const templateConfig = localizedTemplateConfig(tip.template);
             const safeTipId = String(tip.id).replace(/[^a-zA-Z0-9_-]/g, '');
             const modal = document.getElementById('tipModal');
             const modalContent = document.getElementById('tipModalContent');
@@ -2093,24 +1818,26 @@
             // 创建文本内容容器
             const textContent = document.createElement('div');
             textContent.className = `tip-modal-text-content template-${tip.template}`;
+            textContent.dataset.contentSource = tip.builtinKey ? 'builtin' : 'user';
+            const userContentAttribute = tip.builtinKey ? '' : ' data-user-content';
             textContent.innerHTML = `
                 <span class="tip-template-badge">${escapeHTML(templateConfig.label)}</span>
-                <h2 class="tip-modal-title">${escapeHTML(tip.title)}</h2>
+                <h2 class="tip-modal-title" data-i18n-skip${userContentAttribute}>${escapeHTML(tip.title)}</h2>
                 <div class="tip-modal-meta">
-                    <span class="tip-modal-date">发布时间：${escapeHTML(tip.date)}</span>
-                    ${isClinical ? '<span class="medical-tag">医学建议</span>' : ''}
+                    <span class="tip-modal-date">${window.I18n ? window.I18n.translate('发布时间：') : '发布时间：'}${escapeHTML(tip.date)}</span>
+                    ${isClinical ? `<span class="medical-tag">${window.I18n ? window.I18n.translate('医学建议') : '医学建议'}</span>` : ''}
                 </div>
-                <p class="tip-modal-description">${renderTipMarkdown(tip.content)}</p>
+                <p class="tip-modal-description" data-i18n-skip${userContentAttribute}>${renderTipMarkdown(tip.content)}</p>
                 <div class="tip-modal-tags">
-                    ${tip.tags.map(tag => `<span class="tip-modal-tag">${escapeHTML(tag)}</span>`).join('')}
+                    ${tip.tags.map(tag => `<span class="tip-modal-tag" data-i18n-skip${userContentAttribute}>${escapeHTML(tag)}</span>`).join('')}
                 </div>
-                ${isClinical ? '<div class="disclaimer">⚠️ 免责声明：本文提供的医学建议仅供参考，具体治疗方案请咨询专业医生。</div>' : ''}
+                ${isClinical ? `<div class="disclaimer">${window.I18n ? window.I18n.translate('⚠️ 免责声明：本文提供的医学建议仅供参考，具体治疗方案请咨询专业医生。') : '⚠️ 免责声明：本文提供的医学建议仅供参考，具体治疗方案请咨询专业医生。'}</div>` : ''}
                 <div class="tip-modal-footer">
                     <div class="tip-modal-author">
                         <div class="author-avatar">${escapeHTML(tip.author.avatar)}</div>
                         <div class="tip-modal-author-info">
-                            <div class="author-username">${escapeHTML(tip.author.name)}</div>
-                            <div class="author-bio">${escapeHTML(tip.author.bio)}</div>
+                            <div class="author-username" data-i18n-skip${userContentAttribute}>${escapeHTML(tip.author.name)}</div>
+                            <div class="author-bio" data-i18n-skip${userContentAttribute}>${escapeHTML(tip.author.bio)}</div>
                         </div>
                     </div>
                     <div class="tip-modal-interactions">
@@ -2127,28 +1854,28 @@
                 
                 <!-- 评论区 -->
                 <div class="tip-modal-comments">
-                    <h3 class="comments-title">评论 (${comments.length})</h3>
+                    <h3 class="comments-title">${window.I18n ? window.I18n.t('tips.commentsCount', { count: comments.length }) : `评论 (${comments.length})`}</h3>
                     
                     <!-- 评论列表 -->
                     <div class="comments-list" id="commentsList-${safeTipId}">
                         ${comments.length > 0 ? comments.map(comment => `
                             <div class="comment-item">
                                 <div class="comment-header">
-                                    <span class="comment-author">${escapeHTML(comment.author)}</span>
+                                    <span class="comment-author" data-i18n-skip data-user-content>${escapeHTML(comment.author)}</span>
                                     <span class="comment-date">${escapeHTML(comment.date)}</span>
                                 </div>
-                                <div class="comment-content">${escapeHTML(comment.content)}</div>
+                                <div class="comment-content" data-i18n-skip data-user-content>${escapeHTML(comment.content)}</div>
                             </div>
-                        `).join('') : '<div class="no-comments">暂无评论，快来发表第一条评论吧！</div>'}
+                        `).join('') : `<div class="no-comments">${window.I18n ? window.I18n.t('tips.noComments') : '暂无评论，快来发表第一条评论吧！'}</div>`}
                     </div>
                     
                     <!-- 评论表单 -->
                     <div class="comment-form">
-                        <h4>发表评论</h4>
+                        <h4>${window.I18n ? window.I18n.translate('发表评论') : '发表评论'}</h4>
                         <div class="form-group">
-                            <textarea id="commentContent-${safeTipId}" placeholder="请输入您的评论内容" class="comment-textarea" rows="3" required></textarea>
+                            <textarea id="commentContent-${safeTipId}" placeholder="${window.I18n ? window.I18n.translate('请输入您的评论内容') : '请输入您的评论内容'}" class="comment-textarea" rows="3" required></textarea>
                         </div>
-                        <button type="button" id="submitComment-${safeTipId}" class="comment-submit-btn">发表评论</button>
+                        <button type="button" id="submitComment-${safeTipId}" class="comment-submit-btn">${window.I18n ? window.I18n.translate('发表评论') : '发表评论'}</button>
                     </div>
                 </div>
             `;
@@ -2234,7 +1961,7 @@
                 id: Date.now(),
                 author: author,
                 content: content,
-                date: new Date().toLocaleString('zh-CN')
+                date: new Date().toLocaleString(window.I18n ? window.I18n.getLanguage() : 'zh-CN')
             };
             
             const comments = loadComments(tipId);
@@ -2254,14 +1981,14 @@
                 commentsList.innerHTML = comments.map(comment => `
                     <div class="comment-item">
                         <div class="comment-header">
-                            <span class="comment-author">${escapeHTML(comment.author)}</span>
+                            <span class="comment-author" data-i18n-skip data-user-content>${escapeHTML(comment.author)}</span>
                             <span class="comment-date">${escapeHTML(comment.date)}</span>
                         </div>
-                        <div class="comment-content">${escapeHTML(comment.content)}</div>
+                        <div class="comment-content" data-i18n-skip data-user-content>${escapeHTML(comment.content)}</div>
                     </div>
                 `).join('');
             } else {
-                commentsList.innerHTML = '<div class="no-comments">暂无评论，快来发表第一条评论吧！</div>';
+                commentsList.innerHTML = `<div class="no-comments">${window.I18n ? window.I18n.t('tips.noComments') : '暂无评论，快来发表第一条评论吧！'}</div>`;
             }
         }
         
@@ -2273,9 +2000,9 @@
             }
             
             // 更新评论标题
-            const commentsTitle = document.querySelector(`#commentsList-${tipId} + .comment-form h3`);
+            const commentsTitle = document.querySelector('.comments-title');
             if (commentsTitle) {
-                commentsTitle.textContent = `评论 (${count})`;
+                commentsTitle.textContent = window.I18n ? window.I18n.t('tips.commentsCount', { count }) : `评论 (${count})`;
             }
         }
         
@@ -2575,9 +2302,10 @@
         // Register Service Worker for PWA support
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
                     .then((registration) => {
                         console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                        return registration.update();
                     })
                     .catch((error) => {
                         console.log('ServiceWorker registration failed: ', error);
