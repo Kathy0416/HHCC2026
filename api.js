@@ -145,6 +145,23 @@
       return this._request('DELETE', '/sleep/' + encodeURIComponent(date));
     },
 
+    // ---- 健康分析 / Health Connect ----
+    getHealthConnection() {
+      return this._request('GET', '/health/connection');
+    },
+    createHealthConnection(connection) {
+      return this._request('POST', '/health/connections', connection);
+    },
+    disconnectHealthConnection(id) {
+      return this._request('DELETE', '/health/connections/' + encodeURIComponent(id));
+    },
+    syncHealthData(payload) {
+      return this._request('POST', '/health/sync', payload);
+    },
+    getHealthAnalysis(range) {
+      return this._request('GET', '/health/analysis?range=' + encodeURIComponent(range || 30));
+    },
+
     // ---- Tips 广场 ----
     getTips() {
       return this._request('GET', '/tips');

@@ -1,17 +1,19 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v7-content-boundary';
+const CACHE_NAME = 'migraine-app-cache-v8-health-analysis';
 const urlsToCache = [
   '.',
   'index.html',
   'diary.html',
   'sleep.html',
+  'health-analysis.css?v=8-health-analysis',
+  'health-analysis.js?v=8-health-analysis',
   'tips.html',
   'my.html',
   'ai-chat.html',
   'styles.css',
   'locales.js',
-  'i18n.js?v=7-content-boundary',
+  'i18n.js?v=8-health-analysis',
   'script.js',
   'ai-chat.js',
   'api.js'
