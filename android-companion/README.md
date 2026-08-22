@@ -5,17 +5,13 @@ This sideloadable Android MVP reads user-approved Health Connect records, reduce
 ## Requirements
 
 - Android Studio with JDK 17
-- Android SDK 37 and Build Tools 36.0.0
+- Android SDK 36 and Build Tools 35.0.0 or newer
 - Android 9/API 28 or newer with Google Play services
 - Health Connect installed on Android 13 and older; Android 14+ includes it in system settings
 - Mi Fitness configured to sync supported data into Health Connect
 - The Migraine Signal Node server reachable from the phone
 
-The project uses AGP 8.13.0, Kotlin 2.2.20, Gradle 8.14.3, and stable Health Connect client 1.1.0. If a wrapper JAR is not present in this source checkout, bootstrap it once with a locally installed Gradle:
-
-```powershell
-gradle wrapper --gradle-version 8.14.3
-```
+The project uses AGP 8.13.0, Kotlin 2.2.20, the included Gradle 8.14.3 wrapper, and stable Health Connect client 1.1.0.
 
 Build the debug APK:
 

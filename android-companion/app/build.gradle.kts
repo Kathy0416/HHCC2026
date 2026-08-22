@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.migrainesignal.sync"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.migrainesignal.sync"

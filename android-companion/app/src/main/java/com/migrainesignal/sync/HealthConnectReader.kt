@@ -19,7 +19,7 @@ import kotlin.reflect.KClass
 class HealthConnectReader(private val context: Context) {
     private val client: HealthConnectClient by lazy { HealthConnectClient.getOrCreate(context) }
 
-    fun sdkStatus(): Int = HealthConnectClient.getSdkStatus(context, HealthConnectClient.DEFAULT_PROVIDER_PACKAGE_NAME)
+    fun sdkStatus(): Int = HealthConnectClient.getSdkStatus(context, HEALTH_CONNECT_PROVIDER)
 
     fun requiredPermissions(): Set<String> = buildSet {
         add(HealthPermission.getReadPermission(SleepSessionRecord::class))
@@ -109,6 +109,8 @@ class HealthConnectReader(private val context: Context) {
     }
 
     companion object {
+        private const val HEALTH_CONNECT_PROVIDER = "com.google.android.apps.healthdata"
+
         fun isLikelyMiFitness(packageName: String): Boolean {
             val value = packageName.lowercase()
             return value.contains("xiaomi") || value.contains("mi.health") || value.contains("wearable")

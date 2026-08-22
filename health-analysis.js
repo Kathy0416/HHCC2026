@@ -215,6 +215,7 @@
     document.getElementById('latestHeartRate').textContent = latest?.heartRate?.avg == null ? '—' : Math.round(latest.heartRate.avg);
     document.getElementById('latestSpo2').textContent = latest?.spo2?.avg == null ? '—' : Number(latest.spo2.avg).toFixed(1);
     document.getElementById('latestSteps').textContent = latest?.steps == null ? '—' : Number(latest.steps).toLocaleString(locale());
+    document.getElementById('latestSleep').textContent = latest?.sleep?.durationMinutes == null ? '—' : formatDuration(latest.sleep.durationMinutes);
     const latestDay = state.analysis?.series?.find((day) => day.date === latest?.date);
     document.getElementById('latestStress').textContent = connection
       ? `${t(latestDay?.stressTrigger ? 'health.common.yes' : 'health.common.no')} · ${t('health.connection.stressDiary')}`
