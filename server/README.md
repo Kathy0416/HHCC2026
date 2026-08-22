@@ -96,6 +96,7 @@ npm run dev
 | DELETE | `/api/health/connections/:id` | 停用连接并保留历史 | - |
 | POST | `/api/health/sync` | 幂等写入每日汇总和睡眠会话 | `{ connectionId, timezone, days, sleepSessions }` |
 | POST | `/api/health/environment-sync` | 幂等写入 ESP32 环境样本 | `{ connectionId, timezone, readings }` |
+| GET | `/api/health/environment-series` | 获取最近连续环境传感器会话、原始读数与 5 分钟三次多项式趋势 | - |
 | GET | `/api/health/analysis?range=30` | 获取 7/30/90 天趋势、KPI、覆盖率和描述性对比 | - |
 
 同步接口只从 JWT 读取用户身份，忽略请求体中的任何用户编号。每日数据包括睡眠、心率 min/avg/max/count、SpO₂ min/avg/max/count、步数、时区和数据来源。分析以可穿戴睡眠优先，手动睡眠记录仍单独保留。
