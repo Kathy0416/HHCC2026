@@ -1,8 +1,10 @@
 #include "network_manager.h"
 
 #include <ESP.h>
+#include <ESPmDNS.h>
 #include <esp_timer.h>
 #include <string.h>
+#include <utility>
 
 #include "config.h"
 
@@ -32,6 +34,10 @@ void WifiProvisioningManager::begin(uint64_t nowUs) {
            static_cast<unsigned long>(suffix));
   configurePortalHandlers();
 
+  // 常驻 Web 服务：无论配网模式还是已连接 station，都处理 HTTP（配网页 + GET /data）。
+  MDNS.begin("esp32");
+  webServer_.begin();
+
   if (storedSsid_.length() > 0) {
     startConnection(storedSsid_, storedPassword_, CredentialSource::STORED,
                     nowUs);
@@ -48,6 +54,17 @@ void WifiProvisioningManager::configurePortalHandlers() {
   webServer_.on("/", HTTP_GET, [this]() { sendSetupPage(); });
   webServer_.on("/save", HTTP_POST, [this]() {
     handlePortalSave(static_cast<uint64_t>(esp_timer_get_time()));
+  });
+  // 数据端点：返回一行 [SAMPLE]，供前端 "Sync ESP32 data" 拉取解析后上传到后端。
+  // 必须带 CORS 头：前端页面在 localhost:3000，与 ESP32 的 IP 跨域，浏览器需要它放行读取。
+  webServer_.on("/data", HTTP_GET, [this]() {
+    webServer_.sendHeader("Access-Control-Allow-Origin", "*");
+    if (dataProvider_) {
+      webServer_.sendHeader("Cache-Control", "no-store");
+      webServer_.send(200, "text/plain; charset=utf-8", dataProvider_());
+    } else {
+      webServer_.send(503, "text/plain", "no data provider");
+    }
   });
   webServer_.onNotFound([this]() { redirectToPortal(); });
 }
@@ -122,7 +139,6 @@ bool WifiProvisioningManager::startPortal(uint64_t nowUs) {
   if (!dnsServer_.start(DNS_PORT, "*", WiFi.softAPIP())) {
     Serial.println("[WARN] Captive-portal DNS could not start");
   }
-  webServer_.begin();
   portalActive_ = true;
   Serial.print("[INFO] Wi-Fi setup portal: SSID=");
   Serial.print(portalSsid_);
@@ -136,7 +152,6 @@ void WifiProvisioningManager::stopPortal() {
     return;
   }
   dnsServer_.stop();
-  webServer_.stop();
   WiFi.softAPdisconnect(true);
   portalActive_ = false;
   WiFi.mode(WIFI_STA);
@@ -185,6 +200,8 @@ bool WifiProvisioningManager::saveCredentials(const String &ssid,
 
 void WifiProvisioningManager::handleConnectionSuccess() {
   connected_ = true;
+  // 连接成功后用 station IP 重新注册 mDNS，使浏览器可通过 http://esp32.local 访问。
+  MDNS.begin("esp32");
   connecting_ = false;
   connectionBeginPending_ = false;
   ignoreStationUntilDisconnected_ = false;
@@ -234,11 +251,16 @@ void WifiProvisioningManager::handleConnectionTimeout(uint64_t nowUs) {
                   MS_TO_US;
 }
 
+void WifiProvisioningManager::setDataProvider(
+    std::function<String(void)> provider) {
+  dataProvider_ = std::move(provider);
+}
+
 void WifiProvisioningManager::tick(uint64_t nowUs) {
   if (portalActive_) {
     dnsServer_.processNextRequest();
-    webServer_.handleClient();
   }
+  webServer_.handleClient();
 
   if (ignoreStationUntilDisconnected_) {
     if (WiFi.status() == WL_CONNECTED) {

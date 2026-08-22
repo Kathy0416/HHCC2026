@@ -26,3 +26,7 @@ desktop.ini
 # ===== 编辑器（保留 launch.json 调试配置，忽略个人本地设置）=====
 .vscode/settings.json
 .vscode/*.code-workspace
+
+# 冗余副本与压缩包（不上传）
+HHCC2026-ai-ui-fix/
+esp32/MigraineLightMonitor.zip

@@ -558,8 +558,8 @@
 
   function updateEsp32Button() {
     const button = document.getElementById('esp32SyncBtn');
-    const active = !!state.connection?.active;
-    button.disabled = !active || state.esp32Syncing;
+    // 登录即可用：不再要求先有 active 健康连接，点击时会自动创建/复用连接。
+    button.disabled = !window.ApiClient?.hasToken() || state.esp32Syncing;
     button.setAttribute('aria-busy', String(state.esp32Syncing));
     const key = state.esp32Syncing ? 'health.esp32.syncing' : (state.esp32Synced ? 'health.esp32.syncedShort' : 'health.esp32.sync');
     button.textContent = t(key);
@@ -975,13 +975,35 @@
     if (restoreFocus) document.getElementById('esp32SyncBtn').focus();
   }
 
+  // 确保有一个 active 的健康连接（environment-sync 需要 connectionId）。没有则自动创建/复用。
+  async function ensureActiveConnection() {
+    if (state.connection?.active) return state.connection;
+    const created = await window.ApiClient.createHealthConnection({
+      provider: 'health_connect',
+      deviceName: 'ESP32 环境采集',
+      manufacturer: 'espressif',
+      model: 'ESP32',
+      sourcePackages: []
+    });
+    state.connection = created.connection || {};
+    state.connection.active = true;
+    return state.connection;
+  }
+
   async function syncEsp32Environment(endpointOverride) {
     if (!window.ApiClient?.hasToken()) {
       setStatus(t('health.esp32.loginRequired'), 'error');
       showModal('loginModal');
       return;
     }
-    if (!state.connection?.active) {
+    // 自动确保有 active 连接（首次会自动创建一个 health_connect 连接）。
+    try {
+      await ensureActiveConnection();
+    } catch (error) {
+      setStatus(error.message || t('health.esp32.connectionRequired'), 'error');
+      return;
+    }
+    if (!state.connection?.active || !state.connection.id) {
       setStatus(t('health.esp32.connectionRequired'), 'error');
       return;
     }

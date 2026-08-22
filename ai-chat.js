@@ -1,339 +1,499 @@
-// AI聊天功能实现
+(function () {
+  'use strict';
 
-// DOM元素
-const chatBubbleBtn = document.getElementById('chat-bubble-btn');
-const chatContainer = document.getElementById('chat-container');
-const closeChatBtn = document.getElementById('close-chat-btn');
-const chatMessages = document.getElementById('chat-messages');
-const chatInput = document.getElementById('chat-input');
-const sendBtn = document.getElementById('send-btn');
+  const STORAGE_POSITION = 'aiChatButtonPositionV2';
+  const STORAGE_HISTORY = 'aiChatHistory';
+  const STORAGE_SPEECH = 'aiChatSpeakReplies';
+  const DRAG_THRESHOLD = 7;
+  const EDGE_MARGIN = 10;
+  const HISTORY_LIMIT = 50;
 
-// 聊天历史记录
-let chatHistory = [];
-
-// DeepSeek API 配置（请在部署前替换为真实KEY）
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-let DEEPSEEK_API_KEY = localStorage.getItem('deepseekApiKey') || 'YOUR_DEEPSEEK_API_KEY';
-const DEEPSEEK_MODEL = 'deepseek-chat';
-
-function setDeepSeekApiKey(key) {
-    if (key && key.trim()) {
-        const trimmedKey = key.trim();
-        localStorage.setItem('deepseekApiKey', trimmedKey);
-        DEEPSEEK_API_KEY = trimmedKey;
+  const copy = {
+    en: {
+      title: 'Migraine Signal AI',
+      description: 'Uses up to 90 days of your migraine, sleep, wearable, and environment records with general health knowledge. Educational guidance only—not a diagnosis.',
+      welcome: 'Ask about your migraine patterns, sleep, triggers, wearable readings, or environment. Sign in to use your records.',
+      open: 'Open Migraine Signal AI', close: 'Close assistant', input: 'Ask a question…', send: 'Send message',
+      microphone: 'Use voice input', stopMicrophone: 'Stop listening', speakerOn: 'Turn spoken replies off', speakerOff: 'Turn spoken replies on',
+      listening: 'Listening… Your audio stays with the browser; only the transcript is sent.', thinking: 'DeepSeek is thinking…',
+      unsupportedVoice: 'Voice input is not supported by this browser. You can continue with text chat.',
+      deniedVoice: 'Microphone access was denied. Allow microphone permission or continue with text chat.',
+      voiceError: 'Voice input stopped. Please try again or continue with text chat.',
+      offline: 'The server is unavailable. Start the local Node server and try again.',
+      retry: 'The assistant could not answer. Please try again.', personalized: 'Personalized from your records', general: 'General knowledge',
+      data: { migraine: 'migraine', sleep: 'sleep', wearable: 'wearable', environment: 'environment' }
+    },
+    'zh-CN': {
+      title: 'Migraine Signal AI',
+      description: '结合最近 90 天的偏头痛、睡眠、可穿戴设备和环境记录，以及通用健康知识提供健康教育建议；不作医疗诊断。',
+      welcome: '可以询问你的偏头痛规律、睡眠、触发因素、可穿戴数据或环境情况。登录后可结合个人记录回答。',
+      open: '打开 Migraine Signal AI', close: '关闭助手', input: '输入你的问题…', send: '发送消息',
+      microphone: '使用语音输入', stopMicrophone: '停止聆听', speakerOn: '关闭语音播报', speakerOff: '开启语音播报',
+      listening: '正在聆听… 音频由浏览器处理，本应用只发送转写文字。', thinking: 'DeepSeek 正在思考…',
+      unsupportedVoice: '当前浏览器不支持语音输入，你仍可继续使用文字聊天。',
+      deniedVoice: '麦克风权限被拒绝，请允许麦克风权限或继续使用文字聊天。',
+      voiceError: '语音输入已停止，请重试或继续使用文字聊天。',
+      offline: '服务器不可用，请先启动本地 Node 服务后重试。',
+      retry: '助手暂时无法回答，请重试。', personalized: '已结合你的记录', general: '通用知识',
+      data: { migraine: '偏头痛', sleep: '睡眠', wearable: '可穿戴', environment: '环境' }
     }
-}
+  };
 
-// 初始化聊天功能
-function initChat() {
-    // 添加事件监听
-    addChatEventListeners();
-    // 加载聊天历史（如果有）
-    loadChatHistory();
-    // 深度查询API key配置
-    setupDeepSeekConfig();
-}
+  let language = getLanguage();
+  let strings = copy[language];
+  let history = [];
+  let sending = false;
+  let recognition = null;
+  let listening = false;
+  let speechEnabled = localStorage.getItem(STORAGE_SPEECH) === 'true';
+  let dragState = null;
+  let suppressNextClick = false;
 
-function setupDeepSeekConfig() {
-    const apiKeyInput = document.getElementById('deepseek-api-key-input');
-    const apiKeySaveBtn = document.getElementById('save-api-key-btn');
-    if (!apiKeyInput || !apiKeySaveBtn) return;
+  function getLanguage() {
+    const selected = window.I18n && typeof window.I18n.getLanguage === 'function'
+      ? window.I18n.getLanguage()
+      : document.documentElement.lang;
+    return String(selected || '').toLowerCase().startsWith('en') ? 'en' : 'zh-CN';
+  }
 
-    apiKeyInput.value = localStorage.getItem('deepseekApiKey') || '';
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
 
-    apiKeySaveBtn.addEventListener('click', () => {
-        const value = apiKeyInput.value.trim();
-        if (!value) {
-            alert('请输入 DeepSeek API Key');
-            return;
-        }
-        setDeepSeekApiKey(value);
-        alert('已保存 DeepSeek API Key，下一次请求将使用该Key。');
-    });
-}
+  function renderMarkdown(value) {
+    return escapeHtml(value)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/^#{1,3}\s+(.+)$/gm, '<strong>$1</strong>')
+      .replace(/^[-*]\s+(.+)$/gm, '• $1')
+      .replace(/\n/g, '<br>');
+  }
 
-// 添加聊天事件监听
-function addChatEventListeners() {
-    // 聊天气泡按钮点击事件
-    chatBubbleBtn.addEventListener('click', toggleChat);
-    
-    // 关闭聊天按钮点击事件
-    closeChatBtn.addEventListener('click', toggleChat);
-    
-    // 发送按钮点击事件
-    sendBtn.addEventListener('click', sendMessage);
-    
-    // 输入框回车发送消息
-    chatInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-    
-    // 输入框自动调整高度
-    chatInput.addEventListener('input', autoResizeTextarea);
-    
-    // 点击聊天界面外部关闭聊天
-    document.addEventListener('click', (e) => {
-        if (chatContainer.classList.contains('visible') && 
-            !chatContainer.contains(e.target) && 
-            e.target !== chatBubbleBtn) {
-            toggleChat();
-        }
-    });
-}
-
-// 切换聊天界面显示/隐藏
-function toggleChat() {
-    chatContainer.classList.toggle('visible');
-    
-    // 如果聊天界面显示，聚焦到输入框
-    if (chatContainer.classList.contains('visible')) {
-        setTimeout(() => chatInput.focus(), 300);
-    }
-}
-
-// 自动调整输入框高度
-function autoResizeTextarea() {
-    // 重置高度，以便正确计算滚动高度
-    chatInput.style.height = 'auto';
-    // 设置新高度，限制最大高度
-    const newHeight = Math.min(chatInput.scrollHeight, 120);
-    chatInput.style.height = `${newHeight}px`;
-}
-
-// 发送消息
-async function sendMessage() {
-    const message = chatInput.value.trim();
-    if (!message) return;
-    
-    // 清空输入框
-    chatInput.value = '';
-    // 重置输入框高度
-    chatInput.style.height = 'auto';
-    
-    // 显示用户消息
-    displayMessage(message, 'user');
-    
-    // 添加到聊天历史
-    addToChatHistory(message, 'user');
-    
-    // AI 功能须联网使用（走后端代理），未连接服务器时禁用并提示
-    if (!window.ApiClient || !(await window.ApiClient.health())) {
-        const offlineTip = window.I18n ? window.I18n.t('ai.offline') : '该功能须联网使用';
-        displayMessage(offlineTip, 'ai');
-        addToChatHistory(offlineTip, 'ai');
-        saveChatHistory();
-        return;
-    }
-    
-    // 发送消息给AI并获取回复
-    getAIResponse(message);
-}
-
-// 简单的 Markdown 渲染（支持加粗、换行、标题、列表），并转义 HTML 防 XSS
-function renderMarkdown(text) {
-    if (!text) return '';
-    let html = String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-
-    // 加粗 **text**
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
-    // 标题 # / ## / ###
-    html = html.replace(/^#{1,3}\s+(.+)$/gm, '<b>$1</b>');
-    // 无序列表 - / *
-    html = html.replace(/^[-*]\s+(.+)$/gm, '• $1');
-    // 有序列表 1. / 2.
-    html = html.replace(/^\d+\.\s+(.+)$/gm, '$1');
-    // 换行
-    html = html.replace(/\n/g, '<br>');
-
-    return html;
-}
-
-// 显示消息
-function displayMessage(text, sender) {
-    const messageEl = document.createElement('div');
-    messageEl.className = `message ${sender}`;
-    messageEl.setAttribute('data-i18n-skip', '');
-    messageEl.setAttribute('data-user-content', '');
-
-    if (sender === 'ai') {
-        // AI 消息：渲染 Markdown
-        messageEl.innerHTML = renderMarkdown(text);
-    } else {
-        // 用户消息：转义 HTML + 保留换行
-        const escaped = String(text)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-        messageEl.innerHTML = escaped.replace(/\n/g, '<br>');
-    }
-
-    chatMessages.appendChild(messageEl);
-
-    // 滚动到底部
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-// 显示AI正在输入的状态
-function displayTypingIndicator() {
-    const typingEl = document.createElement('div');
-    typingEl.className = 'message ai typing';
-    typingEl.innerHTML = `
-        <div class="typing-indicator">
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
+  function mount() {
+    document.querySelectorAll('.chat-bubble-btn, #chat-container').forEach((element) => element.remove());
+    const root = document.createElement('div');
+    root.className = 'ai-chat-widget';
+    root.id = 'ai-chat-widget';
+    root.innerHTML = `
+      <button class="ai-chat-launcher" id="ai-chat-launcher" type="button" aria-haspopup="dialog" aria-expanded="false">
+        <img src="assets/ai-chat-icon.svg" alt="" draggable="false">
+      </button>
+      <section class="ai-chat-panel" id="ai-chat-panel" role="dialog" aria-modal="false" aria-labelledby="ai-chat-title" aria-describedby="ai-chat-description">
+        <header class="ai-chat-header">
+          <div class="ai-chat-header__copy">
+            <h2 class="ai-chat-title" id="ai-chat-title"></h2>
+            <p class="ai-chat-description" id="ai-chat-description"></p>
+          </div>
+          <button class="ai-chat-icon-button" id="ai-chat-speaker" type="button" aria-pressed="false"><span aria-hidden="true">🔈</span></button>
+          <button class="ai-chat-icon-button" id="ai-chat-close" type="button"><span aria-hidden="true">×</span></button>
+        </header>
+        <div class="ai-chat-messages" id="ai-chat-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+        <div class="ai-chat-status" id="ai-chat-status" role="status" hidden></div>
+        <div class="ai-chat-compose">
+          <button class="ai-chat-icon-button" id="ai-chat-microphone" type="button" aria-pressed="false"><span aria-hidden="true">🎙</span></button>
+          <textarea class="ai-chat-input" id="ai-chat-input" rows="1" maxlength="4000"></textarea>
+          <button class="ai-chat-icon-button ai-chat-send" id="ai-chat-send" type="button"><span aria-hidden="true">➤</span></button>
         </div>
-    `;
-    
-    chatMessages.appendChild(typingEl);
-    
-    // 滚动到底部
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    
-    return typingEl;
-}
-
-// 移除正在输入的状态
-function removeTypingIndicator(typingEl) {
-    if (typingEl && typingEl.parentNode) {
-        typingEl.parentNode.removeChild(typingEl);
-    }
-}
-
-// 获取AI回复（DeepSeek优先，失败回退模拟）
-async function getAIResponse(userMessage) {
-    // 显示正在输入的状态
-    const typingEl = displayTypingIndicator();
-
-    try {
-        const aiResponse = await callAIAPI(userMessage);
-        removeTypingIndicator(typingEl);
-        displayMessage(aiResponse, 'ai');
-        addToChatHistory(aiResponse, 'ai');
-        saveChatHistory();
-    } catch (error) {
-        console.error('AI 回复失败：', error);
-        removeTypingIndicator(typingEl);
-
-        const fallbackResponse = window.I18n ? window.I18n.t('ai.unavailable') : 'AI 服务暂时不可用，请稍后再试';
-        displayMessage(fallbackResponse, 'ai');
-        addToChatHistory(fallbackResponse, 'ai');
-        saveChatHistory();
-    }
-}
-
-// 生成模拟AI回复
-function generateMockAIResponse(userMessage) {
-    // 简单的关键词匹配回复
-    const lowerMessage = userMessage.toLowerCase();
-    
-    // 偏头痛相关回复
-    if (lowerMessage.includes('偏头痛') || lowerMessage.includes('头痛')) {
-        return '偏头痛是一种常见的神经系统疾病，特征是反复发作的中重度头痛，通常伴有恶心、呕吐、对光和声音敏感。建议保持规律的作息、避免触发因素，如压力、缺乏睡眠、某些食物等。如果症状严重，建议咨询医生。';
-    }
-    
-    // 食物触发因素相关回复
-    if (lowerMessage.includes('吃了') || lowerMessage.includes('食物') || lowerMessage.includes('巧克力') || lowerMessage.includes('咖啡') || lowerMessage.includes('酒精') || lowerMessage.includes('不舒服')) {
-        return '某些食物确实可能触发偏头痛，常见的包括巧克力、咖啡因、酒精、含有硝酸盐的食物等。如果你刚吃完巧克力后感到不舒服，建议：1. 休息在安静黑暗的房间；2. 多喝水帮助代谢；3. 记录这次发作，以便识别个人触发因素；4. 如果症状严重，可服用止痛药。';
-    }
-    
-    // 触发因素相关回复
-    if (lowerMessage.includes('触发因素') || lowerMessage.includes('原因') || lowerMessage.includes('为什么')) {
-        return '偏头痛的常见触发因素包括：压力、睡眠不足或过多、饮食因素（如酒精、咖啡因、巧克力、硝酸盐等）、荷尔蒙变化、环境因素（如强光、噪音、天气变化）等。';
-    }
-    
-    // 治疗方法相关回复
-    if (lowerMessage.includes('治疗') || lowerMessage.includes('缓解') || lowerMessage.includes('怎么办') || lowerMessage.includes('怎么治')) {
-        return '偏头痛的治疗包括：休息在安静、黑暗的房间，服用止痛药（如布洛芬、对乙酰氨基酚），避免触发因素，保持规律的生活习惯，尝试放松技巧（如深呼吸、冥想），严重时可使用处方药。';
-    }
-    
-    // 记录相关回复
-    if (lowerMessage.includes('记录') || lowerMessage.includes('日记') || lowerMessage.includes('跟踪')) {
-        return '记录偏头痛发作情况有助于识别触发因素和规律。建议记录发作时间、持续时间、疼痛程度、伴随症状、当天的饮食、睡眠、压力水平等信息。';
-    }
-    
-    // 症状相关回复
-    if (lowerMessage.includes('症状') || lowerMessage.includes('表现') || lowerMessage.includes('感觉')) {
-        return '偏头痛的典型症状包括：单侧搏动性头痛、中重度疼痛、恶心呕吐、对光和声音敏感、有时伴有视觉先兆（如闪光、暗点）等。症状通常持续4-72小时。';
-    }
-    
-    // 苹果/食物相关
-    if (lowerMessage.includes('苹果') || lowerMessage.includes('水果')) {
-        return '苹果通常被认为是健康食品，不是偏头痛的典型触发因素。建议观察自身反应，如果你有明确关联，可以继续记录；否则继续保持均衡饮食与规律作息。';
-    }
-
-    // 其他情况
-    return '抱歉，我不太明白你的问题。我是一个专注于偏头痛相关问题的AI助手，你可以问我关于偏头痛的症状、触发因素、治疗方法等问题。如果你希望测试 DeepSeek 实际回答，请检查 API Key 是否已输入并保存，控制台看是否有网络请求。';
-}
-
-// 添加到聊天历史
-function addToChatHistory(text, sender) {
-    chatHistory.push({
-        text: text,
-        sender: sender,
-        timestamp: new Date().toISOString()
+      </section>`;
+    document.body.appendChild(root);
+    bindElements();
+    updateCopy();
+    installEvents();
+    initRecognition();
+    requestAnimationFrame(() => {
+      applyStoredPosition();
+      loadHistory();
     });
-    
-    // 限制聊天历史长度
-    if (chatHistory.length > 50) {
-        chatHistory.shift();
+  }
+
+  let launcher;
+  let panel;
+  let messages;
+  let status;
+  let input;
+  let sendButton;
+  let microphoneButton;
+  let speakerButton;
+  let closeButton;
+
+  function bindElements() {
+    launcher = document.getElementById('ai-chat-launcher');
+    panel = document.getElementById('ai-chat-panel');
+    messages = document.getElementById('ai-chat-messages');
+    status = document.getElementById('ai-chat-status');
+    input = document.getElementById('ai-chat-input');
+    sendButton = document.getElementById('ai-chat-send');
+    microphoneButton = document.getElementById('ai-chat-microphone');
+    speakerButton = document.getElementById('ai-chat-speaker');
+    closeButton = document.getElementById('ai-chat-close');
+  }
+
+  function updateCopy() {
+    language = getLanguage();
+    strings = copy[language];
+    document.getElementById('ai-chat-title').textContent = strings.title;
+    document.getElementById('ai-chat-description').textContent = strings.description;
+    launcher.setAttribute('aria-label', strings.open);
+    closeButton.setAttribute('aria-label', strings.close);
+    input.setAttribute('placeholder', strings.input);
+    input.setAttribute('aria-label', strings.input);
+    sendButton.setAttribute('aria-label', strings.send);
+    microphoneButton.setAttribute('aria-label', listening ? strings.stopMicrophone : strings.microphone);
+    speakerButton.setAttribute('aria-label', speechEnabled ? strings.speakerOn : strings.speakerOff);
+    speakerButton.setAttribute('aria-pressed', String(speechEnabled));
+    const welcome = messages && messages.querySelector('.ai-chat-welcome');
+    if (welcome) welcome.textContent = strings.welcome;
+  }
+
+  function installEvents() {
+    launcher.addEventListener('pointerdown', onPointerDown);
+    launcher.addEventListener('pointermove', onPointerMove);
+    launcher.addEventListener('pointerup', onPointerUp);
+    launcher.addEventListener('pointercancel', onPointerCancel);
+    launcher.addEventListener('click', () => {
+      if (suppressNextClick) {
+        suppressNextClick = false;
+        return;
+      }
+      togglePanel();
+    });
+    closeButton.addEventListener('click', closePanel);
+    sendButton.addEventListener('click', sendMessage);
+    microphoneButton.addEventListener('click', toggleRecognition);
+    speakerButton.addEventListener('click', toggleSpeech);
+    input.addEventListener('input', resizeInput);
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && panel.classList.contains('is-open')) closePanel();
+    });
+    window.addEventListener('resize', () => {
+      applyStoredPosition();
+      if (panel.classList.contains('is-open')) positionPanel();
+    });
+    window.addEventListener('orientationchange', () => setTimeout(() => {
+      applyStoredPosition();
+      if (panel.classList.contains('is-open')) positionPanel();
+    }, 100));
+    window.addEventListener('migraine:languagechange', updateCopy);
+  }
+
+  function onPointerDown(event) {
+    if (event.button !== undefined && event.button !== 0) return;
+    const rect = launcher.getBoundingClientRect();
+    dragState = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, left: rect.left, top: rect.top, dragging: false };
+    launcher.setPointerCapture(event.pointerId);
+  }
+
+  function onPointerMove(event) {
+    if (!dragState || event.pointerId !== dragState.pointerId) return;
+    const dx = event.clientX - dragState.startX;
+    const dy = event.clientY - dragState.startY;
+    if (!dragState.dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    dragState.dragging = true;
+    launcher.classList.add('is-dragging');
+    setLauncherPosition(dragState.left + dx, dragState.top + dy);
+    if (panel.classList.contains('is-open')) positionPanel();
+  }
+
+  function onPointerUp(event) {
+    if (!dragState || event.pointerId !== dragState.pointerId) return;
+    const wasDragging = dragState.dragging;
+    launcher.releasePointerCapture(event.pointerId);
+    launcher.classList.remove('is-dragging');
+    dragState = null;
+    if (wasDragging) {
+      suppressNextClick = true;
+      snapToNearestEdge();
+      savePosition();
+      if (panel.classList.contains('is-open')) positionPanel();
     }
-}
+  }
 
-// 保存聊天历史到本地存储
-function saveChatHistory() {
-    localStorage.setItem('aiChatHistory', JSON.stringify(chatHistory));
-}
+  function onPointerCancel() {
+    launcher.classList.remove('is-dragging');
+    dragState = null;
+  }
 
-// 从本地存储加载聊天历史
-function loadChatHistory() {
-    const savedHistory = localStorage.getItem('aiChatHistory');
-    if (savedHistory) {
-        try {
-            chatHistory = JSON.parse(savedHistory);
-            
-            // 显示聊天历史
-            chatHistory.forEach(message => {
-                displayMessage(message.text, message.sender);
-            });
-        } catch (e) {
-            console.error('加载聊天历史失败:', e);
-            chatHistory = [];
-        }
-    }
-}
+  function viewportBounds() {
+    const viewport = window.visualViewport;
+    const viewportLeft = viewport ? viewport.offsetLeft : 0;
+    const viewportTop = viewport ? viewport.offsetTop : 0;
+    const viewportWidth = viewport ? viewport.width : document.documentElement.clientWidth;
+    const viewportHeight = viewport ? viewport.height : document.documentElement.clientHeight;
+    return {
+      minLeft: viewportLeft + EDGE_MARGIN,
+      minTop: viewportTop + EDGE_MARGIN,
+      maxLeft: Math.max(viewportLeft + EDGE_MARGIN, viewportLeft + viewportWidth - launcher.offsetWidth - EDGE_MARGIN),
+      maxTop: Math.max(viewportTop + EDGE_MARGIN, viewportTop + viewportHeight - launcher.offsetHeight - EDGE_MARGIN)
+    };
+  }
 
-// 调用后端 AI 代理（密钥保存在服务端，AI 功能须联网使用）
-async function callAIAPI(message) {
-    if (!window.ApiClient || !(await window.ApiClient.health())) {
-        throw new Error('OFFLINE');
-    }
+  function setLauncherPosition(left, top) {
+    const bounds = viewportBounds();
+    launcher.style.left = `${Math.min(bounds.maxLeft, Math.max(bounds.minLeft, left))}px`;
+    launcher.style.top = `${Math.min(bounds.maxTop, Math.max(bounds.minTop, top))}px`;
+  }
 
-    const history = chatHistory.map(m => ({
-        role: m.sender === 'user' ? 'user' : 'assistant',
-        content: m.text
+  function snapToNearestEdge() {
+    const rect = launcher.getBoundingClientRect();
+    const bounds = viewportBounds();
+    const distances = [
+      { edge: 'left', value: rect.left - bounds.minLeft },
+      { edge: 'right', value: bounds.maxLeft - rect.left },
+      { edge: 'top', value: rect.top - bounds.minTop },
+      { edge: 'bottom', value: bounds.maxTop - rect.top }
+    ].sort((a, b) => a.value - b.value);
+    let left = rect.left;
+    let top = rect.top;
+    if (distances[0].edge === 'left') left = bounds.minLeft;
+    if (distances[0].edge === 'right') left = bounds.maxLeft;
+    if (distances[0].edge === 'top') top = bounds.minTop;
+    if (distances[0].edge === 'bottom') top = bounds.maxTop;
+    setLauncherPosition(left, top);
+  }
+
+  function savePosition() {
+    const rect = launcher.getBoundingClientRect();
+    const bounds = viewportBounds();
+    const widthRange = Math.max(1, bounds.maxLeft - bounds.minLeft);
+    const heightRange = Math.max(1, bounds.maxTop - bounds.minTop);
+    localStorage.setItem(STORAGE_POSITION, JSON.stringify({
+      x: (rect.left - bounds.minLeft) / widthRange,
+      y: (rect.top - bounds.minTop) / heightRange
     }));
+  }
 
-    const data = await window.ApiClient.chat(message, history);
-    if (data && data.reply) {
-        return data.reply;
+  function applyStoredPosition() {
+    const bounds = viewportBounds();
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem(STORAGE_POSITION)); } catch (error) { stored = null; }
+    const x = stored && Number.isFinite(stored.x) ? Math.min(1, Math.max(0, stored.x)) : 1;
+    const y = stored && Number.isFinite(stored.y) ? Math.min(1, Math.max(0, stored.y)) : 1;
+    setLauncherPosition(
+      bounds.minLeft + x * Math.max(1, bounds.maxLeft - bounds.minLeft),
+      bounds.minTop + y * Math.max(1, bounds.maxTop - bounds.minTop)
+    );
+  }
+
+  function togglePanel() {
+    if (panel.classList.contains('is-open')) closePanel(); else openPanel();
+  }
+
+  function openPanel() {
+    panel.classList.add('is-open');
+    launcher.setAttribute('aria-expanded', 'true');
+    positionPanel();
+    setTimeout(() => input.focus(), 180);
+  }
+
+  function closePanel() {
+    panel.classList.remove('is-open');
+    launcher.setAttribute('aria-expanded', 'false');
+    stopRecognition();
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    launcher.focus();
+  }
+
+  function positionPanel() {
+    const anchor = launcher.getBoundingClientRect();
+    const panelWidth = panel.offsetWidth;
+    const panelHeight = panel.offsetHeight;
+    const viewport = window.visualViewport;
+    const viewportLeft = viewport ? viewport.offsetLeft : 0;
+    const viewportTop = viewport ? viewport.offsetTop : 0;
+    const viewportRight = viewportLeft + (viewport ? viewport.width : document.documentElement.clientWidth);
+    const viewportBottom = viewportTop + (viewport ? viewport.height : document.documentElement.clientHeight);
+    const gap = 10;
+    let left = anchor.right + gap;
+    if (left + panelWidth > viewportRight - EDGE_MARGIN) left = anchor.left - panelWidth - gap;
+    let top = anchor.bottom - panelHeight;
+    if (top < viewportTop + EDGE_MARGIN) top = anchor.top;
+    left = Math.max(viewportLeft + EDGE_MARGIN, Math.min(left, viewportRight - panelWidth - EDGE_MARGIN));
+    top = Math.max(viewportTop + EDGE_MARGIN, Math.min(top, viewportBottom - panelHeight - EDGE_MARGIN));
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+  }
+
+  function showWelcome() {
+    if (history.length || messages.querySelector('.ai-chat-welcome')) return;
+    const element = document.createElement('p');
+    element.className = 'ai-chat-welcome';
+    element.textContent = strings.welcome;
+    messages.appendChild(element);
+  }
+
+  function displayMessage(content, role, metadata) {
+    const welcome = messages.querySelector('.ai-chat-welcome');
+    if (welcome) welcome.remove();
+    const element = document.createElement('div');
+    element.className = `ai-chat-message ai-chat-message--${role === 'user' ? 'user' : 'assistant'}`;
+    element.setAttribute('data-i18n-skip', '');
+    element.setAttribute('data-user-content', '');
+    if (metadata && metadata.error) element.classList.add('ai-chat-message--error');
+    element.innerHTML = renderMarkdown(content);
+    if (role !== 'user' && metadata) {
+      const meta = document.createElement('div');
+      meta.className = 'ai-chat-meta';
+      const label = document.createElement('span');
+      label.className = 'ai-chat-chip';
+      label.textContent = metadata.personalized ? strings.personalized : strings.general;
+      meta.appendChild(label);
+      (metadata.usedDataCategories || []).forEach((category) => {
+        const chip = document.createElement('span');
+        chip.className = 'ai-chat-chip';
+        chip.textContent = strings.data[category] || category;
+        meta.appendChild(chip);
+      });
+      element.appendChild(meta);
     }
+    messages.appendChild(element);
+    messages.scrollTop = messages.scrollHeight;
+  }
 
-    throw new Error('后端未返回有效回复');
-}
+  function setStatus(message, className) {
+    status.textContent = message || '';
+    status.hidden = !message;
+    status.className = `ai-chat-status${className ? ` ${className}` : ''}`;
+  }
 
-// 初始化聊天功能
-initChat();
+  function resizeInput() {
+    input.style.height = 'auto';
+    input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+  }
 
-// 导出函数，方便在其他页面调用
-// function showChat() {
-//     chatContainer.classList.add('visible');
-//     setTimeout(() => chatInput.focus(), 300);
-// }
+  function setSending(value) {
+    sending = value;
+    sendButton.disabled = value;
+    input.disabled = value;
+    microphoneButton.disabled = value;
+  }
+
+  async function loadHistory() {
+    history = [];
+    try {
+      if (window.ApiClient && window.ApiClient.hasToken()) {
+        const data = await window.ApiClient.chatHistory();
+        history = Array.isArray(data.messages) ? data.messages.slice(-HISTORY_LIMIT).map((item) => ({ role: item.role, content: item.content })) : [];
+      } else {
+        const local = JSON.parse(localStorage.getItem(STORAGE_HISTORY) || '[]');
+        history = Array.isArray(local) ? local.slice(-HISTORY_LIMIT).map((item) => ({ role: item.role || (item.sender === 'user' ? 'user' : 'assistant'), content: item.content || item.text || '' })).filter((item) => item.content) : [];
+      }
+    } catch (error) {
+      history = [];
+    }
+    messages.textContent = '';
+    history.forEach((item) => displayMessage(item.content, item.role));
+    showWelcome();
+  }
+
+  function saveGuestHistory() {
+    if (window.ApiClient && window.ApiClient.hasToken()) return;
+    localStorage.setItem(STORAGE_HISTORY, JSON.stringify(history.slice(-HISTORY_LIMIT)));
+  }
+
+  async function sendMessage() {
+    const content = input.value.trim();
+    if (!content || sending) return;
+    const priorHistory = history.slice(-20);
+    history.push({ role: 'user', content });
+    displayMessage(content, 'user');
+    saveGuestHistory();
+    input.value = '';
+    resizeInput();
+    stopRecognition();
+    setSending(true);
+    setStatus(strings.thinking);
+    try {
+      if (!window.ApiClient) throw new Error(strings.offline);
+      const data = await window.ApiClient.chat(content, priorHistory);
+      history.push({ role: 'assistant', content: data.reply });
+      history = history.slice(-HISTORY_LIMIT);
+      displayMessage(data.reply, 'assistant', data);
+      saveGuestHistory();
+      if (speechEnabled) speak(data.reply);
+      setStatus('');
+    } catch (error) {
+      const message = error && error.message ? error.message : strings.retry;
+      displayMessage(message, 'assistant', { error: true, personalized: false, usedDataCategories: [] });
+      setStatus('');
+    } finally {
+      setSending(false);
+      if (panel.classList.contains('is-open')) input.focus();
+    }
+  }
+
+  function initRecognition() {
+    const Recognition = Object.prototype.hasOwnProperty.call(window, 'MigraineSignalSpeechRecognition')
+      ? window.MigraineSignalSpeechRecognition
+      : (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!Recognition) {
+      microphoneButton.setAttribute('aria-disabled', 'true');
+      return;
+    }
+    recognition = new Recognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.onstart = () => {
+      listening = true;
+      microphoneButton.setAttribute('aria-pressed', 'true');
+      microphoneButton.setAttribute('aria-label', strings.stopMicrophone);
+      setStatus(strings.listening, 'is-listening');
+    };
+    recognition.onresult = (event) => {
+      let transcript = '';
+      for (let index = 0; index < event.results.length; index += 1) transcript += event.results[index][0].transcript;
+      input.value = transcript;
+      resizeInput();
+    };
+    recognition.onerror = (event) => {
+      setStatus(event.error === 'not-allowed' || event.error === 'service-not-allowed' ? strings.deniedVoice : strings.voiceError);
+    };
+    recognition.onend = () => {
+      listening = false;
+      microphoneButton.setAttribute('aria-pressed', 'false');
+      microphoneButton.setAttribute('aria-label', strings.microphone);
+      if (status.classList.contains('is-listening')) setStatus('');
+      if (panel.classList.contains('is-open')) input.focus();
+    };
+  }
+
+  function toggleRecognition() {
+    if (!recognition) {
+      setStatus(strings.unsupportedVoice);
+      return;
+    }
+    if (listening) {
+      stopRecognition();
+      return;
+    }
+    recognition.lang = language === 'en' ? 'en-US' : 'zh-CN';
+    try { recognition.start(); } catch (error) { setStatus(strings.voiceError); }
+  }
+
+  function stopRecognition() {
+    if (recognition && listening) recognition.stop();
+  }
+
+  function toggleSpeech() {
+    speechEnabled = !speechEnabled;
+    localStorage.setItem(STORAGE_SPEECH, String(speechEnabled));
+    if (!speechEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+    updateCopy();
+  }
+
+  function speak(text) {
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(String(text).replace(/[*#`]/g, ''));
+    utterance.lang = language === 'en' ? 'en-US' : 'zh-CN';
+    window.speechSynthesis.speak(utterance);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true });
+  else mount();
+})();

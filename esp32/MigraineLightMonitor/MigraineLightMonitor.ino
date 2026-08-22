@@ -82,6 +82,51 @@ void printSample(const SensorSample &sample) {
   Serial.println();
 }
 
+// 生成一行可供 HTTP 数据端点 GET /data 返回、且能被前端 Esp32Parser 解析的 [SAMPLE] 文本。
+// 传感器无效字段输出 "null"（前端会跳过该行）；utc_ms 需 NTP 同步后才有值。
+String formatSampleLine(const SensorSample &sample) {
+  char number[40];
+  String line = F("[SAMPLE] mode=");
+  line += samplingModeName(sample.mode);
+  line += F(" mono_us=");
+  snprintf(number, sizeof(number), "%llu",
+           static_cast<unsigned long long>(sample.monotonicUs));
+  line += number;
+  line += F(" utc_ms=");
+  if (sample.utcEpochMs != 0) {
+    snprintf(number, sizeof(number), "%lld",
+             static_cast<long long>(sample.utcEpochMs));
+    line += number;
+  } else {
+    line += F("null");
+  }
+  line += F(" light=");
+  if (sampleFieldValid(sample, VALID_LIGHT)) {
+    line += String(sample.lightLux, 1);
+  } else {
+    line += F("null");
+  }
+  line += F(" temp=");
+  if (sampleFieldValid(sample, VALID_TEMPERATURE)) {
+    line += String(sample.temperatureC, 1);
+  } else {
+    line += F("null");
+  }
+  line += F(" humidity=");
+  if (sampleFieldValid(sample, VALID_HUMIDITY)) {
+    line += String(sample.humidityPercent, 1);
+  } else {
+    line += F("null");
+  }
+  line += F(" noise=");
+  if (sampleFieldValid(sample, VALID_NOISE)) {
+    line += String(sample.noiseDbSpl, 1);
+  } else {
+    line += F("null");
+  }
+  return line;
+}
+
 void handleButton(uint64_t nowUs) {
   const bool raw = digitalRead(Config::BUTTON_PIN);
   if (raw != lastRawButton) {
@@ -152,6 +197,8 @@ void setup() {
   console.begin();
   timeSync.begin();
   network.begin(nowUs);
+  // 让 ESP32 的 HTTP 数据端点 GET /data 返回最新环境样本（供前端 Sync ESP32 data 拉取）。
+  network.setDataProvider([&]() -> String { return formatSampleLine(sensors.latest()); });
 
   nextNormalSampleUs = nowUs;
   nextBaselineSampleUs =

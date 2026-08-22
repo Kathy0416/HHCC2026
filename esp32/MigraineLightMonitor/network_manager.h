@@ -5,6 +5,7 @@
 #include <Preferences.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#include <functional>
 
 class WifiProvisioningManager {
  public:
@@ -24,6 +25,8 @@ class WifiProvisioningManager {
   IPAddress localIp() const;
   int32_t rssi() const;
   const char *stateName() const;
+  // 注册一个回调，供 HTTP 数据端点 GET /data 返回环境样本（[SAMPLE] 文本）。
+  void setDataProvider(std::function<String(void)> provider);
   void printStatus(Print &output) const;
 
  private:
@@ -48,6 +51,7 @@ class WifiProvisioningManager {
 
   DNSServer dnsServer_;
   WebServer webServer_;
+  std::function<String(void)> dataProvider_;
   Preferences preferences_;
   bool preferencesReady_ = false;
   bool handlersConfigured_ = false;
