@@ -72,6 +72,15 @@ function initSchema() {
       FOREIGN KEY(tip_id) REFERENCES tips(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS tip_likes (
+      tip_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY(user_id, tip_id),
+      FOREIGN KEY(tip_id) REFERENCES tips(id) ON DELETE CASCADE,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -84,6 +93,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_calendar_user_date ON calendar_entries(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_sleep_user_date ON sleep_records(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_comments_tip ON comments(tip_id);
+    CREATE INDEX IF NOT EXISTS idx_tip_likes_tip ON tip_likes(tip_id);
     CREATE INDEX IF NOT EXISTS idx_chat_user ON chat_messages(user_id);
   `);
 

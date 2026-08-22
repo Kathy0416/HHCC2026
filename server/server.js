@@ -46,14 +46,16 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: req.t('internal') });
 });
 
-app.listen(PORT, () => {
-  console.log('==============================================');
-  console.log('  偏头痛记录日历 后端服务');
-  console.log('==============================================');
-  console.log(`  ➜ 服务地址:   http://localhost:${PORT}`);
-  console.log(`  ➜ 健康检查:   http://localhost:${PORT}/api/health`);
-  console.log(`  ➜ DeepSeek:   ${process.env.DEEPSEEK_API_KEY ? '已配置' : '未配置（AI 使用本地模拟回复）'}`);
-  console.log('==============================================');
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log('==============================================');
+    console.log('  偏头痛记录日历 后端服务');
+    console.log('==============================================');
+    console.log(`  ➜ 服务地址:   http://localhost:${PORT}`);
+    console.log(`  ➜ 健康检查:   http://localhost:${PORT}/api/health`);
+    console.log(`  ➜ DeepSeek:   ${process.env.DEEPSEEK_API_KEY ? '已配置' : '未配置（AI 使用本地模拟回复）'}`);
+    console.log('==============================================');
+  });
+}
 
 module.exports = app;

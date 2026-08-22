@@ -1,0 +1,46 @@
+{
+  "predictionTimeMs": 1787347893000,
+  "horizonMinutes": 60,
+  "windowStartMs": 1787344293000,
+  "sampleCount": 720,
+  "heartRate": {
+    "count": 720,
+    "mean": 71.5518,
+    "median": 71.6,
+    "standardDeviation": 2.5458,
+    "change": 2.7,
+    "recentMean": 74.1867
+  },
+  "temperature": {
+    "count": 720,
+    "mean": 26.2081,
+    "median": 26.22,
+    "standardDeviation": 0.175,
+    "change": 0.21,
+    "recentMean": 26.3038
+  },
+  "humidity": {
+    "count": 720,
+    "mean": 58.5595,
+    "median": 58.72,
+    "standardDeviation": 1.317,
+    "change": -2.57,
+    "recentMean": 57.0532
+  },
+  "light": {
+    "count": 720,
+    "mean": 280.1264,
+    "median": 280.7,
+    "standardDeviation": 31.9836,
+    "change": -14.5,
+    "recentMean": 244.2833
+  },
+  "noiseDbSpl": {
+    "count": 720,
+    "mean": 48.0126,
+    "median": 47.95,
+    "standardDeviation": 2.8877,
+    "change": 0.1,
+    "recentMean": 45.1433
+  }
+}
