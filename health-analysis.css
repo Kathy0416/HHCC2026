@@ -52,7 +52,7 @@
 .section-eyebrow { margin: 0 0 7px; color: var(--health-blue); font-size: .69rem; font-weight: 800; letter-spacing: .17em; }
 .section-icon { display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid rgba(126,160,255,.2); border-radius: 16px; background: rgba(91,126,226,.12); color: #abc3ff; font-size: 1.65rem; }
 .section-icon-art { position: relative; overflow: hidden; padding: 0; }
-.section-icon-art img { position: absolute; right: -50%; bottom: -60%; width: 240%; max-width: none; height: auto; }
+.section-icon-art img { position: absolute; right: -80%; bottom: -60%; width: 240%; max-width: none; height: auto; }
 
 .record-card, .connection-card { height: 100%; }
 .record-card { display: flex; flex-direction: column; }
