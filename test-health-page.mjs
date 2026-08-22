@@ -98,10 +98,112 @@ for (const viewport of [
       connectionProminent: document.querySelector('.connection-card').getBoundingClientRect().top < document.querySelector('.analysis-card').getBoundingClientRect().top
     };
   })()`);
-  layouts.push({ name: viewport.name, ...result });
+  await evaluate(`document.getElementById('datePickerTrigger').click()`);
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  result.picker = await evaluate(`(() => {
+    const dialog = document.getElementById('glassPicker');
+    const rect = dialog.getBoundingClientRect();
+    const style = getComputedStyle(dialog);
+    return {
+      open: !document.getElementById('pickerBackdrop').hidden,
+      dateCells: document.querySelectorAll('#pickerDays .picker-day').length,
+      selectedDates: document.querySelectorAll('#pickerDays .is-selected').length,
+      hasBackdropBlur: style.backdropFilter !== 'none' || style.webkitBackdropFilter !== 'none',
+      withinViewport: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight,
+      bottomGap: innerHeight - rect.bottom,
+      mobileBottomSheet: innerWidth > 640 || Math.abs(innerHeight - rect.bottom - 82) <= 4,
+      desktopAnchored: innerWidth <= 640 || Boolean(dialog.style.left && dialog.style.top),
+      triggerExpanded: document.getElementById('datePickerTrigger').getAttribute('aria-expanded') === 'true'
+    };
+  })()`);
   const screenshot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   fs.writeFileSync(`health-page-${viewport.name}.png`, Buffer.from(screenshot.data, 'base64'));
+  await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await evaluate(`document.getElementById('sleepTimePickerTrigger').click()`);
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  result.timePicker = await evaluate(`(() => {
+    const dialogRect = document.getElementById('glassPicker').getBoundingClientRect();
+    const minuteGrid = document.getElementById('pickerMinutes').getBoundingClientRect();
+    const selectedMinute = document.querySelector('#pickerMinutes .is-selected').getBoundingClientRect();
+    return {
+      hours: document.querySelectorAll('#pickerHours [data-hour]').length,
+      minutes: document.querySelectorAll('#pickerMinutes [data-minute]').length,
+      withinViewport: dialogRect.left >= 0 && dialogRect.top >= 0 && dialogRect.right <= innerWidth && dialogRect.bottom <= innerHeight,
+      selectedMinuteVisible: selectedMinute.top >= minuteGrid.top && selectedMinute.bottom <= minuteGrid.bottom,
+      noHorizontalOverflow: document.documentElement.scrollWidth <= innerWidth
+    };
+  })()`);
+  await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  layouts.push({ name: viewport.name, ...result });
 }
+
+const pickerInteraction = await evaluate(`(async () => {
+  const tick = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const dateTrigger = document.getElementById('datePickerTrigger');
+  const bedtimeTrigger = document.getElementById('sleepTimePickerTrigger');
+  const wakeTrigger = document.getElementById('wakeTimePickerTrigger');
+  const originalDate = document.getElementById('date').value;
+
+  dateTrigger.click(); await tick();
+  const originalMonth = document.getElementById('pickerMonthLabel').textContent;
+  const selectedBefore = document.querySelector('#pickerDays .is-selected').dataset.date;
+  document.querySelector('#pickerDays .is-selected').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  await tick();
+  const selectedAfterArrow = document.querySelector('#pickerDays .is-selected').dataset.date;
+  document.getElementById('pickerApply').click();
+  const keyboardDate = document.getElementById('date').value;
+
+  dateTrigger.click(); await tick();
+  document.getElementById('pickerNextMonth').click(); await tick();
+  const navigatedMonth = document.getElementById('pickerMonthLabel').textContent;
+  document.getElementById('pickerApply').focus();
+  document.getElementById('pickerApply').dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+  const focusTrapped = document.getElementById('glassPicker').contains(document.activeElement);
+  document.getElementById('pickerCancel').click();
+  const cancelPreservedDate = document.getElementById('date').value === keyboardDate && document.activeElement === dateTrigger;
+
+  dateTrigger.click(); await tick();
+  document.getElementById('pickerBackdrop').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  const outsideClosed = document.getElementById('pickerBackdrop').hidden && document.activeElement === dateTrigger;
+
+  dateTrigger.click(); await tick();
+  document.getElementById('pickerNextMonth').click();
+  document.getElementById('pickerToday').click(); await tick();
+  const todaySelection = document.querySelector('#pickerDays .is-selected').dataset.date;
+  document.getElementById('pickerApply').click();
+
+  bedtimeTrigger.click(); await tick();
+  document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true })); await tick();
+  document.querySelector('#pickerMinutes .is-selected').focus();
+  document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true })); await tick();
+  document.getElementById('pickerApply').click();
+  wakeTrigger.click(); await tick();
+  document.querySelector('[data-hour="7"]').click();
+  document.querySelector('[data-minute="1"]').click();
+  document.getElementById('pickerApply').click();
+
+  wakeTrigger.click(); await tick();
+  document.querySelector('[data-minute="2"]').click();
+  document.getElementById('pickerCancel').click();
+  const cancelPreservedTime = document.getElementById('wakeTime').value === '07:01' && document.activeElement === wakeTrigger;
+  bedtimeTrigger.click(); await tick();
+  document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  const escapeClosed = document.getElementById('pickerBackdrop').hidden && document.activeElement === bedtimeTrigger;
+
+  const exactTimeGrid = document.querySelectorAll('#pickerHours [data-hour]').length === 24 && document.querySelectorAll('#pickerMinutes [data-minute]').length === 60;
+  const duration = document.getElementById('durationValue').textContent;
+  document.getElementById('wakeTime').value = '';
+  document.getElementById('sleepForm').requestSubmit();
+  const validation = !document.getElementById('sleepFormError').hidden && document.activeElement === wakeTrigger;
+
+  return {
+    originalDate, originalMonth, selectedBefore, selectedAfterArrow, keyboardDate, navigatedMonth,
+    cancelPreservedDate, focusTrapped, outsideClosed, todaySelection, finalDate: document.getElementById('date').value,
+    bedtime: document.getElementById('sleepTime').value, cancelPreservedTime, escapeClosed,
+    exactTimeGrid, duration, validation,
+    noNativePickers: !document.querySelector('input[type="date"], input[type="time"]')
+  };
+})()`);
 
 await evaluate(`(async () => {
   const username = 'band-art-' + Date.now();
@@ -159,6 +261,43 @@ const unknownArtwork = await evaluate(`({
   src: document.getElementById('deviceIllustration').getAttribute('src'),
   loaded: Boolean(document.getElementById('deviceIllustration').complete && document.getElementById('deviceIllustration').naturalWidth)
 })`);
+
+const pickerSave = await evaluate(`(async () => {
+  const tick = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  async function selectTime(triggerId, hour, minute) {
+    document.getElementById(triggerId).click(); await tick();
+    document.querySelector('[data-hour="' + hour + '"]').click();
+    document.querySelector('[data-minute="' + minute + '"]').click();
+    document.getElementById('pickerApply').click();
+  }
+  await selectTime('sleepTimePickerTrigger', 23, 59);
+  await selectTime('wakeTimePickerTrigger', 7, 1);
+  const originalSave = window.ApiClient.saveSleepRecord.bind(window.ApiClient);
+  let captured;
+  let resolveRequest;
+  const requested = new Promise((resolve) => { resolveRequest = resolve; });
+  window.ApiClient.saveSleepRecord = async (...args) => {
+    captured = JSON.parse(JSON.stringify(args));
+    const result = await originalSave(...args);
+    resolveRequest();
+    return result;
+  };
+  document.getElementById('sleepForm').requestSubmit();
+  await requested;
+  for (let attempt = 0; attempt < 50 && document.getElementById('sleepTime').value; attempt += 1) await tick();
+  const localRecord = JSON.parse(localStorage.getItem('sleepRecords') || '[]').find((item) => item.date === captured[0]);
+  return {
+    captured,
+    localRecord,
+    reset: {
+      datePresent: /^\\d{4}-\\d{2}-\\d{2}$/.test(document.getElementById('date').value),
+      bedtime: document.getElementById('sleepTime').value,
+      wakeTime: document.getElementById('wakeTime').value,
+      bedtimeDisplay: document.getElementById('sleepTimePickerDisplay').textContent,
+      duration: document.getElementById('durationValue').textContent
+    }
+  };
+})()`);
 
 const esp32Errors = await evaluate(`(async () => {
   const originalFetch = window.fetch.bind(window);
@@ -272,7 +411,19 @@ const esp32Reload = await evaluate(`({
 })`);
 
 await evaluate(`window.I18n.setLanguage('en')`);
-const english = await evaluate(`({ title: document.querySelector('.site-header__page-title').textContent, nav: document.querySelector('.health-nav-link.is-active span:last-child').textContent, record: document.querySelector('#record-title').textContent })`);
+await evaluate(`document.getElementById('datePickerTrigger').click()`);
+await new Promise((resolve) => setTimeout(resolve, 80));
+const english = await evaluate(`({
+  title: document.querySelector('.site-header__page-title').textContent,
+  nav: document.querySelector('.health-nav-link.is-active span:last-child').textContent,
+  record: document.querySelector('#record-title').textContent,
+  pickerTitle: document.getElementById('pickerTitle').textContent,
+  today: document.getElementById('pickerToday').textContent,
+  cancel: document.getElementById('pickerCancel').textContent,
+  apply: document.getElementById('pickerApply').textContent,
+  dateDisplay: document.getElementById('datePickerDisplay').textContent
+})`);
+await evaluate(`document.getElementById('pickerCancel').click()`);
 
 const failures = layouts.flatMap((layout) => [
   !layout.noHorizontalOverflow && `${layout.name}: horizontal overflow (${layout.scrollWidth} > ${layout.viewport.width})`,
@@ -285,6 +436,18 @@ const failures = layouts.flatMap((layout) => [
   !layout.stressTileRemoved && `${layout.name}: Stress tile still exists`,
   !layout.environmentFitsCard && `${layout.name}: ESP32 panel exceeds the connection card`,
   !layout.syncDisabledWithoutConnection && `${layout.name}: ESP32 sync is enabled without an active connection`,
+  !layout.picker.open && `${layout.name}: liquid-glass date picker did not open`,
+  layout.picker.dateCells !== 42 && `${layout.name}: date picker does not render a six-week grid`,
+  layout.picker.selectedDates !== 1 && `${layout.name}: date picker selection state is invalid`,
+  !layout.picker.hasBackdropBlur && `${layout.name}: picker is missing its liquid-glass blur`,
+  !layout.picker.withinViewport && `${layout.name}: picker exceeds the viewport`,
+  !layout.picker.mobileBottomSheet && `${layout.name}: mobile picker is not positioned as a bottom sheet`,
+  !layout.picker.desktopAnchored && `${layout.name}: desktop picker is not anchored to its trigger`,
+  !layout.picker.triggerExpanded && `${layout.name}: picker trigger does not expose its expanded state`,
+  layout.timePicker.hours !== 24 || layout.timePicker.minutes !== 60 ? `${layout.name}: time picker is missing exact-minute choices` : false,
+  !layout.timePicker.withinViewport && `${layout.name}: time picker exceeds the viewport`,
+  !layout.timePicker.selectedMinuteVisible && `${layout.name}: selected minute is not scrolled into view`,
+  !layout.timePicker.noHorizontalOverflow && `${layout.name}: time picker causes horizontal overflow`,
   layout.hasMockGenerator && `${layout.name}: mock generator still exists`,
   !layout.formProminent && `${layout.name}: form is not above analysis`,
   !layout.connectionProminent && `${layout.name}: connection is not above analysis`
@@ -292,6 +455,14 @@ const failures = layouts.flatMap((layout) => [
 if (appleArtwork.brand !== 'apple' || appleArtwork.src !== 'assets/apple-watch.svg' || !appleArtwork.loaded) failures.push('Apple artwork selection failed');
 if (xiaomiArtwork.brand !== 'xiaomi' || xiaomiArtwork.src !== 'assets/xiaomi-band.svg' || !xiaomiArtwork.loaded) failures.push('Mi Fitness package artwork selection failed');
 if (unknownArtwork.brand !== 'xiaomi' || unknownArtwork.src !== 'assets/xiaomi-band.svg' || !unknownArtwork.loaded) failures.push('Unknown-device fallback artwork selection failed');
+if (pickerInteraction.selectedBefore === pickerInteraction.selectedAfterArrow || pickerInteraction.keyboardDate !== pickerInteraction.selectedAfterArrow) failures.push('Date picker keyboard navigation failed');
+if (pickerInteraction.originalMonth === pickerInteraction.navigatedMonth || !pickerInteraction.cancelPreservedDate || !pickerInteraction.focusTrapped || !pickerInteraction.outsideClosed) failures.push('Date navigation, cancellation, focus containment, or outside-click behavior failed');
+if (pickerInteraction.todaySelection !== pickerInteraction.originalDate || pickerInteraction.finalDate !== pickerInteraction.originalDate) failures.push('Date picker Today action failed');
+if (pickerInteraction.bedtime !== '23:59' || !pickerInteraction.cancelPreservedTime || !pickerInteraction.escapeClosed || !pickerInteraction.exactTimeGrid) failures.push('Exact-minute time picker, cancellation, or Escape behavior failed');
+if (pickerInteraction.duration !== '07:02') failures.push('Overnight duration was not recalculated from picker values');
+if (!pickerInteraction.validation || !pickerInteraction.noNativePickers) failures.push('Custom picker validation or native-control replacement failed');
+if (pickerSave.captured?.[1]?.sleepTime !== '23:59' || pickerSave.captured?.[1]?.wakeTime !== '07:01' || pickerSave.captured?.[1]?.duration?.totalMinutes !== 422) failures.push('Saved sleep request did not preserve exact picker values');
+if (pickerSave.localRecord?.sleepTime !== '23:59' || pickerSave.reset.bedtime || pickerSave.reset.wakeTime || !pickerSave.reset.datePresent || pickerSave.reset.duration !== '--:--') failures.push('Picker values did not persist locally or reset after saving');
 if (Object.values(esp32Errors).some((message) => !message)) failures.push('An ESP32 URL, malformed-response, CORS, or timeout error state was not shown');
 if (new Set(Object.values(esp32Errors)).size !== 4) failures.push('ESP32 error states were not specific to their failure causes');
 if (!esp32Sync.success) failures.push('ESP32 sync did not reach its success state');
@@ -303,8 +474,9 @@ if (!esp32Sync.environmentCharts) failures.push('Environmental charts were not c
 if (esp32Sync.rangeCoverage.some((item) => item.seriesLength !== item.range || !item.hasEnvironment)) failures.push('Environmental analysis is missing from a 7/30/90-day range');
 if (esp32Reload.endpoint !== 'http://esp32.test/data' || esp32Reload.temperature !== '24.5' || !esp32Reload.syncEnabled || !esp32Reload.stressTileRemoved) failures.push('ESP32 state did not reload correctly');
 if (english.title !== 'Health Analysis' || english.nav !== 'Health Analysis' || english.record !== 'Record Sleep') failures.push('English translations did not apply');
+if (english.pickerTitle !== 'Choose date' || english.today !== 'Today' || english.cancel !== 'Cancel' || english.apply !== 'Apply' || !/[A-Za-z]/.test(english.dateDisplay)) failures.push('English picker translations did not apply');
 if (errors.length) failures.push(...errors.map((error) => `browser: ${error}`));
 
-console.log(JSON.stringify({ layouts, artwork: { appleArtwork, xiaomiArtwork, unknownArtwork }, esp32Errors, esp32Sync, esp32Reload, english, errors }, null, 2));
+console.log(JSON.stringify({ layouts, pickerInteraction, pickerSave, artwork: { appleArtwork, xiaomiArtwork, unknownArtwork }, esp32Errors, esp32Sync, esp32Reload, english, errors }, null, 2));
 socket.close();
 if (failures.length) throw new Error(failures.join('\n'));

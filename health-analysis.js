@@ -9,6 +9,10 @@
     apple: 'assets/apple-watch.svg',
     xiaomi: 'assets/xiaomi-band.svg'
   });
+  const pickerState = {
+    open: false, type: null, targetId: null, trigger: null,
+    pendingDate: '', viewMonth: null, hour: 0, minute: 0
+  };
 
   function t(key, variables) {
     return window.I18n ? window.I18n.t(key, variables) : key;
@@ -107,6 +111,236 @@
     });
   }
 
+  function localToday() {
+    const value = new Date();
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  }
+
+  function dateFromIso(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+    if (!match) return null;
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function isoFromDate(value) {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  }
+
+  function formatPickerDate(value, options = { year: 'numeric', month: 'short', day: 'numeric' }) {
+    const date = dateFromIso(value);
+    return date ? new Intl.DateTimeFormat(locale(), options).format(date) : t('health.picker.selectDate');
+  }
+
+  function refreshPickerTriggers() {
+    document.getElementById('datePickerDisplay').textContent = formatPickerDate(document.getElementById('date').value);
+    for (const targetId of ['sleepTime', 'wakeTime']) {
+      const value = document.getElementById(targetId).value;
+      document.getElementById(`${targetId}PickerDisplay`).textContent = value || t('health.picker.selectTime');
+    }
+  }
+
+  function showSleepFormError(message = '') {
+    const element = document.getElementById('sleepFormError');
+    element.textContent = message;
+    element.hidden = !message;
+  }
+
+  function pickerTitle() {
+    if (pickerState.type === 'date') return t('health.picker.chooseDate');
+    return t(pickerState.targetId === 'sleepTime' ? 'health.picker.chooseBedtime' : 'health.picker.chooseWakeTime');
+  }
+
+  function renderPickerWeekdays() {
+    const container = document.getElementById('pickerWeekdays');
+    container.replaceChildren();
+    const formatter = new Intl.DateTimeFormat(locale(), { weekday: 'short' });
+    const sunday = new Date(2024, 0, 7, 12);
+    for (let index = 0; index < 7; index += 1) {
+      const day = new Date(sunday); day.setDate(sunday.getDate() + index);
+      const label = document.createElement('span'); label.textContent = formatter.format(day); container.appendChild(label);
+    }
+  }
+
+  function renderDatePicker(focusSelected = false) {
+    const selected = dateFromIso(pickerState.pendingDate) || dateFromIso(localToday());
+    const month = pickerState.viewMonth || new Date(selected.getFullYear(), selected.getMonth(), 1, 12);
+    pickerState.viewMonth = new Date(month.getFullYear(), month.getMonth(), 1, 12);
+    document.getElementById('pickerMonthLabel').textContent = new Intl.DateTimeFormat(locale(), { month: 'long', year: 'numeric' }).format(month);
+    renderPickerWeekdays();
+
+    const grid = document.getElementById('pickerDays');
+    grid.replaceChildren();
+    const start = new Date(month.getFullYear(), month.getMonth(), 1 - month.getDay(), 12);
+    const today = localToday();
+    for (let index = 0; index < 42; index += 1) {
+      const date = new Date(start); date.setDate(start.getDate() + index);
+      const iso = isoFromDate(date);
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'picker-day'; button.dataset.date = iso; button.textContent = String(date.getDate());
+      button.setAttribute('role', 'gridcell');
+      button.setAttribute('aria-label', formatPickerDate(iso, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
+      button.setAttribute('aria-selected', String(iso === pickerState.pendingDate));
+      button.tabIndex = iso === pickerState.pendingDate ? 0 : -1;
+      if (date.getMonth() !== month.getMonth()) button.classList.add('is-adjacent');
+      if (iso === today) button.classList.add('is-today');
+      if (iso === pickerState.pendingDate) button.classList.add('is-selected');
+      grid.appendChild(button);
+    }
+    if (focusSelected) requestAnimationFrame(() => grid.querySelector('.is-selected')?.focus());
+  }
+
+  function renderTimePicker(focusSelected = false) {
+    document.getElementById('pickerTimePreview').textContent = `${String(pickerState.hour).padStart(2, '0')}:${String(pickerState.minute).padStart(2, '0')}`;
+    const hours = document.getElementById('pickerHours');
+    const minutes = document.getElementById('pickerMinutes');
+    hours.replaceChildren(); minutes.replaceChildren();
+    for (let hour = 0; hour < 24; hour += 1) {
+      const button = document.createElement('button'); button.type = 'button'; button.dataset.hour = String(hour);
+      button.className = `picker-number${hour === pickerState.hour ? ' is-selected' : ''}`;
+      button.textContent = String(hour).padStart(2, '0'); button.setAttribute('role', 'option');
+      button.setAttribute('aria-selected', String(hour === pickerState.hour)); button.tabIndex = hour === pickerState.hour ? 0 : -1; hours.appendChild(button);
+    }
+    for (let minute = 0; minute < 60; minute += 1) {
+      const button = document.createElement('button'); button.type = 'button'; button.dataset.minute = String(minute);
+      button.className = `picker-number${minute === pickerState.minute ? ' is-selected' : ''}`;
+      button.textContent = String(minute).padStart(2, '0'); button.setAttribute('role', 'option');
+      button.setAttribute('aria-selected', String(minute === pickerState.minute)); button.tabIndex = minute === pickerState.minute ? 0 : -1; minutes.appendChild(button);
+    }
+    requestAnimationFrame(() => {
+      const selectedHour = hours.querySelector('.is-selected');
+      const selectedMinute = minutes.querySelector('.is-selected');
+      hours.scrollTop = Math.max(0, selectedHour.offsetTop - hours.clientHeight / 2 + selectedHour.offsetHeight / 2);
+      minutes.scrollTop = Math.max(0, selectedMinute.offsetTop - minutes.clientHeight / 2 + selectedMinute.offsetHeight / 2);
+      if (focusSelected) selectedHour.focus();
+    });
+  }
+
+  function positionPicker() {
+    const picker = document.getElementById('glassPicker');
+    picker.style.removeProperty('left'); picker.style.removeProperty('top');
+    if (!pickerState.open || window.matchMedia('(max-width: 640px)').matches) return;
+    const trigger = pickerState.trigger.getBoundingClientRect();
+    const bounds = picker.getBoundingClientRect();
+    const left = Math.max(12, Math.min(trigger.left, window.innerWidth - bounds.width - 12));
+    const below = trigger.bottom + 12;
+    const top = below + bounds.height <= window.innerHeight - 12 ? below : Math.max(12, trigger.top - bounds.height - 12);
+    picker.style.left = `${Math.round(left)}px`; picker.style.top = `${Math.round(top)}px`;
+  }
+
+  function refreshOpenPicker() {
+    if (!pickerState.open) return;
+    document.getElementById('pickerTitle').textContent = pickerTitle();
+    if (pickerState.type === 'date') renderDatePicker(); else renderTimePicker();
+    positionPicker();
+  }
+
+  function openPicker(trigger) {
+    pickerState.open = true; pickerState.type = trigger.dataset.picker;
+    pickerState.targetId = trigger.dataset.target || 'date'; pickerState.trigger = trigger;
+    if (pickerState.type === 'date') {
+      pickerState.pendingDate = document.getElementById('date').value || localToday();
+      const selected = dateFromIso(pickerState.pendingDate);
+      pickerState.viewMonth = new Date(selected.getFullYear(), selected.getMonth(), 1, 12);
+    } else {
+      const value = document.getElementById(pickerState.targetId).value;
+      const now = new Date(); const parts = /^(\d{2}):(\d{2})$/.exec(value);
+      pickerState.hour = parts ? Number(parts[1]) : now.getHours();
+      pickerState.minute = parts ? Number(parts[2]) : now.getMinutes();
+    }
+    document.querySelectorAll('.glass-picker-trigger').forEach((item) => item.setAttribute('aria-expanded', String(item === trigger)));
+    document.getElementById('datePickerView').hidden = pickerState.type !== 'date';
+    document.getElementById('timePickerView').hidden = pickerState.type !== 'time';
+    document.getElementById('pickerToday').hidden = pickerState.type !== 'date';
+    document.getElementById('pickerTitle').textContent = pickerTitle();
+    document.getElementById('pickerBackdrop').hidden = false; document.body.classList.add('has-picker-open');
+    if (pickerState.type === 'date') renderDatePicker(true); else renderTimePicker(true);
+    requestAnimationFrame(positionPicker);
+  }
+
+  function closePicker(restoreFocus = true) {
+    if (!pickerState.open) return;
+    const trigger = pickerState.trigger; pickerState.open = false;
+    document.getElementById('pickerBackdrop').hidden = true; document.body.classList.remove('has-picker-open');
+    document.querySelectorAll('.glass-picker-trigger').forEach((item) => item.setAttribute('aria-expanded', 'false'));
+    if (restoreFocus) trigger?.focus();
+  }
+
+  function applyPicker() {
+    const input = document.getElementById(pickerState.targetId);
+    input.value = pickerState.type === 'date' ? pickerState.pendingDate : `${String(pickerState.hour).padStart(2, '0')}:${String(pickerState.minute).padStart(2, '0')}`;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    showSleepFormError(); refreshPickerTriggers(); closePicker();
+  }
+
+  function moveCalendarSelection(days) {
+    const date = dateFromIso(pickerState.pendingDate); date.setDate(date.getDate() + days);
+    pickerState.pendingDate = isoFromDate(date); pickerState.viewMonth = new Date(date.getFullYear(), date.getMonth(), 1, 12);
+    renderDatePicker(true); positionPicker();
+  }
+
+  function handlePickerKeydown(event) {
+    if (!pickerState.open) return;
+    if (event.key === 'Escape') { event.preventDefault(); closePicker(); return; }
+    const timeButton = event.target.closest?.('[data-hour], [data-minute]');
+    if (timeButton && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      const kind = timeButton.hasAttribute('data-hour') ? 'hour' : 'minute';
+      const limit = kind === 'hour' ? 24 : 60;
+      const grid = timeButton.parentElement;
+      const columns = getComputedStyle(grid).gridTemplateColumns.split(' ').length || 1;
+      const deltas = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns, ArrowDown: columns };
+      let value = kind === 'hour' ? pickerState.hour : pickerState.minute;
+      if (event.key === 'Home') value = 0;
+      else if (event.key === 'End') value = limit - 1;
+      else value = (value + deltas[event.key] + limit) % limit;
+      if (kind === 'hour') pickerState.hour = value; else pickerState.minute = value;
+      renderTimePicker();
+      requestAnimationFrame(() => document.querySelector(`[data-${kind}="${value}"]`)?.focus());
+      return;
+    }
+    const dateButton = event.target.closest?.('[data-date]');
+    const moveBy = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
+    if (dateButton && moveBy) { event.preventDefault(); moveCalendarSelection(moveBy); return; }
+    if (event.key !== 'Tab') return;
+    const picker = document.getElementById('glassPicker');
+    const focusable = [...picker.querySelectorAll('button:not([hidden]):not(:disabled), [tabindex="0"]')].filter((item) => item.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0]; const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+
+  function initGlassPicker() {
+    document.querySelectorAll('.glass-picker-trigger').forEach((trigger) => trigger.addEventListener('click', () => openPicker(trigger)));
+    document.getElementById('pickerClose').addEventListener('click', () => closePicker());
+    document.getElementById('pickerCancel').addEventListener('click', () => closePicker());
+    document.getElementById('pickerApply').addEventListener('click', applyPicker);
+    document.getElementById('pickerToday').addEventListener('click', () => {
+      pickerState.pendingDate = localToday(); const date = dateFromIso(pickerState.pendingDate);
+      pickerState.viewMonth = new Date(date.getFullYear(), date.getMonth(), 1, 12); renderDatePicker(true); positionPicker();
+    });
+    document.getElementById('pickerPrevMonth').addEventListener('click', () => { pickerState.viewMonth.setMonth(pickerState.viewMonth.getMonth() - 1); renderDatePicker(); positionPicker(); });
+    document.getElementById('pickerNextMonth').addEventListener('click', () => { pickerState.viewMonth.setMonth(pickerState.viewMonth.getMonth() + 1); renderDatePicker(); positionPicker(); });
+    document.getElementById('pickerDays').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-date]'); if (!button) return;
+      pickerState.pendingDate = button.dataset.date; const date = dateFromIso(pickerState.pendingDate);
+      pickerState.viewMonth = new Date(date.getFullYear(), date.getMonth(), 1, 12); renderDatePicker(true); positionPicker();
+    });
+    document.getElementById('pickerHours').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-hour]'); if (!button) return;
+      pickerState.hour = Number(button.dataset.hour); renderTimePicker(); positionPicker();
+    });
+    document.getElementById('pickerMinutes').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-minute]'); if (!button) return;
+      pickerState.minute = Number(button.dataset.minute); renderTimePicker(); positionPicker();
+    });
+    document.getElementById('pickerBackdrop').addEventListener('pointerdown', (event) => { if (event.target === event.currentTarget) closePicker(); });
+    document.getElementById('glassPicker').addEventListener('keydown', handlePickerKeydown);
+    window.addEventListener('resize', positionPicker); window.addEventListener('scroll', positionPicker, { passive: true });
+    refreshPickerTriggers();
+  }
+
   function calculateDuration() {
     const sleep = document.getElementById('sleepTime').value;
     const wake = document.getElementById('wakeTime').value;
@@ -141,11 +375,20 @@
   }
 
   function initSleepForm() {
-    document.getElementById('date').valueAsDate = new Date();
+    document.getElementById('date').value = localToday();
+    initGlassPicker();
     document.getElementById('sleepTime').addEventListener('change', calculateDuration);
     document.getElementById('wakeTime').addEventListener('change', calculateDuration);
     document.getElementById('sleepForm').addEventListener('submit', async (event) => {
       event.preventDefault();
+      const missing = ['date', 'sleepTime', 'wakeTime'].find((id) => !document.getElementById(id).value);
+      if (missing) {
+        showSleepFormError(t('health.picker.required'));
+        if (missing === 'date') document.getElementById('datePickerTrigger').focus();
+        else document.querySelector(`.glass-picker-trigger[data-target="${missing}"]`)?.focus();
+        return;
+      }
+      showSleepFormError();
       if (!window.ApiClient?.isLoggedIn()) {
         setStatus(t('health.record.loginRequired'), 'error');
         showModal('loginModal');
@@ -165,8 +408,11 @@
         await window.ApiClient.saveSleepRecord(record.date, record);
         setStatus(t('health.record.saved'), 'success');
         document.getElementById('sleepForm').reset();
-        document.getElementById('date').valueAsDate = new Date();
+        document.getElementById('date').value = localToday();
+        document.getElementById('sleepTime').value = '';
+        document.getElementById('wakeTime').value = '';
         document.getElementById('durationValue').textContent = '--:--';
+        refreshPickerTriggers();
         await loadAll(false);
       } catch (error) {
         setStatus(t('health.common.offline'), 'error');
@@ -604,6 +850,8 @@
     loadAll();
     window.addEventListener('migraine:languagechange', () => {
       updateAuthHeader();
+      refreshPickerTriggers();
+      refreshOpenPicker();
       if (state.analysis) renderAnalysis(state.analysis);
       else renderConnection();
     });

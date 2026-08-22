@@ -7,14 +7,14 @@
     <link rel="icon" href="data:,">
     <title>健康分析 - Migraine Signal</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="health-analysis.css?v=12-esp32-environment">
+    <link rel="stylesheet" href="health-analysis.css?v=13-liquid-glass-picker">
     <script src="site-header.js"></script>
-    <script src="locales.js?v=12-esp32-environment"></script>
+    <script src="locales.js?v=13-liquid-glass-picker"></script>
     <script src="i18n.js?v=8-health-analysis"></script>
     <script src="api.js?v=12-esp32-environment"></script>
     <script src="esp32-parser.js?v=12-esp32-environment"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="health-analysis.js?v=12-esp32-environment" defer></script>
+    <script src="health-analysis.js?v=13-liquid-glass-picker" defer></script>
 </head>
 <body class="health-page">
     <div data-site-header data-page-title="健康分析"></div>
@@ -29,15 +29,16 @@
                     <span class="section-icon" aria-hidden="true">☾</span>
                 </div>
                 <form id="sleepForm" class="sleep-form">
-                    <label class="form-field"><span data-i18n="health.record.date">日期</span><input type="date" id="date" required></label>
-                    <label class="form-field"><span data-i18n="health.record.bedtime">入睡时间</span><input type="time" id="sleepTime" required></label>
-                    <label class="form-field"><span data-i18n="health.record.wakeTime">起床时间</span><input type="time" id="wakeTime" required></label>
+                    <label class="form-field"><span data-i18n="health.record.date">日期</span><input type="hidden" id="date"><button type="button" id="datePickerTrigger" class="glass-picker-trigger" data-picker="date" aria-haspopup="dialog" aria-controls="glassPicker" aria-expanded="false"><span id="datePickerDisplay" class="picker-trigger-value"></span><span class="picker-trigger-icon" aria-hidden="true">▦</span></button></label>
+                    <label class="form-field"><span data-i18n="health.record.bedtime">入睡时间</span><input type="hidden" id="sleepTime"><button type="button" id="sleepTimePickerTrigger" class="glass-picker-trigger" data-picker="time" data-target="sleepTime" aria-haspopup="dialog" aria-controls="glassPicker" aria-expanded="false"><span id="sleepTimePickerDisplay" class="picker-trigger-value" data-i18n="health.picker.selectTime">选择时间</span><span class="picker-trigger-icon" aria-hidden="true">◷</span></button></label>
+                    <label class="form-field"><span data-i18n="health.record.wakeTime">起床时间</span><input type="hidden" id="wakeTime"><button type="button" id="wakeTimePickerTrigger" class="glass-picker-trigger" data-picker="time" data-target="wakeTime" aria-haspopup="dialog" aria-controls="glassPicker" aria-expanded="false"><span id="wakeTimePickerDisplay" class="picker-trigger-value" data-i18n="health.picker.selectTime">选择时间</span><span class="picker-trigger-icon" aria-hidden="true">◷</span></button></label>
                     <label class="form-field"><span data-i18n="health.record.quality">睡眠质量</span><select id="quality" required>
                         <option value="excellent" data-i18n="sleep.quality.excellent">优秀</option>
                         <option value="good" data-i18n="sleep.quality.good">良好</option>
                         <option value="fair" data-i18n="sleep.quality.fair">一般</option>
                         <option value="poor" data-i18n="sleep.quality.poor">较差</option>
                     </select></label>
+                    <p id="sleepFormError" class="sleep-form-error" role="alert" hidden></p>
                     <div class="duration-panel" aria-live="polite"><span data-i18n="health.record.duration">睡眠时长</span><strong id="durationValue">--:--</strong></div>
                     <button type="submit" class="primary-action" data-i18n="health.record.save">保存记录</button>
                 </form>
@@ -129,6 +130,26 @@
         <a href="my.html" class="health-nav-link"><span aria-hidden="true">👤</span><span>我的</span></a>
     </nav></footer>
     <a class="chat-shortcut" href="ai-chat.html" aria-label="AI 助手">•••</a>
+
+    <div id="pickerBackdrop" class="picker-backdrop" hidden>
+        <section id="glassPicker" class="glass-picker" role="dialog" aria-modal="true" aria-labelledby="pickerTitle" tabindex="-1">
+            <div class="picker-liquid-sheen" aria-hidden="true"></div>
+            <header class="picker-header"><div><p class="section-eyebrow">SLEEP RECORD</p><h2 id="pickerTitle"></h2></div><button type="button" id="pickerClose" class="picker-icon-button" data-i18n-aria-label="health.picker.close" aria-label="关闭">×</button></header>
+            <div id="datePickerView" class="picker-view" hidden>
+                <div class="picker-month-nav"><button type="button" id="pickerPrevMonth" class="picker-icon-button" data-i18n-aria-label="health.picker.previousMonth" aria-label="上个月">‹</button><strong id="pickerMonthLabel"></strong><button type="button" id="pickerNextMonth" class="picker-icon-button" data-i18n-aria-label="health.picker.nextMonth" aria-label="下个月">›</button></div>
+                <div id="pickerWeekdays" class="picker-weekdays" aria-hidden="true"></div>
+                <div id="pickerDays" class="picker-days" role="grid" aria-labelledby="pickerMonthLabel"></div>
+            </div>
+            <div id="timePickerView" class="picker-view" hidden>
+                <div id="pickerTimePreview" class="picker-time-preview" aria-live="polite">--:--</div>
+                <div class="picker-time-columns">
+                    <section class="picker-time-section" aria-labelledby="pickerHourLabel"><h3 id="pickerHourLabel" data-i18n="health.picker.hour">小时</h3><div id="pickerHours" class="picker-number-grid hour-grid" role="listbox" aria-labelledby="pickerHourLabel"></div></section>
+                    <section class="picker-time-section" aria-labelledby="pickerMinuteLabel"><h3 id="pickerMinuteLabel" data-i18n="health.picker.minute">分钟</h3><div id="pickerMinutes" class="picker-number-grid minute-grid" role="listbox" aria-labelledby="pickerMinuteLabel"></div></section>
+                </div>
+            </div>
+            <footer class="picker-actions"><button type="button" id="pickerToday" class="picker-text-action" data-i18n="health.picker.today">今天</button><span class="picker-action-spacer"></span><button type="button" id="pickerCancel" class="picker-text-action" data-i18n="health.picker.cancel">取消</button><button type="button" id="pickerApply" class="picker-apply" data-i18n="health.picker.apply">应用</button></footer>
+        </section>
+    </div>
 
     <div id="loginModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle"><div class="modal-content glass-effect auth-modal-content">
         <button class="close-modal" type="button" aria-label="Close">&times;</button><h2 id="loginTitle">用户登录</h2>
