@@ -3,6 +3,10 @@
 
   const state = { range: 30, analysis: null, connection: null, latest: null, charts: {} };
   const QUALITY = new Set(['excellent', 'good', 'fair', 'poor']);
+  const DEVICE_ARTWORK = Object.freeze({
+    apple: 'assets/apple-watch.svg',
+    xiaomi: 'assets/xiaomi-band.svg'
+  });
 
   function t(key, variables) {
     return window.I18n ? window.I18n.t(key, variables) : key;
@@ -192,6 +196,27 @@
     return value == null || !Number.isFinite(Number(value)) ? '—' : `${Number(value).toFixed(digits)}${suffix || ''}`;
   }
 
+  function deviceArtworkBrand(connection) {
+    if (!connection) return 'xiaomi';
+    const sourcePackages = Array.isArray(connection.sourcePackages) ? connection.sourcePackages : [];
+    const identity = [connection.manufacturer, connection.model, connection.deviceName, ...sourcePackages]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    if (/\bapple\b|apple\s*watch|watchos|com\.apple\./.test(identity)) return 'apple';
+    if (/\bxiaomi\b|\bredmi\b|\bmi\s*(?:band|smart\s*band|fitness)\b|com\.mi\.health|com\.xiaomi\./.test(identity)) return 'xiaomi';
+    return 'xiaomi';
+  }
+
+  function renderDeviceArtwork(connection) {
+    const illustration = document.getElementById('deviceIllustration');
+    if (!illustration) return;
+    const brand = deviceArtworkBrand(connection);
+    illustration.src = DEVICE_ARTWORK[brand];
+    illustration.dataset.deviceBrand = brand;
+  }
+
   function renderConnection() {
     const connection = state.connection;
     const latest = state.latest;
@@ -210,6 +235,7 @@
     document.getElementById('deviceName').textContent = connection
       ? (connection.deviceName || [connection.manufacturer, connection.model].filter(Boolean).join(' ') || 'Health Connect')
       : 'Health Connect';
+    renderDeviceArtwork(connection);
     document.getElementById('lastSync').textContent = connection?.lastSyncedAt
       ? `${t('health.connection.lastSync')}: ${formatDateTime(connection.lastSyncedAt)}` : '—';
     document.getElementById('latestHeartRate').textContent = latest?.heartRate?.avg == null ? '—' : Math.round(latest.heartRate.avg);

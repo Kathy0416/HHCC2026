@@ -51,6 +51,14 @@ async function waitForReady() {
   throw new Error('Health Analysis page did not become ready');
 }
 
+async function waitForDeviceBrand(expectedBrand) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    if (await evaluate(`document.getElementById('deviceIllustration')?.dataset.deviceBrand === ${JSON.stringify(expectedBrand)}`)) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`Device artwork did not resolve to ${expectedBrand}`);
+}
+
 await call('Runtime.enable');
 await call('Log.enable');
 const layouts = [];
@@ -72,6 +80,8 @@ for (const viewport of [
       columns: getComputedStyle(topGrid).gridTemplateColumns.split(' ').length,
       footerInViewport: footer.getBoundingClientRect().right <= innerWidth,
       title: document.querySelector('.site-header__page-title').textContent,
+      deviceBrand: document.getElementById('deviceIllustration')?.dataset.deviceBrand,
+      deviceArtworkLoaded: Boolean(document.getElementById('deviceIllustration')?.complete && document.getElementById('deviceIllustration')?.naturalWidth),
       rangeButtons: document.querySelectorAll('[data-range]').length,
       hasMockGenerator: typeof window.generateMockSleepData === 'function',
       formProminent: document.querySelector('.record-card').getBoundingClientRect().top < document.querySelector('.analysis-card').getBoundingClientRect().top,
@@ -83,20 +93,84 @@ for (const viewport of [
   fs.writeFileSync(`health-page-${viewport.name}.png`, Buffer.from(screenshot.data, 'base64'));
 }
 
+const auth = await evaluate(`(async () => {
+  const username = 'band-artwork-browser-test';
+  const password = 'band-artwork-test-password';
+  let result;
+  try { result = await window.ApiClient.register(username, password); }
+  catch (error) { result = await window.ApiClient.login(username, password); }
+  window.ApiClient.setToken(result.token);
+  localStorage.setItem('currentUser', JSON.stringify(result.user));
+  return result;
+})()`);
+
+await evaluate(`window.ApiClient.createHealthConnection({
+  provider: 'health_connect',
+  deviceName: 'Apple Watch Series 10',
+  manufacturer: 'Apple',
+  model: 'Watch',
+  sourcePackages: []
+})`);
+await call('Page.navigate', { url: `${baseUrl}/sleep.html` });
+await waitForReady();
+await waitForDeviceBrand('apple');
+const appleArtwork = await evaluate(`({
+  brand: document.getElementById('deviceIllustration').dataset.deviceBrand,
+  src: document.getElementById('deviceIllustration').getAttribute('src'),
+  loaded: Boolean(document.getElementById('deviceIllustration').complete && document.getElementById('deviceIllustration').naturalWidth)
+})`);
+
+await evaluate(`window.ApiClient.createHealthConnection({
+  provider: 'health_connect',
+  deviceName: 'Galaxy Phone',
+  manufacturer: 'Samsung',
+  model: 'SM-Test',
+  sourcePackages: ['com.mi.health']
+})`);
+await call('Page.navigate', { url: `${baseUrl}/sleep.html` });
+await waitForReady();
+await waitForDeviceBrand('xiaomi');
+const xiaomiArtwork = await evaluate(`({
+  brand: document.getElementById('deviceIllustration').dataset.deviceBrand,
+  src: document.getElementById('deviceIllustration').getAttribute('src'),
+  loaded: Boolean(document.getElementById('deviceIllustration').complete && document.getElementById('deviceIllustration').naturalWidth)
+})`);
+
+await evaluate(`window.ApiClient.createHealthConnection({
+  provider: 'health_connect',
+  deviceName: 'Unknown wearable',
+  manufacturer: 'Example',
+  model: 'Unknown',
+  sourcePackages: []
+})`);
+await call('Page.navigate', { url: `${baseUrl}/sleep.html` });
+await waitForReady();
+await waitForDeviceBrand('xiaomi');
+const unknownArtwork = await evaluate(`({
+  brand: document.getElementById('deviceIllustration').dataset.deviceBrand,
+  src: document.getElementById('deviceIllustration').getAttribute('src'),
+  loaded: Boolean(document.getElementById('deviceIllustration').complete && document.getElementById('deviceIllustration').naturalWidth)
+})`);
+
 await evaluate(`window.I18n.setLanguage('en')`);
 const english = await evaluate(`({ title: document.querySelector('.site-header__page-title').textContent, nav: document.querySelector('.health-nav-link.is-active span:last-child').textContent, record: document.querySelector('#record-title').textContent })`);
 
 const failures = layouts.flatMap((layout) => [
   !layout.noHorizontalOverflow && `${layout.name}: horizontal overflow (${layout.scrollWidth} > ${layout.viewport.width})`,
   !layout.footerInViewport && `${layout.name}: footer exceeds viewport`,
+  layout.deviceBrand !== 'xiaomi' && `${layout.name}: disconnected fallback artwork is not Xiaomi`,
+  !layout.deviceArtworkLoaded && `${layout.name}: fallback artwork did not load`,
   layout.rangeButtons !== 3 && `${layout.name}: range buttons missing`,
   layout.hasMockGenerator && `${layout.name}: mock generator still exists`,
   !layout.formProminent && `${layout.name}: form is not above analysis`,
   !layout.connectionProminent && `${layout.name}: connection is not above analysis`
 ].filter(Boolean));
+if (appleArtwork.brand !== 'apple' || appleArtwork.src !== 'assets/apple-watch.svg' || !appleArtwork.loaded) failures.push('Apple artwork selection failed');
+if (xiaomiArtwork.brand !== 'xiaomi' || xiaomiArtwork.src !== 'assets/xiaomi-band.svg' || !xiaomiArtwork.loaded) failures.push('Mi Fitness package artwork selection failed');
+if (unknownArtwork.brand !== 'xiaomi' || unknownArtwork.src !== 'assets/xiaomi-band.svg' || !unknownArtwork.loaded) failures.push('Unknown-device fallback artwork selection failed');
 if (english.title !== 'Health Analysis' || english.nav !== 'Health Analysis' || english.record !== 'Record Sleep') failures.push('English translations did not apply');
 if (errors.length) failures.push(...errors.map((error) => `browser: ${error}`));
 
-console.log(JSON.stringify({ layouts, english, errors }, null, 2));
+console.log(JSON.stringify({ layouts, artwork: { appleArtwork, xiaomiArtwork, unknownArtwork }, english, errors }, null, 2));
 socket.close();
 if (failures.length) throw new Error(failures.join('\n'));

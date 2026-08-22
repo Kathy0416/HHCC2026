@@ -78,11 +78,7 @@
 .device-block strong { max-width: 100%; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .device-label, .last-sync { margin: 8px 0 0; color: var(--health-muted); font-size: .72rem; }
 .last-sync { display: block; line-height: 1.4; }
-.watch-illustration { position: relative; display: grid; place-items: center; width: 102px; height: 142px; filter: drop-shadow(0 14px 20px rgba(0,0,0,.3)); }
-.watch-strap { position: absolute; left: 34px; width: 34px; height: 54px; border: 1px solid rgba(160,184,255,.2); background: linear-gradient(90deg, #313b53, #52607b 52%, #2a3349); }
-.watch-strap.top { top: 0; border-radius: 18px 18px 8px 8px; }
-.watch-strap.bottom { bottom: 0; border-radius: 8px 8px 18px 18px; }
-.watch-face { position: relative; z-index: 2; display: grid; place-items: center; width: 88px; height: 94px; border: 5px solid #52617d; border-radius: 36px; background: radial-gradient(circle at 42% 35%, #2f416d, #101522 70%); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); color: #75d7ce; font-size: 2rem; }
+.watch-illustration { display: block; width: min(148px, 100%); height: auto; aspect-ratio: 1; border-radius: 24px; object-fit: contain; filter: drop-shadow(0 14px 20px rgba(0,0,0,.3)); }
 .latest-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
 .latest-metric { min-width: 0; padding: 14px; border: 1px solid rgba(119,149,229,.16); border-radius: 14px; background: rgba(12,18,31,.33); }
 .latest-metric dt { margin-bottom: 8px; color: var(--health-muted); font-size: .73rem; }
@@ -168,7 +164,7 @@
     .sleep-form, .chart-grid { grid-template-columns: 1fr; }
     .chart-card.chart-wide { grid-column: auto; }
     .connection-layout { grid-template-columns: 120px 1fr; gap: 12px; }
-    .watch-illustration { transform: scale(.82); }
+    .watch-illustration { width: 112px; }
     .latest-grid { grid-template-columns: 1fr; }
     .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .insights-content { grid-template-columns: 1fr 1fr; }
@@ -184,7 +180,7 @@
     .sleep-form { gap: 13px; }
     .duration-panel { min-height: 72px; }
     .connection-layout { grid-template-columns: 1fr; }
-    .watch-illustration { height: 125px; }
+    .watch-illustration { width: 132px; }
     .latest-grid { width: 100%; grid-template-columns: 1fr 1fr; }
     .connection-actions > * { flex: 1 1 auto; }
     .analysis-header { flex-direction: column; align-items: stretch; }

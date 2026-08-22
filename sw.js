@@ -1,13 +1,15 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v8-health-analysis';
+const CACHE_NAME = 'migraine-app-cache-v9-band-artwork';
 const urlsToCache = [
   '.',
   'index.html',
   'diary.html',
   'sleep.html',
-  'health-analysis.css?v=8-health-analysis',
-  'health-analysis.js?v=8-health-analysis',
+  'health-analysis.css?v=9-band-artwork',
+  'health-analysis.js?v=9-band-artwork',
+  'assets/apple-watch.svg',
+  'assets/xiaomi-band.svg',
   'tips.html',
   'my.html',
   'ai-chat.html',
