@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="615" viewBox="0 0 1000 615">
+    <rect width="100%" height="100%" fill="white"/>
+    <text x="30" y="34" font-family="sans-serif" font-size="22" font-weight="700" fill="#0f172a">Baseline vs pre-event means</text>
+    
+      <text x="30" y="70" font-family="sans-serif" font-weight="600">Heart rate (bpm)</text>
+      <rect x="180" y="53" width="648.8450657830998" height="22" fill="#ef4444" opacity="0.9"/>
+      <text x="838.8450657830998" y="70" font-family="sans-serif" font-size="12">pre 71.552</text>
+      <rect x="180" y="85" width="650" height="22" fill="#64748b" opacity="0.75"/>
+      <text x="840" y="102" font-family="sans-serif" font-size="12">baseline 71.679</text>
+    
+      <text x="30" y="175" font-family="sans-serif" font-weight="600">Temperature (C)</text>
+      <rect x="180" y="158" width="649.6319747888026" height="22" fill="#f97316" opacity="0.9"/>
+      <text x="839.6319747888026" y="175" font-family="sans-serif" font-size="12">pre 26.208</text>
+      <rect x="180" y="190" width="650" height="22" fill="#64748b" opacity="0.75"/>
+      <text x="840" y="207" font-family="sans-serif" font-size="12">baseline 26.223</text>
+    
+      <text x="30" y="280" font-family="sans-serif" font-weight="600">Humidity (%)</text>
+      <rect x="180" y="263" width="644.291160041753" height="22" fill="#3b82f6" opacity="0.9"/>
+      <text x="834.291160041753" y="280" font-family="sans-serif" font-size="12">pre 58.559</text>
+      <rect x="180" y="295" width="650" height="22" fill="#64748b" opacity="0.75"/>
+      <text x="840" y="312" font-family="sans-serif" font-size="12">baseline 59.078</text>
+    
+      <text x="30" y="385" font-family="sans-serif" font-weight="600">Light (lux)</text>
+      <rect x="180" y="368" width="627.6710905556673" height="22" fill="#eab308" opacity="0.9"/>
+      <text x="817.6710905556673" y="385" font-family="sans-serif" font-size="12">pre 280.126</text>
+      <rect x="180" y="400" width="650" height="22" fill="#64748b" opacity="0.75"/>
+      <text x="840" y="417" font-family="sans-serif" font-size="12">baseline 290.092</text>
+    
+      <text x="30" y="490" font-family="sans-serif" font-weight="600">Noise (dB SPL)</text>
+      <rect x="180" y="473" width="649.1568440515406" height="22" fill="#8b5cf6" opacity="0.9"/>
+      <text x="839.1568440515406" y="490" font-family="sans-serif" font-size="12">pre 48.013</text>
+      <rect x="180" y="505" width="650" height="22" fill="#64748b" opacity="0.75"/>
+      <text x="840" y="522" font-family="sans-serif" font-size="12">baseline 48.075</text>
+    
+  </svg>

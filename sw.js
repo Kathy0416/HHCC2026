@@ -1,6 +1,6 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v3';
+const CACHE_NAME = 'migraine-app-cache-v5';
 const urlsToCache = [
   '.',
   'index.html',
@@ -47,6 +47,9 @@ self.addEventListener('activate', (event) => {
 // 既能离线使用，又不会一直卡在旧版本
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  // API responses can contain per-user state and must never be served stale.
+  if (new URL(event.request.url).pathname.startsWith('/api/')) return;
 
   // Always prefer the latest HTML. This prevents a cached page from hiding
   // layout fixes until the user refreshes multiple times.

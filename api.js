@@ -155,6 +155,9 @@
     likeTip(tipId) {
       return this._request('POST', '/tips/' + tipId + '/like');
     },
+    unlikeTip(tipId) {
+      return this._request('DELETE', '/tips/' + tipId + '/like');
+    },
 
     // ---- AI 助手 ----
     chat(message, history) {
