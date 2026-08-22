@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI voice test fixture</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="ai-chat.css?v=1">
+</head>
+<body>
+    <script>
+        const mode = new URLSearchParams(location.search).get('mode') || 'success';
+        if (mode === 'unsupported') {
+            window.MigraineSignalSpeechRecognition = undefined;
+        } else {
+            window.MigraineSignalSpeechRecognition = class MockSpeechRecognition {
+                start() {
+                    this.onstart?.();
+                    if (mode === 'denied') {
+                        this.onerror?.({ error: 'not-allowed' });
+                        this.onend?.();
+                    } else {
+                        this.onresult?.({ results: [[{ transcript: 'voice question' }]] });
+                    }
+                }
+                stop() { this.onend?.(); }
+            };
+        }
+    </script>
+    <script src="ai-chat.js?v=1"></script>
+</body>
+</html>
