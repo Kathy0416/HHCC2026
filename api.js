@@ -8,7 +8,8 @@
 (function (global) {
   'use strict';
 
-  const API_BASE = (global.API_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '') + '/api';
+  const defaultOrigin = /^https?:$/.test(global.location.protocol) ? global.location.origin : 'http://localhost:3000';
+  const API_BASE = (global.API_BASE_URL || defaultOrigin).replace(/\/+$/, '') + '/api';
 
   const ApiClient = {
     _token: null,
