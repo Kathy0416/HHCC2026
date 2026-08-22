@@ -39,7 +39,7 @@ SQLite data is stored in the named Docker volume `migraine-data`, so it survives
 
 ## Optional configuration
 
-Docker Compose reads an optional `.env` file from this directory. For example:
+Docker Compose loads `server/.env` and, when present, an app-level `.env` that overrides it. For local Node development, use `server/.env`.
 
 ```dotenv
 JWT_SECRET=replace-with-a-long-random-local-secret

@@ -3,16 +3,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file:
+      - path: ./server/.env
+        required: false
+      - path: ./.env
+        required: false
     ports:
       - "3000:3000"
     environment:
       PORT: "3000"
       SERVE_FRONTEND: "1"
       DB_PATH: /data/data.db
-      JWT_SECRET: ${JWT_SECRET:-local-development-secret-change-me}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      DEEPSEEK_API_URL: ${DEEPSEEK_API_URL:-https://api.deepseek.com/chat/completions}
-      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-flash}
     volumes:
       - migraine-data:/data
     healthcheck:

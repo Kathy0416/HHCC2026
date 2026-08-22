@@ -1,8 +1,8 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const fs = require('fs');
 const db = require('./db');
 const { localeMiddleware } = require('./i18n');
