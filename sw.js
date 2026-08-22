@@ -1,15 +1,15 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v13-liquid-glass-picker';
+const CACHE_NAME = 'migraine-app-cache-v14-compact-controls';
 const urlsToCache = [
   '.',
   'index.html',
   'diary.html',
   'sleep.html',
-  'health-analysis.css?v=13-liquid-glass-picker',
-  'health-analysis.js?v=13-liquid-glass-picker',
+  'health-analysis.css?v=14-compact-controls',
+  'health-analysis.js?v=14-compact-controls',
   'esp32-parser.js?v=12-esp32-environment',
-  'locales.js?v=13-liquid-glass-picker',
+  'locales.js?v=14-compact-controls',
   'api.js?v=12-esp32-environment',
   'assets/apple-watch.svg',
   'assets/xiaomi-band.svg',

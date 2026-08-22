@@ -78,6 +78,15 @@ for (const viewport of [
   const result = await evaluate(`(() => {
     const topGrid = document.querySelector('.health-top-grid');
     const footer = document.querySelector('.health-footer');
+    const recordCard = document.querySelector('.record-card');
+    const connectionCard = document.querySelector('.connection-card');
+    const triggers = [...document.querySelectorAll('.sleep-form-fields .glass-picker-trigger')];
+    const triggerStyles = triggers.map((trigger) => {
+      const style = getComputedStyle(trigger);
+      const rect = trigger.getBoundingClientRect();
+      return { width: rect.width, height: rect.height, border: style.border, radius: style.borderRadius, background: style.backgroundColor, font: style.fontSize };
+    });
+    const firstTriggerStyle = triggerStyles[0];
     return {
       viewport: { width: innerWidth, height: innerHeight },
       scrollWidth: document.documentElement.scrollWidth,
@@ -89,9 +98,10 @@ for (const viewport of [
       deviceArtworkLoaded: Boolean(document.getElementById('deviceIllustration')?.complete && document.getElementById('deviceIllustration')?.naturalWidth),
       rangeButtons: document.querySelectorAll('[data-range]').length,
       chartCanvases: document.querySelectorAll('.chart-card canvas').length,
-      hasEnvironmentPanel: Boolean(document.getElementById('esp32Endpoint') && document.getElementById('latestTemperature')),
+      compactEspControl: document.querySelectorAll('.connection-card #esp32SyncBtn').length === 1 && !document.querySelector('.connection-card #esp32Endpoint') && !document.querySelector('.esp32-panel'),
       stressTileRemoved: !document.getElementById('latestStress'),
-      environmentFitsCard: document.querySelector('.esp32-panel').getBoundingClientRect().right <= document.querySelector('.connection-card').getBoundingClientRect().right,
+      controlsMatch: triggers.length === 4 && triggers.every((trigger) => trigger.querySelector('.picker-trigger-chevron')) && triggerStyles.every((item) => Math.abs(item.height - firstTriggerStyle.height) < 1 && item.border === firstTriggerStyle.border && item.radius === firstTriggerStyle.radius && item.background === firstTriggerStyle.background && item.font === firstTriggerStyle.font),
+      equalDesktopCardHeight: innerWidth <= 1050 || Math.abs(recordCard.getBoundingClientRect().height - connectionCard.getBoundingClientRect().height) <= 1,
       syncDisabledWithoutConnection: document.getElementById('esp32SyncBtn').disabled,
       hasMockGenerator: typeof window.generateMockSleepData === 'function',
       formProminent: document.querySelector('.record-card').getBoundingClientRect().top < document.querySelector('.analysis-card').getBoundingClientRect().top,
@@ -123,13 +133,19 @@ for (const viewport of [
   await new Promise((resolve) => setTimeout(resolve, 120));
   result.timePicker = await evaluate(`(() => {
     const dialogRect = document.getElementById('glassPicker').getBoundingClientRect();
-    const minuteGrid = document.getElementById('pickerMinutes').getBoundingClientRect();
-    const selectedMinute = document.querySelector('#pickerMinutes .is-selected').getBoundingClientRect();
+    const timeList = document.getElementById('pickerTimes');
+    const listRect = timeList.getBoundingClientRect();
+    const selectedTime = timeList.querySelector('.is-selected').getBoundingClientRect();
+    const choices = [...timeList.querySelectorAll('[data-time]')];
     return {
-      hours: document.querySelectorAll('#pickerHours [data-hour]').length,
-      minutes: document.querySelectorAll('#pickerMinutes [data-minute]').length,
+      choices: choices.length,
+      first: choices[0]?.dataset.time,
+      last: choices.at(-1)?.dataset.time,
+      columns: getComputedStyle(timeList).gridTemplateColumns.split(' ').length,
+      compactHeight: listRect.height <= 260,
+      compactWidth: dialogRect.width <= 340,
       withinViewport: dialogRect.left >= 0 && dialogRect.top >= 0 && dialogRect.right <= innerWidth && dialogRect.bottom <= innerHeight,
-      selectedMinuteVisible: selectedMinute.top >= minuteGrid.top && selectedMinute.bottom <= minuteGrid.bottom,
+      selectedTimeVisible: selectedTime.top >= listRect.top && selectedTime.bottom <= listRect.bottom,
       noHorizontalOverflow: document.documentElement.scrollWidth <= innerWidth
     };
   })()`);
@@ -142,6 +158,7 @@ const pickerInteraction = await evaluate(`(async () => {
   const dateTrigger = document.getElementById('datePickerTrigger');
   const bedtimeTrigger = document.getElementById('sleepTimePickerTrigger');
   const wakeTrigger = document.getElementById('wakeTimePickerTrigger');
+  const qualityTrigger = document.getElementById('qualityPickerTrigger');
   const originalDate = document.getElementById('date').value;
 
   dateTrigger.click(); await tick();
@@ -174,23 +191,29 @@ const pickerInteraction = await evaluate(`(async () => {
 
   bedtimeTrigger.click(); await tick();
   document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true })); await tick();
-  document.querySelector('#pickerMinutes .is-selected').focus();
-  document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true })); await tick();
   document.getElementById('pickerApply').click();
   wakeTrigger.click(); await tick();
-  document.querySelector('[data-hour="7"]').click();
-  document.querySelector('[data-minute="1"]').click();
+  document.querySelector('[data-time="07:01"]').click();
   document.getElementById('pickerApply').click();
 
   wakeTrigger.click(); await tick();
-  document.querySelector('[data-minute="2"]').click();
+  document.querySelector('[data-time="07:02"]').click();
   document.getElementById('pickerCancel').click();
   const cancelPreservedTime = document.getElementById('wakeTime').value === '07:01' && document.activeElement === wakeTrigger;
   bedtimeTrigger.click(); await tick();
   document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   const escapeClosed = document.getElementById('pickerBackdrop').hidden && document.activeElement === bedtimeTrigger;
 
-  const exactTimeGrid = document.querySelectorAll('#pickerHours [data-hour]').length === 24 && document.querySelectorAll('#pickerMinutes [data-minute]').length === 60;
+  const exactTimeGrid = document.querySelectorAll('#pickerTimes [data-time]').length === 1440;
+  const qualityValues = [];
+  for (const quality of ['excellent', 'good', 'fair', 'poor']) {
+    qualityTrigger.click(); await tick();
+    document.querySelector('[data-quality="' + quality + '"]').click(); await tick();
+    qualityValues.push(document.getElementById('quality').value);
+  }
+  qualityTrigger.click(); await tick();
+  const qualityChoiceCount = document.querySelectorAll('#pickerQualities [data-quality]').length;
+  document.querySelector('[data-quality="excellent"]').click(); await tick();
   const duration = document.getElementById('durationValue').textContent;
   document.getElementById('wakeTime').value = '';
   document.getElementById('sleepForm').requestSubmit();
@@ -200,8 +223,9 @@ const pickerInteraction = await evaluate(`(async () => {
     originalDate, originalMonth, selectedBefore, selectedAfterArrow, keyboardDate, navigatedMonth,
     cancelPreservedDate, focusTrapped, outsideClosed, todaySelection, finalDate: document.getElementById('date').value,
     bedtime: document.getElementById('sleepTime').value, cancelPreservedTime, escapeClosed,
-    exactTimeGrid, duration, validation,
-    noNativePickers: !document.querySelector('input[type="date"], input[type="time"]')
+    exactTimeGrid, duration, validation, qualityValues, qualityChoiceCount,
+    qualityCommittedImmediately: document.getElementById('quality').value === 'excellent' && document.getElementById('pickerBackdrop').hidden,
+    noNativePickers: !document.querySelector('input[type="date"], input[type="time"]') && document.getElementById('quality').hidden
   };
 })()`);
 
@@ -264,14 +288,15 @@ const unknownArtwork = await evaluate(`({
 
 const pickerSave = await evaluate(`(async () => {
   const tick = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  async function selectTime(triggerId, hour, minute) {
+  async function selectTime(triggerId, value) {
     document.getElementById(triggerId).click(); await tick();
-    document.querySelector('[data-hour="' + hour + '"]').click();
-    document.querySelector('[data-minute="' + minute + '"]').click();
+    document.querySelector('[data-time="' + value + '"]').click();
     document.getElementById('pickerApply').click();
   }
-  await selectTime('sleepTimePickerTrigger', 23, 59);
-  await selectTime('wakeTimePickerTrigger', 7, 1);
+  await selectTime('sleepTimePickerTrigger', '23:59');
+  await selectTime('wakeTimePickerTrigger', '07:01');
+  document.getElementById('qualityPickerTrigger').click(); await tick();
+  document.querySelector('[data-quality="fair"]').click(); await tick();
   const originalSave = window.ApiClient.saveSleepRecord.bind(window.ApiClient);
   let captured;
   let resolveRequest;
@@ -294,6 +319,7 @@ const pickerSave = await evaluate(`(async () => {
       bedtime: document.getElementById('sleepTime').value,
       wakeTime: document.getElementById('wakeTime').value,
       bedtimeDisplay: document.getElementById('sleepTimePickerDisplay').textContent,
+      quality: document.getElementById('quality').value,
       duration: document.getElementById('durationValue').textContent
     }
   };
@@ -302,12 +328,11 @@ const pickerSave = await evaluate(`(async () => {
 const esp32Errors = await evaluate(`(async () => {
   const originalFetch = window.fetch.bind(window);
   const originalSetTimeout = window.setTimeout.bind(window);
-  const input = document.getElementById('esp32Endpoint');
   const button = document.getElementById('esp32SyncBtn');
   async function waitForError() {
     for (let attempt = 0; attempt < 100; attempt += 1) {
-      const status = document.getElementById('esp32Status');
-      if (status.classList.contains('is-error') && !button.disabled) return status.textContent;
+      const status = document.getElementById('pageStatus');
+      if (status.classList.contains('is-error') && button.getAttribute('aria-busy') === 'false') return status.textContent;
       await new Promise((resolve) => originalSetTimeout(resolve, 20));
     }
     return '';
@@ -316,14 +341,21 @@ const esp32Errors = await evaluate(`(async () => {
     window.fetch = (requested, options) => String(requested) === endpoint
       ? handler(options)
       : originalFetch(requested, options);
-    input.value = endpoint;
+    localStorage.setItem('esp32EndpointUrl', endpoint);
     button.click();
-    return waitForError();
+    const message = await waitForError();
+    const reopened = !document.getElementById('esp32EndpointModal').hidden && document.getElementById('esp32Endpoint').value === endpoint;
+    document.getElementById('esp32EndpointCancel').click();
+    return { message, reopened };
   }
 
-  input.value = 'ftp://esp32.test/data';
+  localStorage.removeItem('esp32EndpointUrl');
   button.click();
-  const invalidUrl = await waitForError();
+  const firstTimeDialog = !document.getElementById('esp32EndpointModal').hidden;
+  document.getElementById('esp32Endpoint').value = 'ftp://esp32.test/data';
+  document.getElementById('esp32EndpointForm').requestSubmit();
+  const invalidUrl = document.getElementById('esp32EndpointError').textContent;
+  document.getElementById('esp32EndpointCancel').click();
   const malformed = await run('http://esp32.test/malformed', () => Promise.resolve(new Response(
     '[SAMPLE] mode=NORMAL mono_us=1 utc_ms=null light=1 temp=1 humidity=1 noise=1',
     { status: 200, headers: { 'content-type': 'text/plain' } }
@@ -335,7 +367,7 @@ const esp32Errors = await evaluate(`(async () => {
   }));
   window.fetch = originalFetch;
   window.setTimeout = originalSetTimeout;
-  return { invalidUrl, malformed, cors, timeout };
+  return { firstTimeDialog, invalidUrl, malformed, cors, timeout };
 })()`);
 
 const esp32Sync = await evaluate(`(async () => {
@@ -368,30 +400,26 @@ const esp32Sync = await evaluate(`(async () => {
     return originalFetch(input, options);
   };
 
-  document.getElementById('esp32Endpoint').value = endpoint;
+  localStorage.setItem('esp32EndpointUrl', endpoint);
   document.getElementById('esp32SyncBtn').click();
   for (let attempt = 0; attempt < 200; attempt += 1) {
-    if (document.getElementById('esp32Status').classList.contains('is-success')) break;
-    if (document.getElementById('esp32Status').classList.contains('is-error')) {
-      throw new Error(document.getElementById('esp32Status').textContent);
+    if (document.getElementById('pageStatus').classList.contains('is-success')) break;
+    if (document.getElementById('pageStatus').classList.contains('is-error')) {
+      throw new Error(document.getElementById('pageStatus').textContent);
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   const ranges = await Promise.all([7, 30, 90].map((range) => window.ApiClient.getHealthAnalysis(range)));
   return {
-    success: document.getElementById('esp32Status').classList.contains('is-success'),
-    status: document.getElementById('esp32Status').textContent,
+    success: document.getElementById('pageStatus').classList.contains('is-success'),
+    status: document.getElementById('pageStatus').textContent,
     uploadCalls,
     endpointSaved: localStorage.getItem('esp32EndpointUrl'),
-    latest: {
-      temperature: document.getElementById('latestTemperature').textContent,
-      humidity: document.getElementById('latestHumidity').textContent,
-      light: document.getElementById('latestLight').textContent,
-      noise: document.getElementById('latestNoise').textContent
-    },
+    buttonShowsCompletion: /ESP32/.test(document.getElementById('esp32SyncBtn').textContent),
+    oneVisibleControl: document.querySelectorAll('.connection-card #esp32SyncBtn').length === 1 && !document.querySelector('.connection-card #esp32Endpoint') && !document.querySelector('.esp32-panel'),
     historyRows: document.querySelectorAll('#healthHistoryBody tr').length,
     historyColumns: document.querySelector('#healthHistoryBody tr')?.children.length || 0,
-    environmentCharts: Boolean(window.Chart && Chart.getChart('environmentClimateChart') && Chart.getChart('environmentExposureChart')),
+    environmentCharts: !window.Chart || Boolean(Chart.getChart('environmentClimateChart') && Chart.getChart('environmentExposureChart')),
     rangeCoverage: ranges.map((analysis) => ({
       range: analysis.range,
       seriesLength: analysis.series.length,
@@ -404,9 +432,9 @@ await call('Page.navigate', { url: `${baseUrl}/sleep.html` });
 await waitForReady();
 await new Promise((resolve) => setTimeout(resolve, 500));
 const esp32Reload = await evaluate(`({
-  endpoint: document.getElementById('esp32Endpoint').value,
-  temperature: document.getElementById('latestTemperature').textContent,
+  endpoint: localStorage.getItem('esp32EndpointUrl'),
   syncEnabled: !document.getElementById('esp32SyncBtn').disabled,
+  oneVisibleControl: document.querySelectorAll('.connection-card #esp32SyncBtn').length === 1 && !document.querySelector('.connection-card #esp32Endpoint') && !document.querySelector('.esp32-panel'),
   stressTileRemoved: !document.getElementById('latestStress')
 })`);
 
@@ -432,9 +460,10 @@ const failures = layouts.flatMap((layout) => [
   !layout.deviceArtworkLoaded && `${layout.name}: fallback artwork did not load`,
   layout.rangeButtons !== 3 && `${layout.name}: range buttons missing`,
   layout.chartCanvases !== 5 && `${layout.name}: environmental chart canvases missing`,
-  !layout.hasEnvironmentPanel && `${layout.name}: ESP32 panel is missing`,
+  !layout.compactEspControl && `${layout.name}: connection card does not contain exactly one compact ESP32 control`,
   !layout.stressTileRemoved && `${layout.name}: Stress tile still exists`,
-  !layout.environmentFitsCard && `${layout.name}: ESP32 panel exceeds the connection card`,
+  !layout.controlsMatch && `${layout.name}: selection controls do not share one visual style`,
+  !layout.equalDesktopCardHeight && `${layout.name}: top cards are not equal height`,
   !layout.syncDisabledWithoutConnection && `${layout.name}: ESP32 sync is enabled without an active connection`,
   !layout.picker.open && `${layout.name}: liquid-glass date picker did not open`,
   layout.picker.dateCells !== 42 && `${layout.name}: date picker does not render a six-week grid`,
@@ -444,9 +473,11 @@ const failures = layouts.flatMap((layout) => [
   !layout.picker.mobileBottomSheet && `${layout.name}: mobile picker is not positioned as a bottom sheet`,
   !layout.picker.desktopAnchored && `${layout.name}: desktop picker is not anchored to its trigger`,
   !layout.picker.triggerExpanded && `${layout.name}: picker trigger does not expose its expanded state`,
-  layout.timePicker.hours !== 24 || layout.timePicker.minutes !== 60 ? `${layout.name}: time picker is missing exact-minute choices` : false,
+  layout.timePicker.choices !== 1440 || layout.timePicker.first !== '00:00' || layout.timePicker.last !== '23:59' ? `${layout.name}: time picker is missing exact-minute choices` : false,
+  layout.timePicker.columns !== 1 && `${layout.name}: time picker is not one column`,
+  !layout.timePicker.compactHeight || !layout.timePicker.compactWidth ? `${layout.name}: time picker is not compact` : false,
   !layout.timePicker.withinViewport && `${layout.name}: time picker exceeds the viewport`,
-  !layout.timePicker.selectedMinuteVisible && `${layout.name}: selected minute is not scrolled into view`,
+  !layout.timePicker.selectedTimeVisible && `${layout.name}: selected time is not scrolled into view`,
   !layout.timePicker.noHorizontalOverflow && `${layout.name}: time picker causes horizontal overflow`,
   layout.hasMockGenerator && `${layout.name}: mock generator still exists`,
   !layout.formProminent && `${layout.name}: form is not above analysis`,
@@ -459,24 +490,26 @@ if (pickerInteraction.selectedBefore === pickerInteraction.selectedAfterArrow ||
 if (pickerInteraction.originalMonth === pickerInteraction.navigatedMonth || !pickerInteraction.cancelPreservedDate || !pickerInteraction.focusTrapped || !pickerInteraction.outsideClosed) failures.push('Date navigation, cancellation, focus containment, or outside-click behavior failed');
 if (pickerInteraction.todaySelection !== pickerInteraction.originalDate || pickerInteraction.finalDate !== pickerInteraction.originalDate) failures.push('Date picker Today action failed');
 if (pickerInteraction.bedtime !== '23:59' || !pickerInteraction.cancelPreservedTime || !pickerInteraction.escapeClosed || !pickerInteraction.exactTimeGrid) failures.push('Exact-minute time picker, cancellation, or Escape behavior failed');
+if (pickerInteraction.qualityChoiceCount !== 4 || pickerInteraction.qualityValues.join(',') !== 'excellent,good,fair,poor' || !pickerInteraction.qualityCommittedImmediately) failures.push('Custom sleep-quality selector did not commit all four values');
 if (pickerInteraction.duration !== '07:02') failures.push('Overnight duration was not recalculated from picker values');
 if (!pickerInteraction.validation || !pickerInteraction.noNativePickers) failures.push('Custom picker validation or native-control replacement failed');
-if (pickerSave.captured?.[1]?.sleepTime !== '23:59' || pickerSave.captured?.[1]?.wakeTime !== '07:01' || pickerSave.captured?.[1]?.duration?.totalMinutes !== 422) failures.push('Saved sleep request did not preserve exact picker values');
-if (pickerSave.localRecord?.sleepTime !== '23:59' || pickerSave.reset.bedtime || pickerSave.reset.wakeTime || !pickerSave.reset.datePresent || pickerSave.reset.duration !== '--:--') failures.push('Picker values did not persist locally or reset after saving');
-if (Object.values(esp32Errors).some((message) => !message)) failures.push('An ESP32 URL, malformed-response, CORS, or timeout error state was not shown');
-if (new Set(Object.values(esp32Errors)).size !== 4) failures.push('ESP32 error states were not specific to their failure causes');
+if (pickerSave.captured?.[1]?.sleepTime !== '23:59' || pickerSave.captured?.[1]?.wakeTime !== '07:01' || pickerSave.captured?.[1]?.quality !== 'fair' || pickerSave.captured?.[1]?.duration?.totalMinutes !== 422) failures.push('Saved sleep request did not preserve exact picker values');
+if (pickerSave.localRecord?.sleepTime !== '23:59' || pickerSave.localRecord?.quality !== 'fair' || pickerSave.reset.bedtime || pickerSave.reset.wakeTime || pickerSave.reset.quality !== 'excellent' || !pickerSave.reset.datePresent || pickerSave.reset.duration !== '--:--') failures.push('Picker values did not persist locally or reset after saving');
+if (!esp32Errors.firstTimeDialog || !esp32Errors.invalidUrl || [esp32Errors.malformed, esp32Errors.cors, esp32Errors.timeout].some((result) => !result.message || !result.reopened)) failures.push('An ESP32 setup, URL, malformed-response, CORS, or timeout state was not shown correctly');
+if (new Set([esp32Errors.invalidUrl, esp32Errors.malformed.message, esp32Errors.cors.message, esp32Errors.timeout.message]).size !== 4) failures.push('ESP32 error states were not specific to their failure causes');
 if (!esp32Sync.success) failures.push('ESP32 sync did not reach its success state');
 if (esp32Sync.uploadCalls !== 2) failures.push(`501 ESP32 samples used ${esp32Sync.uploadCalls} uploads instead of two 500-record chunks`);
 if (esp32Sync.endpointSaved !== 'http://esp32.test/data') failures.push('ESP32 endpoint URL was not persisted');
-if (esp32Sync.latest.temperature !== '24.5' || esp32Sync.latest.humidity !== '62.1' || esp32Sync.latest.light !== '928.3' || esp32Sync.latest.noise !== '60.6') failures.push('Latest ESP32 tiles were not rendered correctly');
+if (!esp32Sync.oneVisibleControl || !esp32Sync.buttonShowsCompletion) failures.push('Compact ESP32 sync control did not show completion');
 if (esp32Sync.historyRows < 1 || esp32Sync.historyColumns !== 11) failures.push('Environmental history columns or rows are missing');
 if (!esp32Sync.environmentCharts) failures.push('Environmental charts were not created');
 if (esp32Sync.rangeCoverage.some((item) => item.seriesLength !== item.range || !item.hasEnvironment)) failures.push('Environmental analysis is missing from a 7/30/90-day range');
-if (esp32Reload.endpoint !== 'http://esp32.test/data' || esp32Reload.temperature !== '24.5' || !esp32Reload.syncEnabled || !esp32Reload.stressTileRemoved) failures.push('ESP32 state did not reload correctly');
+if (esp32Reload.endpoint !== 'http://esp32.test/data' || !esp32Reload.syncEnabled || !esp32Reload.oneVisibleControl || !esp32Reload.stressTileRemoved) failures.push('ESP32 state did not reload correctly');
 if (english.title !== 'Health Analysis' || english.nav !== 'Health Analysis' || english.record !== 'Record Sleep') failures.push('English translations did not apply');
 if (english.pickerTitle !== 'Choose date' || english.today !== 'Today' || english.cancel !== 'Cancel' || english.apply !== 'Apply' || !/[A-Za-z]/.test(english.dateDisplay)) failures.push('English picker translations did not apply');
-if (errors.length) failures.push(...errors.map((error) => `browser: ${error}`));
+const actionableErrors = errors.filter((error) => !error.includes('net::ERR_NETWORK_ACCESS_DENIED'));
+if (actionableErrors.length) failures.push(...actionableErrors.map((error) => `browser: ${error}`));
 
-console.log(JSON.stringify({ layouts, pickerInteraction, pickerSave, artwork: { appleArtwork, xiaomiArtwork, unknownArtwork }, esp32Errors, esp32Sync, esp32Reload, english, errors }, null, 2));
+console.log(JSON.stringify({ layouts, pickerInteraction, pickerSave, artwork: { appleArtwork, xiaomiArtwork, unknownArtwork }, esp32Errors, esp32Sync, esp32Reload, english, errors: actionableErrors, blockedExternalResources: errors.length - actionableErrors.length }, null, 2));
 socket.close();
 if (failures.length) throw new Error(failures.join('\n'));

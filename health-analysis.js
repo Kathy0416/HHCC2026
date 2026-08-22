@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const state = { range: 30, analysis: null, connection: null, latest: null, environmentLatest: null, esp32Syncing: false, charts: {} };
+  const state = { range: 30, analysis: null, connection: null, latest: null, environmentLatest: null, esp32Syncing: false, esp32Synced: false, charts: {} };
   const QUALITY = new Set(['excellent', 'good', 'fair', 'poor']);
   const ESP32_ENDPOINT_KEY = 'esp32EndpointUrl';
   const ESP32_UPLOAD_CHUNK_SIZE = 500;
@@ -11,7 +11,7 @@
   });
   const pickerState = {
     open: false, type: null, targetId: null, trigger: null,
-    pendingDate: '', viewMonth: null, hour: 0, minute: 0
+    pendingDate: '', viewMonth: null, pendingTime: '', pendingQuality: 'excellent'
   };
 
   function t(key, variables) {
@@ -138,6 +138,8 @@
       const value = document.getElementById(targetId).value;
       document.getElementById(`${targetId}PickerDisplay`).textContent = value || t('health.picker.selectTime');
     }
+    const quality = QUALITY.has(document.getElementById('quality').value) ? document.getElementById('quality').value : 'excellent';
+    document.getElementById('qualityPickerDisplay').textContent = t(`sleep.quality.${quality}`);
   }
 
   function showSleepFormError(message = '') {
@@ -148,6 +150,7 @@
 
   function pickerTitle() {
     if (pickerState.type === 'date') return t('health.picker.chooseDate');
+    if (pickerState.type === 'quality') return t('health.picker.chooseQuality');
     return t(pickerState.targetId === 'sleepTime' ? 'health.picker.chooseBedtime' : 'health.picker.chooseWakeTime');
   }
 
@@ -191,29 +194,51 @@
   }
 
   function renderTimePicker(focusSelected = false) {
-    document.getElementById('pickerTimePreview').textContent = `${String(pickerState.hour).padStart(2, '0')}:${String(pickerState.minute).padStart(2, '0')}`;
-    const hours = document.getElementById('pickerHours');
-    const minutes = document.getElementById('pickerMinutes');
-    hours.replaceChildren(); minutes.replaceChildren();
-    for (let hour = 0; hour < 24; hour += 1) {
-      const button = document.createElement('button'); button.type = 'button'; button.dataset.hour = String(hour);
-      button.className = `picker-number${hour === pickerState.hour ? ' is-selected' : ''}`;
-      button.textContent = String(hour).padStart(2, '0'); button.setAttribute('role', 'option');
-      button.setAttribute('aria-selected', String(hour === pickerState.hour)); button.tabIndex = hour === pickerState.hour ? 0 : -1; hours.appendChild(button);
+    const list = document.getElementById('pickerTimes');
+    const fragment = document.createDocumentFragment();
+    list.replaceChildren();
+    for (let minuteOfDay = 0; minuteOfDay < 1440; minuteOfDay += 1) {
+      const value = `${String(Math.floor(minuteOfDay / 60)).padStart(2, '0')}:${String(minuteOfDay % 60).padStart(2, '0')}`;
+      const selected = value === pickerState.pendingTime;
+      const button = document.createElement('button'); button.type = 'button'; button.dataset.time = value;
+      button.className = `picker-choice${selected ? ' is-selected' : ''}`; button.textContent = value;
+      button.setAttribute('role', 'option'); button.setAttribute('aria-selected', String(selected));
+      button.setAttribute('aria-posinset', String(minuteOfDay + 1)); button.setAttribute('aria-setsize', '1440');
+      button.tabIndex = selected ? 0 : -1; fragment.appendChild(button);
     }
-    for (let minute = 0; minute < 60; minute += 1) {
-      const button = document.createElement('button'); button.type = 'button'; button.dataset.minute = String(minute);
-      button.className = `picker-number${minute === pickerState.minute ? ' is-selected' : ''}`;
-      button.textContent = String(minute).padStart(2, '0'); button.setAttribute('role', 'option');
-      button.setAttribute('aria-selected', String(minute === pickerState.minute)); button.tabIndex = minute === pickerState.minute ? 0 : -1; minutes.appendChild(button);
-    }
+    list.appendChild(fragment);
     requestAnimationFrame(() => {
-      const selectedHour = hours.querySelector('.is-selected');
-      const selectedMinute = minutes.querySelector('.is-selected');
-      hours.scrollTop = Math.max(0, selectedHour.offsetTop - hours.clientHeight / 2 + selectedHour.offsetHeight / 2);
-      minutes.scrollTop = Math.max(0, selectedMinute.offsetTop - minutes.clientHeight / 2 + selectedMinute.offsetHeight / 2);
-      if (focusSelected) selectedHour.focus();
+      const selected = list.querySelector('.is-selected');
+      list.scrollTop = Math.max(0, selected.offsetTop - list.clientHeight / 2 + selected.offsetHeight / 2);
+      if (focusSelected) selected.focus({ preventScroll: true });
     });
+  }
+
+  function selectTime(value, focus = false) {
+    pickerState.pendingTime = value;
+    const list = document.getElementById('pickerTimes');
+    list.querySelector('.is-selected')?.classList.remove('is-selected');
+    list.querySelector('[aria-selected="true"]')?.setAttribute('aria-selected', 'false');
+    const selected = list.querySelector(`[data-time="${value}"]`);
+    selected.classList.add('is-selected'); selected.setAttribute('aria-selected', 'true');
+    list.querySelector('[tabindex="0"]')?.setAttribute('tabindex', '-1'); selected.tabIndex = 0;
+    if (focus) {
+      selected.focus({ preventScroll: true });
+      list.scrollTop = Math.max(0, selected.offsetTop - list.clientHeight / 2 + selected.offsetHeight / 2);
+    }
+  }
+
+  function renderQualityPicker(focusSelected = false) {
+    const list = document.getElementById('pickerQualities');
+    list.replaceChildren();
+    for (const quality of QUALITY) {
+      const selected = quality === pickerState.pendingQuality;
+      const button = document.createElement('button'); button.type = 'button'; button.dataset.quality = quality;
+      button.className = `picker-choice${selected ? ' is-selected' : ''}`; button.textContent = t(`sleep.quality.${quality}`);
+      button.setAttribute('role', 'option'); button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1;
+      list.appendChild(button);
+    }
+    if (focusSelected) requestAnimationFrame(() => list.querySelector('.is-selected')?.focus());
   }
 
   function positionPicker() {
@@ -231,7 +256,9 @@
   function refreshOpenPicker() {
     if (!pickerState.open) return;
     document.getElementById('pickerTitle').textContent = pickerTitle();
-    if (pickerState.type === 'date') renderDatePicker(); else renderTimePicker();
+    if (pickerState.type === 'date') renderDatePicker();
+    else if (pickerState.type === 'time') renderTimePicker();
+    else renderQualityPicker();
     positionPicker();
   }
 
@@ -242,19 +269,29 @@
       pickerState.pendingDate = document.getElementById('date').value || localToday();
       const selected = dateFromIso(pickerState.pendingDate);
       pickerState.viewMonth = new Date(selected.getFullYear(), selected.getMonth(), 1, 12);
-    } else {
+    } else if (pickerState.type === 'time') {
       const value = document.getElementById(pickerState.targetId).value;
-      const now = new Date(); const parts = /^(\d{2}):(\d{2})$/.exec(value);
-      pickerState.hour = parts ? Number(parts[1]) : now.getHours();
-      pickerState.minute = parts ? Number(parts[2]) : now.getMinutes();
+      const now = new Date();
+      pickerState.pendingTime = /^\d{2}:\d{2}$/.test(value)
+        ? value
+        : `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    } else {
+      const value = document.getElementById('quality').value;
+      pickerState.pendingQuality = QUALITY.has(value) ? value : 'excellent';
     }
     document.querySelectorAll('.glass-picker-trigger').forEach((item) => item.setAttribute('aria-expanded', String(item === trigger)));
     document.getElementById('datePickerView').hidden = pickerState.type !== 'date';
     document.getElementById('timePickerView').hidden = pickerState.type !== 'time';
+    document.getElementById('qualityPickerView').hidden = pickerState.type !== 'quality';
     document.getElementById('pickerToday').hidden = pickerState.type !== 'date';
+    document.getElementById('pickerActions').hidden = pickerState.type === 'quality';
+    document.getElementById('glassPicker').classList.toggle('is-time', pickerState.type === 'time');
+    document.getElementById('glassPicker').classList.toggle('is-quality', pickerState.type === 'quality');
     document.getElementById('pickerTitle').textContent = pickerTitle();
     document.getElementById('pickerBackdrop').hidden = false; document.body.classList.add('has-picker-open');
-    if (pickerState.type === 'date') renderDatePicker(true); else renderTimePicker(true);
+    if (pickerState.type === 'date') renderDatePicker(true);
+    else if (pickerState.type === 'time') renderTimePicker(true);
+    else renderQualityPicker(true);
     requestAnimationFrame(positionPicker);
   }
 
@@ -268,7 +305,7 @@
 
   function applyPicker() {
     const input = document.getElementById(pickerState.targetId);
-    input.value = pickerState.type === 'date' ? pickerState.pendingDate : `${String(pickerState.hour).padStart(2, '0')}:${String(pickerState.minute).padStart(2, '0')}`;
+    input.value = pickerState.type === 'date' ? pickerState.pendingDate : pickerState.pendingTime;
     input.dispatchEvent(new Event('change', { bubbles: true }));
     showSleepFormError(); refreshPickerTriggers(); closePicker();
   }
@@ -282,21 +319,27 @@
   function handlePickerKeydown(event) {
     if (!pickerState.open) return;
     if (event.key === 'Escape') { event.preventDefault(); closePicker(); return; }
-    const timeButton = event.target.closest?.('[data-hour], [data-minute]');
-    if (timeButton && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+    const timeButton = event.target.closest?.('[data-time]');
+    if (timeButton && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) {
       event.preventDefault();
-      const kind = timeButton.hasAttribute('data-hour') ? 'hour' : 'minute';
-      const limit = kind === 'hour' ? 24 : 60;
-      const grid = timeButton.parentElement;
-      const columns = getComputedStyle(grid).gridTemplateColumns.split(' ').length || 1;
-      const deltas = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns, ArrowDown: columns };
-      let value = kind === 'hour' ? pickerState.hour : pickerState.minute;
-      if (event.key === 'Home') value = 0;
-      else if (event.key === 'End') value = limit - 1;
-      else value = (value + deltas[event.key] + limit) % limit;
-      if (kind === 'hour') pickerState.hour = value; else pickerState.minute = value;
-      renderTimePicker();
-      requestAnimationFrame(() => document.querySelector(`[data-${kind}="${value}"]`)?.focus());
+      const [hour, minute] = timeButton.dataset.time.split(':').map(Number);
+      const deltas = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1, PageUp: -60, PageDown: 60 };
+      let minuteOfDay = hour * 60 + minute;
+      if (event.key === 'Home') minuteOfDay = 0;
+      else if (event.key === 'End') minuteOfDay = 1439;
+      else minuteOfDay = Math.max(0, Math.min(1439, minuteOfDay + deltas[event.key]));
+      selectTime(`${String(Math.floor(minuteOfDay / 60)).padStart(2, '0')}:${String(minuteOfDay % 60).padStart(2, '0')}`, true);
+      return;
+    }
+    const qualityButton = event.target.closest?.('[data-quality]');
+    if (qualityButton && ['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      const choices = [...document.querySelectorAll('#pickerQualities [data-quality]')];
+      let index = choices.indexOf(qualityButton);
+      if (event.key === 'Home') index = 0;
+      else if (event.key === 'End') index = choices.length - 1;
+      else index = Math.max(0, Math.min(choices.length - 1, index + (event.key === 'ArrowUp' ? -1 : 1)));
+      choices[index].focus();
       return;
     }
     const dateButton = event.target.closest?.('[data-date]');
@@ -327,13 +370,17 @@
       pickerState.pendingDate = button.dataset.date; const date = dateFromIso(pickerState.pendingDate);
       pickerState.viewMonth = new Date(date.getFullYear(), date.getMonth(), 1, 12); renderDatePicker(true); positionPicker();
     });
-    document.getElementById('pickerHours').addEventListener('click', (event) => {
-      const button = event.target.closest('[data-hour]'); if (!button) return;
-      pickerState.hour = Number(button.dataset.hour); renderTimePicker(); positionPicker();
+    document.getElementById('pickerTimes').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-time]'); if (!button) return;
+      selectTime(button.dataset.time, true);
     });
-    document.getElementById('pickerMinutes').addEventListener('click', (event) => {
-      const button = event.target.closest('[data-minute]'); if (!button) return;
-      pickerState.minute = Number(button.dataset.minute); renderTimePicker(); positionPicker();
+    document.getElementById('pickerQualities').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-quality]'); if (!button) return;
+      const input = document.getElementById('quality');
+      input.value = button.dataset.quality;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      refreshPickerTriggers();
+      closePicker();
     });
     document.getElementById('pickerBackdrop').addEventListener('pointerdown', (event) => { if (event.target === event.currentTarget) closePicker(); });
     document.getElementById('glassPicker').addEventListener('keydown', handlePickerKeydown);
@@ -466,23 +513,13 @@
     illustration.dataset.deviceBrand = brand;
   }
 
-  function renderEnvironmentLatest() {
-    const latest = state.environmentLatest;
-    document.getElementById('latestTemperature').textContent = rounded(latest?.temperatureC, '', 1);
-    document.getElementById('latestHumidity').textContent = rounded(latest?.humidityPct, '', 1);
-    document.getElementById('latestLight').textContent = rounded(latest?.lightLux, '', 1);
-    document.getElementById('latestNoise').textContent = rounded(latest?.noiseDb, '', 1);
-    document.getElementById('environmentUpdatedAt').textContent = latest?.recordedAt
-      ? t('health.esp32.updatedAt', { time: formatDateTime(latest.recordedAt) })
-      : t('health.esp32.noData');
-  }
-
   function updateEsp32Button() {
     const button = document.getElementById('esp32SyncBtn');
     const active = !!state.connection?.active;
     button.disabled = !active || state.esp32Syncing;
     button.setAttribute('aria-busy', String(state.esp32Syncing));
-    button.textContent = t(state.esp32Syncing ? 'health.esp32.syncing' : 'health.esp32.sync');
+    const key = state.esp32Syncing ? 'health.esp32.syncing' : (state.esp32Synced ? 'health.esp32.syncedShort' : 'health.esp32.sync');
+    button.textContent = t(key);
   }
 
   function renderConnection() {
@@ -511,7 +548,6 @@
     document.getElementById('latestSteps').textContent = latest?.steps == null ? '—' : Number(latest.steps).toLocaleString(locale());
     document.getElementById('latestSleep').textContent = latest?.sleep?.durationMinutes == null ? '—' : formatDuration(latest.sleep.durationMinutes);
     document.getElementById('disconnectBtn').disabled = !active;
-    renderEnvironmentLatest();
     updateEsp32Button();
   }
 
@@ -721,12 +757,6 @@
     }
   }
 
-  function setEsp32Status(message, type) {
-    const element = document.getElementById('esp32Status');
-    element.textContent = message || '';
-    element.className = `esp32-status${type ? ` is-${type}` : ''}`;
-  }
-
   function validatedEsp32Url(value) {
     let endpoint;
     try {
@@ -752,33 +782,62 @@
     return t(keyByCode[error?.code] || 'health.esp32.fetchFailed');
   }
 
-  async function syncEsp32Environment() {
+  function setEndpointDialogError(message = '') {
+    const error = document.getElementById('esp32EndpointError');
+    error.textContent = message;
+    error.hidden = !message;
+  }
+
+  function openEsp32EndpointDialog(message = '') {
+    const modal = document.getElementById('esp32EndpointModal');
+    const input = document.getElementById('esp32Endpoint');
+    input.value = localStorage.getItem(ESP32_ENDPOINT_KEY) || '';
+    setEndpointDialogError(message);
+    modal.hidden = false;
+    document.body.classList.add('has-picker-open');
+    requestAnimationFrame(() => { input.focus(); input.select(); });
+  }
+
+  function closeEsp32EndpointDialog(restoreFocus = true) {
+    document.getElementById('esp32EndpointModal').hidden = true;
+    setEndpointDialogError();
+    if (!pickerState.open) document.body.classList.remove('has-picker-open');
+    if (restoreFocus) document.getElementById('esp32SyncBtn').focus();
+  }
+
+  async function syncEsp32Environment(endpointOverride) {
     if (!window.ApiClient?.hasToken()) {
-      setEsp32Status(t('health.esp32.loginRequired'), 'error');
+      setStatus(t('health.esp32.loginRequired'), 'error');
       showModal('loginModal');
       return;
     }
     if (!state.connection?.active) {
-      setEsp32Status(t('health.esp32.connectionRequired'), 'error');
+      setStatus(t('health.esp32.connectionRequired'), 'error');
       return;
     }
 
-    const endpointInput = document.getElementById('esp32Endpoint');
+    const savedEndpoint = localStorage.getItem(ESP32_ENDPOINT_KEY);
+    if (!endpointOverride && !savedEndpoint) {
+      openEsp32EndpointDialog();
+      return;
+    }
     let endpoint;
     try {
-      endpoint = validatedEsp32Url(endpointInput.value);
+      endpoint = validatedEsp32Url(endpointOverride || savedEndpoint);
     } catch (error) {
-      setEsp32Status(error.message, 'error');
-      endpointInput.focus();
+      setStatus(error.message, 'error');
+      openEsp32EndpointDialog(error.message);
       return;
     }
 
     localStorage.setItem(ESP32_ENDPOINT_KEY, endpoint);
+    state.esp32Synced = false;
     state.esp32Syncing = true;
     updateEsp32Button();
-    setEsp32Status(t('health.esp32.fetching'));
+    setStatus(t('health.esp32.fetching'));
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 10000);
+    let phase = 'fetch';
     try {
       const response = await fetch(endpoint, {
         method: 'GET',
@@ -796,6 +855,7 @@
       const parsed = window.Esp32Parser.parseEsp32Samples(await response.text());
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       let uploaded = 0;
+      phase = 'upload';
       for (let index = 0; index < parsed.readings.length; index += ESP32_UPLOAD_CHUNK_SIZE) {
         const readings = parsed.readings.slice(index, index + ESP32_UPLOAD_CHUNK_SIZE);
         const result = await window.ApiClient.syncEsp32Environment({ connectionId: state.connection.id, timezone, readings });
@@ -803,12 +863,15 @@
         state.environmentLatest = result.environmentLatest;
       }
       await loadAll(false);
-      setEsp32Status(t('health.esp32.synced', { count: uploaded, skipped: parsed.skipped }), 'success');
+      state.esp32Synced = true;
+      setStatus(t('health.esp32.synced', { count: uploaded, skipped: parsed.skipped }), 'success');
+      window.setTimeout(() => { state.esp32Synced = false; updateEsp32Button(); }, 2500);
     } catch (error) {
       const message = error.name === 'AbortError'
         ? t('health.esp32.timeout')
         : (error.code ? esp32ParseMessage(error) : (error instanceof TypeError ? t('health.esp32.fetchFailed') : (error.message || t('health.esp32.fetchFailed'))));
-      setEsp32Status(message, 'error');
+      setStatus(message, 'error');
+      if (phase === 'fetch') openEsp32EndpointDialog(message);
     } finally {
       window.clearTimeout(timeout);
       state.esp32Syncing = false;
@@ -823,8 +886,39 @@
       await loadAll();
     }));
     document.getElementById('refreshBtn').addEventListener('click', () => loadAll());
-    document.getElementById('esp32Endpoint').value = localStorage.getItem(ESP32_ENDPOINT_KEY) || '';
-    document.getElementById('esp32SyncBtn').addEventListener('click', syncEsp32Environment);
+    document.getElementById('esp32SyncBtn').addEventListener('click', () => syncEsp32Environment());
+    document.getElementById('esp32EndpointForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      let endpoint;
+      try {
+        endpoint = validatedEsp32Url(document.getElementById('esp32Endpoint').value);
+      } catch (error) {
+        setEndpointDialogError(error.message);
+        document.getElementById('esp32Endpoint').focus();
+        return;
+      }
+      localStorage.setItem(ESP32_ENDPOINT_KEY, endpoint);
+      closeEsp32EndpointDialog(false);
+      syncEsp32Environment(endpoint);
+    });
+    document.getElementById('esp32EndpointClose').addEventListener('click', () => closeEsp32EndpointDialog());
+    document.getElementById('esp32EndpointCancel').addEventListener('click', () => closeEsp32EndpointDialog());
+    document.getElementById('esp32EndpointModal').addEventListener('pointerdown', (event) => {
+      if (event.target === event.currentTarget) closeEsp32EndpointDialog();
+    });
+    document.getElementById('esp32EndpointModal').addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeEsp32EndpointDialog();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const modal = document.getElementById('esp32EndpointModal');
+      const focusable = [...modal.querySelectorAll('button:not(:disabled), input:not(:disabled)')].filter((item) => item.offsetParent !== null);
+      const first = focusable[0]; const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
     document.getElementById('setupBtn').addEventListener('click', () => {
       const panel = document.getElementById('androidSetup');
       panel.hidden = !panel.hidden;
