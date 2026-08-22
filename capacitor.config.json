@@ -1,0 +1,8 @@
+{
+  "appId": "com.migrainesignal.app",
+  "appName": "Migraine Signal",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

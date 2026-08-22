@@ -1,6 +1,6 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v8-health-analysis';
+const CACHE_NAME = 'migraine-app-cache-v9-capacitor';
 const urlsToCache = [
   '.',
   'index.html',
@@ -16,7 +16,10 @@ const urlsToCache = [
   'i18n.js?v=8-health-analysis',
   'script.js',
   'ai-chat.js',
-  'api.js'
+  'api.js',
+  'runtime-config.js',
+  'native-auth.js',
+  'mobile-health.js'
 ];
 
 // Install event - cache essential files

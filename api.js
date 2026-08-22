@@ -9,26 +9,36 @@
   'use strict';
 
   const defaultOrigin = /^https?:$/.test(global.location.protocol) ? global.location.origin : 'http://localhost:3000';
-  const API_BASE = (global.API_BASE_URL || defaultOrigin).replace(/\/+$/, '') + '/api';
+  const configuredOrigin = global.API_BASE_URL || global.MIGRAINE_APP_CONFIG?.apiBaseUrl || defaultOrigin;
+  const API_BASE = configuredOrigin.replace(/\/+$/, '') + '/api';
+  const nativeAuth = !!global.NativeAuth?.isAvailable?.();
 
   const ApiClient = {
     _token: null,
+    _readyPromise: null,
     _backendAvailable: null, // null=未知 true=可用 false=不可用
 
     // ---- Token 管理 ----
     setToken(token) {
       this._token = token || '';
-      if (token) {
+      if (nativeAuth) {
+        localStorage.removeItem('authToken');
+        const operation = token ? global.NativeAuth.setToken(token) : global.NativeAuth.clear();
+        operation?.catch((error) => console.warn('Unable to update secure Android session', error));
+      } else if (token) {
         localStorage.setItem('authToken', token);
       } else {
         localStorage.removeItem('authToken');
       }
     },
     getToken() {
-      if (!this._token) {
+      if (!this._token && !nativeAuth) {
         this._token = localStorage.getItem('authToken') || '';
       }
       return this._token;
+    },
+    ready() {
+      return this._readyPromise || Promise.resolve();
     },
     hasToken() {
       return !!this.getToken();
@@ -36,6 +46,7 @@
 
     // ---- 基础请求 ----
     async _request(method, path, body) {
+      await this.ready();
       const headers = {
         'Content-Type': 'application/json',
         'Accept-Language': global.I18n ? global.I18n.getLanguage() : 'zh-CN'
@@ -192,8 +203,18 @@
     }
   };
 
-  // 尝试从 localStorage 恢复 token
-  ApiClient.getToken();
+  // 浏览器使用 localStorage；Android 使用系统 Keystore 加密的原生存储。
+  ApiClient._readyPromise = nativeAuth
+    ? global.NativeAuth.getToken().then(async ({ token } = {}) => {
+        const legacyToken = localStorage.getItem('authToken') || '';
+        ApiClient._token = token || legacyToken;
+        if (!token && legacyToken) await global.NativeAuth.setToken(legacyToken);
+        localStorage.removeItem('authToken');
+      }).catch((error) => {
+        console.warn('Unable to restore secure Android session', error);
+        ApiClient._token = '';
+      })
+    : Promise.resolve(ApiClient.getToken());
   // 启动时探测后端可用性
   ApiClient.health();
 

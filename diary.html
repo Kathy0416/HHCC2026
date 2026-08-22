@@ -8,6 +8,8 @@
     <script src="site-header.js"></script>
     <script src="locales.js"></script>
     <script src="i18n.js?v=7-content-boundary"></script>
+    <script src="runtime-config.js"></script>
+    <script src="native-auth.js"></script>
     <script src="api.js"></script>
     <style>
         /* 日记页面特定样式 */
@@ -1084,7 +1086,7 @@
     </script>
     <script>
         // Register Service Worker for PWA support
-        if ('serviceWorker' in navigator) {
+        if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
                     .then((registration) => {

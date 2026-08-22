@@ -11,7 +11,10 @@
     <script src="site-header.js"></script>
     <script src="locales.js"></script>
     <script src="i18n.js?v=8-health-analysis"></script>
+    <script src="runtime-config.js"></script>
+    <script src="native-auth.js"></script>
     <script src="api.js"></script>
+    <script src="mobile-health.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="health-analysis.js?v=8-health-analysis" defer></script>
 </head>
@@ -65,8 +68,24 @@
                     <button type="button" id="refreshBtn" class="secondary-action" data-i18n="health.connection.refresh">刷新</button>
                     <button type="button" id="setupBtn" class="primary-action compact" aria-expanded="false" aria-controls="androidSetup" data-i18n="health.connection.setup">设置安卓同步</button>
                 </div>
-                <p class="connection-hint" data-i18n="health.connection.refreshHint">刷新只会加载安卓配套应用已上传的数据。</p>
-                <div id="androidSetup" class="setup-panel" hidden><h3 data-i18n="health.connection.setupTitle">通过 Health Connect 连接</h3><p data-i18n="health.connection.setupBody">安装配套应用，使用本账号登录，授权读取 Mi Fitness 数据，然后在手机上点击“立即同步”。</p><code>android-companion/README.md</code></div>
+                <p class="connection-hint" data-i18n="health.connection.refreshHint">刷新会重新加载本应用已上传的健康数据。</p>
+                <div id="androidSetup" class="setup-panel" hidden>
+                    <h3 data-i18n="health.connection.setupTitle">通过 Health Connect 连接</h3>
+                    <p id="browserHealthSetup" data-i18n="health.connection.browserSetupBody">安装 Migraine Signal 安卓应用，在此页面授权并同步 Mi Fitness 数据。</p>
+                    <div id="nativeHealthControls" class="native-health-controls" hidden>
+                        <p data-i18n="health.connection.nativeSetupBody">授权 Migraine Signal 读取 Health Connect，选择 Mi Fitness 数据源，然后点击“立即同步”。</p>
+                        <div class="native-health-row">
+                            <button type="button" id="healthPermissionBtn" class="secondary-action" data-i18n="health.connection.grantAccess">授权访问</button>
+                            <button type="button" id="discoverSourcesBtn" class="secondary-action" data-i18n="health.connection.findSources">查找数据源</button>
+                        </div>
+                        <label class="form-field native-source-field"><span data-i18n="health.connection.source">Health Connect 数据源</span><select id="healthSourceSelect" disabled><option value="" data-i18n="health.connection.noSource">尚未找到数据源</option></select></label>
+                        <div class="native-health-row">
+                            <button type="button" id="syncNowBtn" class="primary-action compact" disabled data-i18n="health.connection.syncNow">立即同步</button>
+                            <button type="button" id="manageHealthBtn" class="secondary-action" data-i18n="health.connection.manageAccess">管理访问权限</button>
+                        </div>
+                        <p id="nativeHealthStatus" class="native-health-status" role="status" aria-live="polite"></p>
+                    </div>
+                </div>
             </section>
         </div>
 

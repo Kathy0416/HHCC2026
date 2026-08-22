@@ -1,7 +1,14 @@
 (function () {
   'use strict';
 
-  const state = { range: 30, analysis: null, connection: null, latest: null, charts: {} };
+  const state = {
+    range: 30,
+    analysis: null,
+    connection: null,
+    latest: null,
+    charts: {},
+    native: { enabled: false, availability: null, permissions: null, origins: [], busy: false }
+  };
   const QUALITY = new Set(['excellent', 'good', 'fair', 'poor']);
 
   function t(key, variables) {
@@ -16,6 +23,24 @@
     const element = document.getElementById('pageStatus');
     element.textContent = message || '';
     element.className = `page-status${type ? ` is-${type}` : ''}`;
+  }
+
+  function setNativeStatus(message) {
+    const element = document.getElementById('nativeHealthStatus');
+    if (element) element.textContent = message || '';
+  }
+
+  function setNativeBusy(busy) {
+    state.native.busy = busy;
+    document.getElementById('nativeHealthControls')?.classList.toggle('is-busy', busy);
+    renderNativeControls();
+  }
+
+  function requireNativeLogin() {
+    if (window.ApiClient?.hasToken()) return true;
+    setNativeStatus(t('health.connection.loginToSync'));
+    showModal('loginModal');
+    return false;
   }
 
   function currentUser() {
@@ -41,6 +66,164 @@
     authButtons.style.display = user ? 'none' : 'flex';
     userStatus.style.display = user ? 'flex' : 'none';
     if (username) username.textContent = user ? user.username : '';
+    renderNativeControls();
+  }
+
+  function renderNativeControls() {
+    const nativeControls = document.getElementById('nativeHealthControls');
+    const browserSetup = document.getElementById('browserHealthSetup');
+    if (!nativeControls || !browserSetup) return;
+    nativeControls.hidden = !state.native.enabled;
+    browserSetup.hidden = state.native.enabled;
+    if (!state.native.enabled) return;
+
+    const select = document.getElementById('healthSourceSelect');
+    const savedSource = localStorage.getItem('healthConnectSource') || '';
+    const current = select.value || savedSource;
+    select.replaceChildren();
+    if (!state.native.origins.length) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = t('health.connection.noSource');
+      select.appendChild(option);
+    } else {
+      state.native.origins.forEach((origin) => {
+        const option = document.createElement('option');
+        option.value = origin.packageName;
+        option.textContent = `${origin.likelyMiFitness ? 'Mi Fitness · ' : ''}${origin.packageName}`;
+        select.appendChild(option);
+      });
+      const match = state.native.origins.find((origin) => origin.packageName === current);
+      if (match) select.value = match.packageName;
+      else if (state.native.origins.length === 1) select.value = state.native.origins[0].packageName;
+      if (select.value) localStorage.setItem('healthConnectSource', select.value);
+    }
+    select.disabled = state.native.busy || !state.native.origins.length;
+    document.getElementById('healthPermissionBtn').disabled = state.native.busy;
+    document.getElementById('discoverSourcesBtn').disabled = state.native.busy;
+    document.getElementById('manageHealthBtn').disabled = state.native.busy;
+    document.getElementById('syncNowBtn').disabled = state.native.busy || !select.value || !window.ApiClient?.hasToken();
+  }
+
+  async function refreshNativeState() {
+    if (!state.native.enabled) return;
+    setNativeStatus(t('health.connection.checking'));
+    try {
+      state.native.availability = await window.MobileHealth.getAvailability();
+      if (state.native.availability.status === 'update_required') {
+        setNativeStatus(t('health.connection.healthUpdate'));
+        return;
+      }
+      if (state.native.availability.status !== 'available') {
+        setNativeStatus(t('health.connection.healthUnavailable'));
+        return;
+      }
+      state.native.permissions = await window.MobileHealth.getPermissionState();
+      setNativeStatus(state.native.permissions.granted.length
+        ? t('health.connection.permissionGranted')
+        : t('health.connection.permissionMissing'));
+    } catch (error) {
+      setNativeStatus(error.message || t('health.connection.healthUnavailable'));
+    } finally {
+      renderNativeControls();
+    }
+  }
+
+  async function requestNativePermissions() {
+    if (!requireNativeLogin()) return;
+    setNativeBusy(true);
+    try {
+      state.native.permissions = await window.MobileHealth.requestPermissions({ includeHistory: true });
+      setNativeStatus(state.native.permissions.granted.length
+        ? t('health.connection.permissionGranted')
+        : t('health.connection.permissionMissing'));
+      if (state.native.permissions.granted.length) await discoverNativeSources();
+    } catch (error) {
+      setNativeStatus(error.message);
+    } finally {
+      setNativeBusy(false);
+    }
+  }
+
+  async function discoverNativeSources() {
+    if (!requireNativeLogin()) return;
+    setNativeBusy(true);
+    try {
+      const result = await window.MobileHealth.discoverOrigins({ days: 30 });
+      state.native.origins = Array.isArray(result.origins) ? result.origins : [];
+      renderNativeControls();
+      setNativeStatus(state.native.origins.length
+        ? t('health.connection.sourcesFound', { count: state.native.origins.length })
+        : t('health.connection.noSourcesFound'));
+    } catch (error) {
+      setNativeStatus(error.message);
+    } finally {
+      setNativeBusy(false);
+    }
+  }
+
+  async function syncNativeHealth() {
+    if (!requireNativeLogin()) return;
+    const sourcePackage = document.getElementById('healthSourceSelect')?.value || '';
+    if (!sourcePackage) {
+      setNativeStatus(t('health.connection.sourceRequired'));
+      return;
+    }
+    localStorage.setItem('healthConnectSource', sourcePackage);
+    setNativeBusy(true);
+    setNativeStatus(t('health.connection.syncing'));
+    try {
+      const availability = state.native.availability || await window.MobileHealth.getAvailability();
+      if (availability.status !== 'available') throw new Error(t(availability.status === 'update_required' ? 'health.connection.healthUpdate' : 'health.connection.healthUnavailable'));
+      let permissions = await window.MobileHealth.getPermissionState();
+      if (!permissions.granted.length) permissions = await window.MobileHealth.requestPermissions({ includeHistory: true });
+      if (!permissions.granted.length) throw new Error(t('health.connection.permissionMissing'));
+
+      const connectionData = await window.ApiClient.createHealthConnection({
+        provider: 'health_connect',
+        deviceName: availability.deviceName || 'Android device',
+        manufacturer: availability.manufacturer || '',
+        model: availability.model || '',
+        sourcePackages: [sourcePackage]
+      });
+      const nativeData = await window.MobileHealth.readDailyData({ sourcePackage, days: 90 });
+      const payload = nativeData.payload || {};
+      payload.connectionId = connectionData.connection.id;
+      await window.ApiClient.syncHealthData(payload);
+      state.native.permissions = nativeData;
+      let message = t('health.connection.syncComplete', {
+        days: payload.days?.length || 0,
+        sessions: payload.sleepSessions?.length || 0
+      });
+      if (nativeData.missing?.length) message += t('health.connection.syncPartial');
+      if (nativeData.actualDays < nativeData.requestedDays) message += t('health.connection.historyLimited');
+      setNativeStatus(message);
+      setStatus(message, 'success');
+      await loadAll(false);
+    } catch (error) {
+      if (error.status === 401) showModal('loginModal');
+      setNativeStatus(error.message || t('health.common.offline'));
+      setStatus(error.message || t('health.common.offline'), 'error');
+    } finally {
+      setNativeBusy(false);
+    }
+  }
+
+  function initNativeHealth() {
+    state.native.enabled = !!window.MobileHealth?.isAvailable();
+    renderNativeControls();
+    if (!state.native.enabled) return;
+    document.getElementById('healthSourceSelect')?.addEventListener('change', (event) => {
+      if (event.target.value) localStorage.setItem('healthConnectSource', event.target.value);
+      renderNativeControls();
+    });
+    document.getElementById('healthPermissionBtn')?.addEventListener('click', requestNativePermissions);
+    document.getElementById('discoverSourcesBtn')?.addEventListener('click', discoverNativeSources);
+    document.getElementById('syncNowBtn')?.addEventListener('click', syncNativeHealth);
+    document.getElementById('manageHealthBtn')?.addEventListener('click', async () => {
+      try { await window.MobileHealth.openHealthConnectSettings(); } catch (error) { setNativeStatus(error.message); }
+    });
+    refreshNativeState();
   }
 
   function initAuth() {
@@ -414,15 +597,18 @@
     });
   }
 
-  function init() {
+  async function init() {
+    await window.ApiClient?.ready?.();
     initAuth();
     initSleepForm();
     initControls();
+    initNativeHealth();
     loadAll();
     window.addEventListener('migraine:languagechange', () => {
       updateAuthHeader();
       if (state.analysis) renderAnalysis(state.analysis);
       else renderConnection();
+      renderNativeControls();
     });
   }
 
