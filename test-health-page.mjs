@@ -65,7 +65,7 @@ await call('Log.clear');
 errors.length = 0;
 await call('Page.navigate', { url: `${baseUrl}/sleep.html` });
 await waitForReady();
-await evaluate(`localStorage.clear()`);
+await evaluate(`localStorage.clear(); sessionStorage.clear()`);
 const layouts = [];
 for (const viewport of [
   { name: 'desktop', width: 1440, height: 1100, mobile: false },
@@ -94,6 +94,9 @@ for (const viewport of [
       columns: getComputedStyle(topGrid).gridTemplateColumns.split(' ').length,
       footerInViewport: footer.getBoundingClientRect().right <= innerWidth,
       title: document.querySelector('.site-header__page-title').textContent,
+      connectionTitle: document.getElementById('connection-title').textContent,
+      deviceChooserTriggerTag: document.getElementById('deviceChooserTrigger').tagName,
+      defaultDeviceName: document.getElementById('deviceName').textContent,
       deviceBrand: document.getElementById('deviceIllustration')?.dataset.deviceBrand,
       deviceArtworkLoaded: Boolean(document.getElementById('deviceIllustration')?.complete && document.getElementById('deviceIllustration')?.naturalWidth),
       rangeButtons: document.querySelectorAll('[data-range]').length,
@@ -108,6 +111,27 @@ for (const viewport of [
       connectionProminent: document.querySelector('.connection-card').getBoundingClientRect().top < document.querySelector('.analysis-card').getBoundingClientRect().top
     };
   })()`);
+  await evaluate(`document.getElementById('deviceChooserTrigger').click()`);
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  result.deviceChooser = await evaluate(`(() => {
+    const dialog = document.querySelector('.device-chooser-dialog');
+    const rect = dialog.getBoundingClientRect();
+    const unavailable = document.querySelector('.device-type-option.is-unavailable');
+    return {
+      open: !document.getElementById('deviceChooserModal').hidden,
+      selectableOptions: document.querySelectorAll('#deviceTypeOptions [data-device-type]').length,
+      totalOptions: document.querySelectorAll('.device-type-option').length,
+      unavailableDisabled: unavailable.disabled && unavailable.getAttribute('aria-disabled') === 'true',
+      selectedOptions: document.querySelectorAll('.device-type-option.is-selected').length,
+      artworkLoaded: [...document.querySelectorAll('.device-type-option img')].every((image) => image.complete && image.naturalWidth),
+      withinViewport: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight,
+      triggerExpanded: document.getElementById('deviceChooserTrigger').getAttribute('aria-expanded') === 'true',
+      noHorizontalOverflow: document.documentElement.scrollWidth <= innerWidth
+    };
+  })()`);
+  const screenshot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+  fs.writeFileSync(`health-page-${viewport.name}.png`, Buffer.from(screenshot.data, 'base64'));
+  await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
   await evaluate(`document.getElementById('datePickerTrigger').click()`);
   await new Promise((resolve) => setTimeout(resolve, 120));
   result.picker = await evaluate(`(() => {
@@ -127,8 +151,6 @@ for (const viewport of [
       triggerExpanded: document.getElementById('datePickerTrigger').getAttribute('aria-expanded') === 'true'
     };
   })()`);
-  const screenshot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-  fs.writeFileSync(`health-page-${viewport.name}.png`, Buffer.from(screenshot.data, 'base64'));
   await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
   await evaluate(`document.getElementById('sleepTimePickerTrigger').click()`);
   await new Promise((resolve) => setTimeout(resolve, 120));
@@ -158,6 +180,41 @@ for (const viewport of [
   await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
   layouts.push({ name: viewport.name, ...result });
 }
+
+const signedOutDevicePreview = await evaluate(`(async () => {
+  const tick = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const trigger = document.getElementById('deviceChooserTrigger');
+  trigger.click(); await tick();
+  const unavailable = document.querySelector('.device-type-option.is-unavailable');
+  unavailable.click();
+  const unavailableIgnored = document.querySelector('#deviceTypeOptions [data-device-type="miband"]').classList.contains('is-selected');
+  document.querySelector('[data-device-type="apple"]').click();
+  document.getElementById('deviceDisplayName').value = '';
+  document.getElementById('deviceChooserForm').requestSubmit(); await tick();
+  const emptyNameRejected = !document.getElementById('deviceChooserError').hidden && !document.getElementById('deviceChooserModal').hidden;
+  document.getElementById('deviceDisplayName').value = 'Bedroom Watch';
+  document.getElementById('deviceChooserForm').requestSubmit();
+  for (let attempt = 0; attempt < 30 && !document.getElementById('deviceChooserModal').hidden; attempt += 1) await tick();
+  return {
+    unavailableIgnored,
+    emptyNameRejected,
+    modalClosed: document.getElementById('deviceChooserModal').hidden,
+    type: document.getElementById('deviceIllustration').dataset.deviceType,
+    name: document.getElementById('deviceName').textContent,
+    preview: JSON.parse(sessionStorage.getItem('healthDevicePreview') || 'null'),
+    status: document.getElementById('pageStatus').textContent,
+    focusRestored: document.activeElement === trigger
+  };
+})()`);
+
+await call('Page.navigate', { url: `${baseUrl}/sleep.html` });
+await waitForReady();
+await new Promise((resolve) => setTimeout(resolve, 200));
+const signedOutPreviewReload = await evaluate(`({
+  type: document.getElementById('deviceIllustration').dataset.deviceType,
+  name: document.getElementById('deviceName').textContent,
+  previewPresent: Boolean(sessionStorage.getItem('healthDevicePreview'))
+})`);
 
 const pickerInteraction = await evaluate(`(async () => {
   const tick = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -259,8 +316,11 @@ await waitForReady();
 await waitForDeviceBrand('apple');
 const appleArtwork = await evaluate(`({
   brand: document.getElementById('deviceIllustration').dataset.deviceBrand,
+  type: document.getElementById('deviceIllustration').dataset.deviceType,
+  name: document.getElementById('deviceName').textContent,
   src: document.getElementById('deviceIllustration').getAttribute('src'),
-  loaded: Boolean(document.getElementById('deviceIllustration').complete && document.getElementById('deviceIllustration').naturalWidth)
+  loaded: Boolean(document.getElementById('deviceIllustration').complete && document.getElementById('deviceIllustration').naturalWidth),
+  signedOutPreviewDiscarded: !sessionStorage.getItem('healthDevicePreview')
 })`);
 
 await evaluate(`window.ApiClient.createHealthConnection({
@@ -275,6 +335,8 @@ await waitForReady();
 await waitForDeviceBrand('xiaomi');
 const xiaomiArtwork = await evaluate(`({
   brand: document.getElementById('deviceIllustration').dataset.deviceBrand,
+  type: document.getElementById('deviceIllustration').dataset.deviceType,
+  name: document.getElementById('deviceName').textContent,
   src: document.getElementById('deviceIllustration').getAttribute('src'),
   loaded: Boolean(document.getElementById('deviceIllustration').complete && document.getElementById('deviceIllustration').naturalWidth)
 })`);
@@ -291,9 +353,62 @@ await waitForReady();
 await waitForDeviceBrand('xiaomi');
 const unknownArtwork = await evaluate(`({
   brand: document.getElementById('deviceIllustration').dataset.deviceBrand,
+  type: document.getElementById('deviceIllustration').dataset.deviceType,
+  name: document.getElementById('deviceName').textContent,
   src: document.getElementById('deviceIllustration').getAttribute('src'),
   loaded: Boolean(document.getElementById('deviceIllustration').complete && document.getElementById('deviceIllustration').naturalWidth)
 })`);
+
+const devicePreferenceInteraction = await evaluate(`(async () => {
+  const tick = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const trigger = document.getElementById('deviceChooserTrigger');
+  trigger.click(); await tick();
+  document.querySelector('[data-device-type="apple"]').click();
+  document.getElementById('deviceChooserCancel').click();
+  const cancelPreserved = document.getElementById('deviceIllustration').dataset.deviceType === 'miband' && document.activeElement === trigger;
+  trigger.click(); await tick();
+  document.getElementById('deviceChooserModal').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  const outsideClosed = document.getElementById('deviceChooserModal').hidden && document.activeElement === trigger;
+  trigger.click(); await tick();
+  document.querySelector('#deviceTypeOptions .is-selected').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+  await tick();
+  const keyboardSelectedApple = document.querySelector('[data-device-type="apple"]').classList.contains('is-selected');
+  const defaultChangedWithType = document.getElementById('deviceDisplayName').value === 'Apple Watch';
+  document.getElementById('deviceDisplayName').value = 'My Migraine Watch';
+  document.getElementById('deviceChooserForm').requestSubmit();
+  for (let attempt = 0; attempt < 80 && !document.getElementById('deviceChooserModal').hidden; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 20));
+  const connectionData = await window.ApiClient.getHealthConnection();
+  return {
+    cancelPreserved,
+    outsideClosed,
+    keyboardSelectedApple,
+    defaultChangedWithType,
+    savedType: document.getElementById('deviceIllustration').dataset.deviceType,
+    savedName: document.getElementById('deviceName').textContent,
+    serverPreference: connectionData.devicePreference,
+    focusRestored: document.activeElement === trigger
+  };
+})()`);
+
+await evaluate(`window.ApiClient.createHealthConnection({
+  provider: 'health_connect',
+  deviceName: 'Android Phone After Rename',
+  manufacturer: 'Google',
+  model: 'Pixel Test',
+  sourcePackages: ['com.mi.health']
+})`);
+await call('Page.navigate', { url: `${baseUrl}/sleep.html` });
+await waitForReady();
+await waitForDeviceBrand('apple');
+const devicePreferenceAfterMetadataSync = await evaluate(`(async () => {
+  const data = await window.ApiClient.getHealthConnection();
+  return {
+    type: document.getElementById('deviceIllustration').dataset.deviceType,
+    name: document.getElementById('deviceName').textContent,
+    reportedDeviceName: data.connection.deviceName,
+    preference: data.devicePreference
+  };
+})()`);
 
 const pickerSave = await evaluate(`(async () => {
   const tick = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -456,6 +571,7 @@ const english = await evaluate(`({
   title: document.querySelector('.site-header__page-title').textContent,
   nav: document.querySelector('.health-nav-link.is-active span:last-child').textContent,
   record: document.querySelector('#record-title').textContent,
+  connectionTitle: document.getElementById('connection-title').textContent,
   pickerTitle: document.getElementById('pickerTitle').textContent,
   today: document.getElementById('pickerToday').textContent,
   cancel: document.getElementById('pickerCancel').textContent,
@@ -463,11 +579,23 @@ const english = await evaluate(`({
   dateDisplay: document.getElementById('datePickerDisplay').textContent
 })`);
 await evaluate(`document.getElementById('pickerCancel').click()`);
+await evaluate(`document.getElementById('deviceChooserTrigger').click()`);
+await new Promise((resolve) => setTimeout(resolve, 80));
+const englishDeviceChooser = await evaluate(`({
+  title: document.getElementById('deviceChooserTitle').textContent,
+  nameLabel: document.querySelector('.device-name-field span').textContent,
+  availableSoon: document.querySelector('.device-type-option.is-unavailable > span:nth-of-type(2)').textContent,
+  triggerLabel: document.getElementById('deviceChooserTrigger').getAttribute('aria-label')
+})`);
+await evaluate(`document.getElementById('deviceChooserCancel').click()`);
 
 const failures = layouts.flatMap((layout) => [
   !layout.noHorizontalOverflow && `${layout.name}: horizontal overflow (${layout.scrollWidth} > ${layout.viewport.width})`,
   !layout.footerInViewport && `${layout.name}: footer exceeds viewport`,
   layout.deviceBrand !== 'xiaomi' && `${layout.name}: disconnected fallback artwork is not Xiaomi`,
+  layout.connectionTitle !== '数据同步' && `${layout.name}: connection card title is not Data Sync`,
+  layout.deviceChooserTriggerTag !== 'BUTTON' && `${layout.name}: device artwork is not an interactive button`,
+  layout.defaultDeviceName !== 'Mi Band' && `${layout.name}: inferred product name is not shown`,
   !layout.deviceArtworkLoaded && `${layout.name}: fallback artwork did not load`,
   layout.rangeButtons !== 3 && `${layout.name}: range buttons missing`,
   layout.chartCanvases !== 5 && `${layout.name}: environmental chart canvases missing`,
@@ -476,6 +604,14 @@ const failures = layouts.flatMap((layout) => [
   !layout.controlsMatch && `${layout.name}: selection controls do not share one visual style`,
   !layout.equalDesktopCardHeight && `${layout.name}: top cards are not equal height`,
   !layout.syncDisabledWithoutConnection && `${layout.name}: ESP32 sync is enabled without an active connection`,
+  !layout.deviceChooser.open && `${layout.name}: device chooser did not open`,
+  layout.deviceChooser.selectableOptions !== 2 || layout.deviceChooser.totalOptions !== 3 ? `${layout.name}: device chooser options are incomplete` : false,
+  !layout.deviceChooser.unavailableDisabled && `${layout.name}: Available Soon can be selected`,
+  layout.deviceChooser.selectedOptions !== 1 && `${layout.name}: device chooser selection state is invalid`,
+  !layout.deviceChooser.artworkLoaded && `${layout.name}: chooser artwork did not load`,
+  !layout.deviceChooser.withinViewport && `${layout.name}: device chooser exceeds the viewport`,
+  !layout.deviceChooser.triggerExpanded && `${layout.name}: device chooser trigger does not expose expanded state`,
+  !layout.deviceChooser.noHorizontalOverflow && `${layout.name}: device chooser causes horizontal overflow`,
   !layout.picker.open && `${layout.name}: liquid-glass date picker did not open`,
   layout.picker.dateCells !== 42 && `${layout.name}: date picker does not render a six-week grid`,
   layout.picker.selectedDates !== 1 && `${layout.name}: date picker selection state is invalid`,
@@ -495,9 +631,13 @@ const failures = layouts.flatMap((layout) => [
   !layout.formProminent && `${layout.name}: form is not above analysis`,
   !layout.connectionProminent && `${layout.name}: connection is not above analysis`
 ].filter(Boolean));
-if (appleArtwork.brand !== 'apple' || appleArtwork.src !== 'assets/apple-watch.svg' || !appleArtwork.loaded) failures.push('Apple artwork selection failed');
-if (xiaomiArtwork.brand !== 'xiaomi' || xiaomiArtwork.src !== 'assets/xiaomi-band.svg' || !xiaomiArtwork.loaded) failures.push('Mi Fitness package artwork selection failed');
-if (unknownArtwork.brand !== 'xiaomi' || unknownArtwork.src !== 'assets/xiaomi-band.svg' || !unknownArtwork.loaded) failures.push('Unknown-device fallback artwork selection failed');
+if (appleArtwork.brand !== 'apple' || appleArtwork.type !== 'apple' || appleArtwork.name !== 'Apple Watch' || appleArtwork.src !== 'assets/apple-watch.svg' || !appleArtwork.loaded || !appleArtwork.signedOutPreviewDiscarded) failures.push('Apple artwork selection or signed-out preview cleanup failed');
+if (xiaomiArtwork.brand !== 'xiaomi' || xiaomiArtwork.type !== 'miband' || xiaomiArtwork.name !== 'Mi Band' || xiaomiArtwork.src !== 'assets/xiaomi-band.svg' || !xiaomiArtwork.loaded) failures.push('Mi Fitness package artwork selection failed');
+if (unknownArtwork.brand !== 'xiaomi' || unknownArtwork.type !== 'miband' || unknownArtwork.name !== 'Mi Band' || unknownArtwork.src !== 'assets/xiaomi-band.svg' || !unknownArtwork.loaded) failures.push('Unknown-device fallback artwork selection failed');
+if (!signedOutDevicePreview.unavailableIgnored || !signedOutDevicePreview.emptyNameRejected || !signedOutDevicePreview.modalClosed || signedOutDevicePreview.type !== 'apple' || signedOutDevicePreview.name !== 'Bedroom Watch' || signedOutDevicePreview.preview?.displayName !== 'Bedroom Watch' || !signedOutDevicePreview.status || !signedOutDevicePreview.focusRestored) failures.push('Signed-out device preview behavior failed');
+if (signedOutPreviewReload.type !== 'apple' || signedOutPreviewReload.name !== 'Bedroom Watch' || !signedOutPreviewReload.previewPresent) failures.push('Signed-out device preview did not survive a session reload');
+if (!devicePreferenceInteraction.cancelPreserved || !devicePreferenceInteraction.outsideClosed || !devicePreferenceInteraction.keyboardSelectedApple || !devicePreferenceInteraction.defaultChangedWithType || devicePreferenceInteraction.savedType !== 'apple' || devicePreferenceInteraction.savedName !== 'My Migraine Watch' || devicePreferenceInteraction.serverPreference?.displayName !== 'My Migraine Watch' || !devicePreferenceInteraction.focusRestored) failures.push('Account-backed device chooser interaction failed');
+if (devicePreferenceAfterMetadataSync.type !== 'apple' || devicePreferenceAfterMetadataSync.name !== 'My Migraine Watch' || devicePreferenceAfterMetadataSync.reportedDeviceName !== 'Android Phone After Rename' || devicePreferenceAfterMetadataSync.preference?.displayName !== 'My Migraine Watch') failures.push('Android metadata refresh overwrote the display preference');
 if (pickerInteraction.selectedBefore === pickerInteraction.selectedAfterArrow || pickerInteraction.keyboardDate !== pickerInteraction.selectedAfterArrow) failures.push('Date picker keyboard navigation failed');
 if (pickerInteraction.originalMonth === pickerInteraction.navigatedMonth || !pickerInteraction.cancelPreservedDate || !pickerInteraction.focusTrapped || !pickerInteraction.outsideClosed) failures.push('Date navigation, cancellation, focus containment, or outside-click behavior failed');
 if (pickerInteraction.todaySelection !== pickerInteraction.originalDate || pickerInteraction.finalDate !== pickerInteraction.originalDate) failures.push('Date picker Today action failed');
@@ -517,11 +657,12 @@ if (esp32Sync.historyRows < 1 || esp32Sync.historyColumns !== 11) failures.push(
 if (!esp32Sync.environmentCharts) failures.push('Environmental charts were not created');
 if (esp32Sync.rangeCoverage.some((item) => item.seriesLength !== item.range || !item.hasEnvironment)) failures.push('Environmental analysis is missing from a 7/30/90-day range');
 if (esp32Reload.endpoint !== 'http://esp32.test/data' || !esp32Reload.syncEnabled || !esp32Reload.oneVisibleControl || !esp32Reload.stressTileRemoved) failures.push('ESP32 state did not reload correctly');
-if (english.title !== 'Health Analysis' || english.nav !== 'Health Analysis' || english.record !== 'Record Sleep') failures.push('English translations did not apply');
+if (english.title !== 'Health Analysis' || english.nav !== 'Health Analysis' || english.record !== 'Record Sleep' || english.connectionTitle !== 'Data Sync') failures.push('English translations did not apply');
 if (english.pickerTitle !== 'Choose date' || english.today !== 'Today' || english.cancel !== 'Cancel' || english.apply !== 'Apply' || !/[A-Za-z]/.test(english.dateDisplay)) failures.push('English picker translations did not apply');
+if (englishDeviceChooser.title !== 'Choose your device' || englishDeviceChooser.nameLabel !== 'Device name' || englishDeviceChooser.availableSoon !== 'Available soon' || englishDeviceChooser.triggerLabel !== 'Choose or rename device') failures.push('English device chooser translations did not apply');
 const actionableErrors = errors.filter((error) => !error.includes('net::ERR_NETWORK_ACCESS_DENIED'));
 if (actionableErrors.length) failures.push(...actionableErrors.map((error) => `browser: ${error}`));
 
-console.log(JSON.stringify({ layouts, pickerInteraction, pickerSave, artwork: { appleArtwork, xiaomiArtwork, unknownArtwork }, esp32Errors, esp32Sync, esp32Reload, english, errors: actionableErrors, blockedExternalResources: errors.length - actionableErrors.length }, null, 2));
+console.log(JSON.stringify({ layouts, signedOutDevicePreview, signedOutPreviewReload, pickerInteraction, pickerSave, artwork: { appleArtwork, xiaomiArtwork, unknownArtwork }, devicePreferenceInteraction, devicePreferenceAfterMetadataSync, esp32Errors, esp32Sync, esp32Reload, english, englishDeviceChooser, errors: actionableErrors, blockedExternalResources: errors.length - actionableErrors.length }, null, 2));
 socket.close();
 if (failures.length) throw new Error(failures.join('\n'));

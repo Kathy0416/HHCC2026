@@ -1,14 +1,17 @@
 (function () {
   'use strict';
 
-  const state = { range: 30, analysis: null, connection: null, latest: null, environmentLatest: null, esp32Syncing: false, esp32Synced: false, charts: {} };
+  const state = { range: 30, analysis: null, connection: null, latest: null, environmentLatest: null, devicePreference: null, devicePreferenceSaving: false, esp32Syncing: false, esp32Synced: false, charts: {} };
   const QUALITY = new Set(['excellent', 'good', 'fair', 'poor']);
   const ESP32_ENDPOINT_KEY = 'esp32EndpointUrl';
+  const DEVICE_PREVIEW_KEY = 'healthDevicePreview';
   const ESP32_UPLOAD_CHUNK_SIZE = 500;
   const DEVICE_ARTWORK = Object.freeze({
     apple: 'assets/apple-watch.svg',
-    xiaomi: 'assets/xiaomi-band.svg'
+    miband: 'assets/xiaomi-band.svg'
   });
+  const DEVICE_TYPES = new Set(['apple', 'miband']);
+  const deviceChooserState = { open: false, type: 'miband', trigger: null };
   const pickerState = {
     open: false, type: null, targetId: null, trigger: null,
     pendingDate: '', viewMonth: null, pendingTime: '', pendingQuality: 'excellent'
@@ -65,6 +68,7 @@
       state.connection = null;
       state.latest = null;
       state.environmentLatest = null;
+      state.devicePreference = null;
       renderConnection();
       renderLocalAnalysis();
       setStatus(t('health.record.loginRequired'));
@@ -83,6 +87,7 @@
         );
         window.ApiClient.setToken(data.token);
         localStorage.setItem('currentUser', JSON.stringify(data.user));
+        sessionStorage.removeItem(DEVICE_PREVIEW_KEY);
         hideModal('loginModal');
         updateAuthHeader();
         await loadAll();
@@ -102,6 +107,7 @@
         const data = await window.ApiClient.register(document.getElementById('registerUsername').value.trim(), password);
         window.ApiClient.setToken(data.token);
         localStorage.setItem('currentUser', JSON.stringify(data.user));
+        sessionStorage.removeItem(DEVICE_PREVIEW_KEY);
         hideModal('registerModal');
         updateAuthHeader();
         await loadAll();
@@ -504,8 +510,8 @@
     return value == null || !Number.isFinite(Number(value)) ? '—' : `${Number(value).toFixed(digits)}${suffix || ''}`;
   }
 
-  function deviceArtworkBrand(connection) {
-    if (!connection) return 'xiaomi';
+  function inferDeviceType(connection) {
+    if (!connection) return 'miband';
     const sourcePackages = Array.isArray(connection.sourcePackages) ? connection.sourcePackages : [];
     const identity = [connection.manufacturer, connection.model, connection.deviceName, ...sourcePackages]
       .filter(Boolean)
@@ -513,16 +519,41 @@
       .toLowerCase();
 
     if (/\bapple\b|apple\s*watch|watchos|com\.apple\./.test(identity)) return 'apple';
-    if (/\bxiaomi\b|\bredmi\b|\bmi\s*(?:band|smart\s*band|fitness)\b|com\.mi\.health|com\.xiaomi\./.test(identity)) return 'xiaomi';
-    return 'xiaomi';
+    return 'miband';
   }
 
-  function renderDeviceArtwork(connection) {
+  function defaultDeviceName(deviceType) {
+    return t(deviceType === 'apple' ? 'health.deviceChooser.apple' : 'health.deviceChooser.miband');
+  }
+
+  function normalizedDevicePreference(value) {
+    if (!value || !DEVICE_TYPES.has(value.deviceType)) return null;
+    const displayName = String(value.displayName || '').trim();
+    if (!displayName || Array.from(displayName).length > 60) return null;
+    return { deviceType: value.deviceType, displayName };
+  }
+
+  function sessionDevicePreview() {
+    try { return normalizedDevicePreference(JSON.parse(sessionStorage.getItem(DEVICE_PREVIEW_KEY) || 'null')); } catch (error) { return null; }
+  }
+
+  function effectiveDevicePreference() {
+    const saved = normalizedDevicePreference(state.devicePreference);
+    if (saved) return saved;
+    if (!window.ApiClient?.hasToken()) {
+      const preview = sessionDevicePreview();
+      if (preview) return preview;
+    }
+    const deviceType = inferDeviceType(state.connection);
+    return { deviceType, displayName: defaultDeviceName(deviceType) };
+  }
+
+  function renderDeviceArtwork(preference) {
     const illustration = document.getElementById('deviceIllustration');
     if (!illustration) return;
-    const brand = deviceArtworkBrand(connection);
-    illustration.src = DEVICE_ARTWORK[brand];
-    illustration.dataset.deviceBrand = brand;
+    illustration.src = DEVICE_ARTWORK[preference.deviceType];
+    illustration.dataset.deviceType = preference.deviceType;
+    illustration.dataset.deviceBrand = preference.deviceType === 'miband' ? 'xiaomi' : 'apple';
   }
 
   function updateEsp32Button() {
@@ -549,10 +580,10 @@
         badge.textContent = t('health.connection.stale');
       }
     }
-    document.getElementById('deviceName').textContent = connection
-      ? (connection.deviceName || [connection.manufacturer, connection.model].filter(Boolean).join(' ') || 'Health Connect')
-      : 'Health Connect';
-    renderDeviceArtwork(connection);
+    const devicePreference = effectiveDevicePreference();
+    document.getElementById('deviceName').textContent = devicePreference.displayName;
+    renderDeviceArtwork(devicePreference);
+    document.getElementById('deviceChooserTrigger').setAttribute('aria-label', t('health.deviceChooser.open'));
     document.getElementById('lastSync').textContent = connection?.lastSyncedAt
       ? `${t('health.connection.lastSync')}: ${formatDateTime(connection.lastSyncedAt)}` : '—';
     document.getElementById('latestHeartRate').textContent = latest?.heartRate?.avg == null ? '—' : Math.round(latest.heartRate.avg);
@@ -561,6 +592,131 @@
     document.getElementById('latestSleep').textContent = latest?.sleep?.durationMinutes == null ? '—' : formatDuration(latest.sleep.durationMinutes);
     document.getElementById('disconnectBtn').disabled = !active;
     updateEsp32Button();
+  }
+
+  function setDeviceChooserError(message = '') {
+    const element = document.getElementById('deviceChooserError');
+    element.textContent = message;
+    element.hidden = !message;
+  }
+
+  function syncDeviceChooserSelection(focusSelected = false) {
+    const options = [...document.querySelectorAll('#deviceTypeOptions [data-device-type]')];
+    options.forEach((option) => {
+      const selected = option.dataset.deviceType === deviceChooserState.type;
+      option.classList.toggle('is-selected', selected);
+      option.setAttribute('aria-checked', String(selected));
+      option.tabIndex = selected ? 0 : -1;
+    });
+    if (focusSelected) options.find((option) => option.dataset.deviceType === deviceChooserState.type)?.focus();
+  }
+
+  function chooseDeviceType(deviceType, focusSelected = false) {
+    if (!DEVICE_TYPES.has(deviceType)) return;
+    const input = document.getElementById('deviceDisplayName');
+    const previousDefault = defaultDeviceName(deviceChooserState.type);
+    const currentName = input.value.trim();
+    deviceChooserState.type = deviceType;
+    if (!currentName || currentName === previousDefault) input.value = defaultDeviceName(deviceType);
+    syncDeviceChooserSelection(focusSelected);
+    setDeviceChooserError();
+  }
+
+  function openDeviceChooser() {
+    const preference = effectiveDevicePreference();
+    deviceChooserState.open = true;
+    deviceChooserState.type = preference.deviceType;
+    deviceChooserState.trigger = document.getElementById('deviceChooserTrigger');
+    document.getElementById('deviceDisplayName').value = preference.displayName;
+    setDeviceChooserError();
+    syncDeviceChooserSelection();
+    document.getElementById('deviceChooserModal').hidden = false;
+    deviceChooserState.trigger.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('has-picker-open');
+    requestAnimationFrame(() => syncDeviceChooserSelection(true));
+  }
+
+  function closeDeviceChooser(restoreFocus = true) {
+    if (!deviceChooserState.open) return;
+    deviceChooserState.open = false;
+    document.getElementById('deviceChooserModal').hidden = true;
+    document.getElementById('deviceChooserTrigger').setAttribute('aria-expanded', 'false');
+    setDeviceChooserError();
+    if (!pickerState.open && document.getElementById('esp32EndpointModal').hidden) document.body.classList.remove('has-picker-open');
+    if (restoreFocus) deviceChooserState.trigger?.focus();
+  }
+
+  async function saveDevicePreference(event) {
+    event.preventDefault();
+    const input = document.getElementById('deviceDisplayName');
+    const displayName = input.value.trim();
+    if (!displayName || Array.from(displayName).length > 60) {
+      setDeviceChooserError(t('health.deviceChooser.invalidName'));
+      input.focus();
+      return;
+    }
+    const preference = { deviceType: deviceChooserState.type, displayName };
+    const applyButton = document.getElementById('deviceChooserApply');
+    state.devicePreferenceSaving = true;
+    applyButton.disabled = true;
+    document.getElementById('deviceChooserForm').setAttribute('aria-busy', 'true');
+    try {
+      if (window.ApiClient?.hasToken()) {
+        const result = await window.ApiClient.updateHealthDevicePreference(preference);
+        state.devicePreference = result.devicePreference;
+        sessionStorage.removeItem(DEVICE_PREVIEW_KEY);
+        setStatus(t('health.deviceChooser.saved'), 'success');
+      } else {
+        sessionStorage.setItem(DEVICE_PREVIEW_KEY, JSON.stringify(preference));
+        state.devicePreference = null;
+        setStatus(t('health.deviceChooser.previewOnly'));
+      }
+      renderConnection();
+      closeDeviceChooser();
+    } catch (error) {
+      setDeviceChooserError(error.message || t('health.common.offline'));
+    } finally {
+      state.devicePreferenceSaving = false;
+      applyButton.disabled = false;
+      document.getElementById('deviceChooserForm').setAttribute('aria-busy', 'false');
+    }
+  }
+
+  function handleDeviceChooserKeydown(event) {
+    if (!deviceChooserState.open) return;
+    if (event.key === 'Escape') { event.preventDefault(); closeDeviceChooser(); return; }
+    const option = event.target.closest?.('[data-device-type]');
+    if (option && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      const types = ['apple', 'miband'];
+      let index = types.indexOf(option.dataset.deviceType);
+      if (event.key === 'Home') index = 0;
+      else if (event.key === 'End') index = types.length - 1;
+      else index = (index + (['ArrowRight', 'ArrowDown'].includes(event.key) ? 1 : -1) + types.length) % types.length;
+      chooseDeviceType(types[index], true);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const modal = document.getElementById('deviceChooserModal');
+    const focusable = [...modal.querySelectorAll('button:not(:disabled), input:not(:disabled)')].filter((item) => item.offsetParent !== null && item.tabIndex >= 0);
+    const first = focusable[0]; const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+
+  function initDeviceChooser() {
+    document.getElementById('deviceChooserTrigger').addEventListener('click', openDeviceChooser);
+    document.getElementById('deviceTypeOptions').addEventListener('click', (event) => {
+      const option = event.target.closest('[data-device-type]');
+      if (option) chooseDeviceType(option.dataset.deviceType, true);
+    });
+    document.getElementById('deviceChooserForm').addEventListener('submit', saveDevicePreference);
+    document.getElementById('deviceChooserClose').addEventListener('click', () => closeDeviceChooser());
+    document.getElementById('deviceChooserCancel').addEventListener('click', () => closeDeviceChooser());
+    document.getElementById('deviceChooserModal').addEventListener('pointerdown', (event) => {
+      if (event.target === event.currentTarget) closeDeviceChooser();
+    });
+    document.getElementById('deviceChooserModal').addEventListener('keydown', handleDeviceChooserKeydown);
   }
 
   function chartDefaults() {
@@ -752,14 +908,16 @@
   async function loadAll(showLoading = true) {
     if (showLoading) setStatus(t('health.common.loading'));
     if (!window.ApiClient?.hasToken()) {
-      state.connection = null; state.latest = null; state.environmentLatest = null; renderConnection(); renderLocalAnalysis(); setStatus(t('health.record.loginRequired'));
+      state.connection = null; state.latest = null; state.environmentLatest = null; state.devicePreference = null; renderConnection(); renderLocalAnalysis(); setStatus(t('health.record.loginRequired'));
       return;
     }
     try {
+      sessionStorage.removeItem(DEVICE_PREVIEW_KEY);
       const [connectionData, analysis] = await Promise.all([window.ApiClient.getHealthConnection(), window.ApiClient.getHealthAnalysis(state.range)]);
       state.connection = connectionData.connection;
       state.latest = connectionData.latest;
       state.environmentLatest = connectionData.environmentLatest;
+      state.devicePreference = connectionData.devicePreference;
       renderAnalysis(analysis);
       setStatus('');
     } catch (error) {
@@ -952,6 +1110,7 @@
   function init() {
     initAuth();
     initSleepForm();
+    initDeviceChooser();
     initControls();
     loadAll();
     window.addEventListener('migraine:languagechange', () => {

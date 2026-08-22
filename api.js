@@ -153,6 +153,9 @@
     createHealthConnection(connection) {
       return this._request('POST', '/health/connections', connection);
     },
+    updateHealthDevicePreference(preference) {
+      return this._request('PUT', '/health/device-preference', preference);
+    },
     disconnectHealthConnection(id) {
       return this._request('DELETE', '/health/connections/' + encodeURIComponent(id));
     },

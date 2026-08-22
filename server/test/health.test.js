@@ -19,6 +19,7 @@ function schema(db) {
     CREATE TABLE calendar_entries (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, date TEXT NOT NULL, migraine INTEGER NOT NULL DEFAULT 0, diary TEXT NOT NULL DEFAULT '', triggers TEXT NOT NULL DEFAULT '[]', last_updated TEXT, UNIQUE(user_id, date));
     CREATE TABLE sleep_records (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, date TEXT NOT NULL, sleep_time TEXT NOT NULL DEFAULT '', wake_time TEXT NOT NULL DEFAULT '', duration_hours INTEGER NOT NULL DEFAULT 0, duration_minutes INTEGER NOT NULL DEFAULT 0, duration_total_minutes INTEGER NOT NULL DEFAULT 0, quality TEXT NOT NULL DEFAULT '', UNIQUE(user_id, date));
     CREATE TABLE health_connections (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, provider TEXT NOT NULL DEFAULT 'health_connect', device_name TEXT NOT NULL DEFAULT '', manufacturer TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', source_packages TEXT NOT NULL DEFAULT '[]', active INTEGER NOT NULL DEFAULT 1, last_synced_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(user_id, provider));
+    CREATE TABLE health_device_preferences (user_id INTEGER PRIMARY KEY, device_type TEXT NOT NULL, display_name TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')));
     CREATE TABLE health_daily (id INTEGER PRIMARY KEY AUTOINCREMENT, connection_id INTEGER NOT NULL, user_id INTEGER NOT NULL, local_date TEXT NOT NULL, timezone TEXT NOT NULL DEFAULT 'UTC', sleep_start TEXT, sleep_end TEXT, sleep_duration_minutes INTEGER, sleep_stages TEXT NOT NULL DEFAULT '{}', heart_rate_min REAL, heart_rate_avg REAL, heart_rate_max REAL, heart_rate_count INTEGER NOT NULL DEFAULT 0, spo2_min REAL, spo2_avg REAL, spo2_max REAL, spo2_count INTEGER NOT NULL DEFAULT 0, steps INTEGER, data_origins TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(connection_id, local_date));
     CREATE TABLE health_sleep_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, connection_id INTEGER NOT NULL, user_id INTEGER NOT NULL, source_record_id TEXT NOT NULL, local_date TEXT NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, duration_minutes INTEGER NOT NULL, stages TEXT NOT NULL DEFAULT '{}', data_origin TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(connection_id, source_record_id));
     CREATE TABLE environment_readings (id INTEGER PRIMARY KEY AUTOINCREMENT, connection_id INTEGER NOT NULL, user_id INTEGER NOT NULL, source_record_id TEXT NOT NULL, recorded_at TEXT NOT NULL, local_date TEXT NOT NULL, timezone TEXT NOT NULL DEFAULT 'UTC', mono_us INTEGER NOT NULL, mode TEXT NOT NULL DEFAULT '', temperature_c REAL NOT NULL, humidity_pct REAL NOT NULL, light_lux REAL NOT NULL, noise_db REAL NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(connection_id, source_record_id));
@@ -82,6 +83,33 @@ test('authenticated health flow is isolated, idempotent, and retains history aft
   });
   assert.equal(response.status, 201);
   const connection = (await response.json()).connection;
+
+  response = await fetch(base + '/device-preference', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceType: 'apple', displayName: 'My Watch' })
+  });
+  assert.equal(response.status, 401);
+  response = await call('/device-preference', { method: 'PUT', body: JSON.stringify({ deviceType: 'future', displayName: 'Future Watch' }) });
+  assert.equal(response.status, 400);
+  response = await call('/device-preference', { method: 'PUT', body: JSON.stringify({ deviceType: 'apple', displayName: ' '.repeat(2) }) });
+  assert.equal(response.status, 400);
+  response = await call('/device-preference', { method: 'PUT', body: JSON.stringify({ deviceType: 'apple', displayName: 'x'.repeat(61) }) });
+  assert.equal(response.status, 400);
+  response = await call('/device-preference', { method: 'PUT', body: JSON.stringify({ deviceType: 'apple', displayName: '  My Watch  ' }) });
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).devicePreference.deviceType, 'apple');
+  response = await call('/connection');
+  assert.deepEqual((await response.json()).devicePreference.displayName, 'My Watch');
+  response = await call('/connection', {}, tokenTwo);
+  assert.equal((await response.json()).devicePreference, null);
+
+  response = await call('/connections', {
+    method: 'POST', body: JSON.stringify({ provider: 'health_connect', deviceName: 'Android Phone', manufacturer: 'Google', sourcePackages: ['com.mi.health'] })
+  });
+  assert.equal(response.status, 201);
+  response = await call('/connection');
+  const connectionAfterMetadataRefresh = await response.json();
+  assert.equal(connectionAfterMetadataRefresh.connection.deviceName, 'Android Phone');
+  assert.equal(connectionAfterMetadataRefresh.devicePreference.displayName, 'My Watch');
 
   const days = Array.from({ length: 7 }, (_, index) => ({
     date: isoDate(index - 6), timezone: 'UTC',

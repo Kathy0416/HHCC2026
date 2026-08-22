@@ -8,6 +8,7 @@ const { DATE_RE, buildAnalysis, parseRange, safeJson, todayInZone } = require('.
 const MAX_DAYS_PER_SYNC = 100;
 const MAX_SESSIONS_PER_SYNC = 300;
 const MAX_ENVIRONMENT_READINGS_PER_SYNC = 500;
+const DEVICE_TYPES = new Set(['apple', 'miband']);
 
 function text(value, maxLength = 160) {
   return String(value == null ? '' : value).trim().slice(0, maxLength);
@@ -157,6 +158,15 @@ function connectionJson(row) {
   };
 }
 
+function devicePreferenceJson(row) {
+  if (!row) return null;
+  return {
+    deviceType: row.device_type,
+    displayName: row.display_name,
+    updatedAt: row.updated_at
+  };
+}
+
 function latestJson(row) {
   if (!row) return null;
   return {
@@ -240,7 +250,33 @@ function createHealthRouter(db = defaultDb) {
     const environmentLatest = row ? db.prepare(`
       SELECT * FROM environment_readings WHERE user_id = ? AND connection_id = ? ORDER BY recorded_at DESC, id DESC LIMIT 1
     `).get(req.user.id, row.id) : null;
-    res.json({ connection: connectionJson(row), latest: latestJson(latest), environmentLatest: environmentLatestJson(environmentLatest) });
+    const devicePreference = db.prepare('SELECT * FROM health_device_preferences WHERE user_id = ?').get(req.user.id);
+    res.json({
+      connection: connectionJson(row),
+      latest: latestJson(latest),
+      environmentLatest: environmentLatestJson(environmentLatest),
+      devicePreference: devicePreferenceJson(devicePreference)
+    });
+  });
+
+  router.put('/device-preference', (req, res) => {
+    const deviceType = text(req.body.deviceType, 20).toLowerCase();
+    const displayName = String(req.body.displayName == null ? '' : req.body.displayName).trim();
+    if (!DEVICE_TYPES.has(deviceType)) return res.status(400).json({ error: req.t('invalidDeviceType') });
+    if (!displayName || Array.from(displayName).length > 60) {
+      return res.status(400).json({ error: req.t('invalidDeviceName') });
+    }
+
+    db.prepare(`
+      INSERT INTO health_device_preferences (user_id, device_type, display_name, updated_at)
+      VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(user_id) DO UPDATE SET
+        device_type = excluded.device_type,
+        display_name = excluded.display_name,
+        updated_at = datetime('now')
+    `).run(req.user.id, deviceType, displayName);
+    const row = db.prepare('SELECT * FROM health_device_preferences WHERE user_id = ?').get(req.user.id);
+    res.json({ devicePreference: devicePreferenceJson(row) });
   });
 
   router.delete('/connections/:id', (req, res) => {

@@ -7,14 +7,14 @@
     <link rel="icon" href="data:,">
     <title>健康分析 - Migraine Signal</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="health-analysis.css?v=15-compact-wheels">
+    <link rel="stylesheet" href="health-analysis.css?v=16-device-chooser">
     <script src="site-header.js"></script>
-    <script src="locales.js?v=15-compact-wheels"></script>
+    <script src="locales.js?v=16-device-chooser"></script>
     <script src="i18n.js?v=8-health-analysis"></script>
-    <script src="api.js?v=12-esp32-environment"></script>
+    <script src="api.js?v=16-device-chooser"></script>
     <script src="esp32-parser.js?v=12-esp32-environment"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="health-analysis.js?v=15-compact-wheels" defer></script>
+    <script src="health-analysis.js?v=16-device-chooser" defer></script>
 </head>
 <body class="health-page">
     <div data-site-header data-page-title="健康分析"></div>
@@ -43,13 +43,13 @@
 
             <section class="health-card connection-card" aria-labelledby="connection-title">
                 <div class="section-heading">
-                    <div><p class="section-eyebrow">HEALTH CONNECT</p><h2 id="connection-title" data-i18n="health.connection.title">手表连接</h2></div>
+                    <div><p class="section-eyebrow">HEALTH CONNECT</p><h2 id="connection-title" data-i18n="health.connection.title">数据同步</h2></div>
                     <span id="connectionBadge" class="connection-badge is-offline" data-i18n="health.connection.disconnected">已断开</span>
                 </div>
                 <div class="esp32-sync-entry"><button type="button" id="esp32SyncBtn" class="primary-action compact esp32-sync-button" disabled data-i18n="health.esp32.sync">同步 ESP32 数据</button></div>
                 <div class="connection-layout">
                     <div class="device-block">
-                        <img id="deviceIllustration" class="watch-illustration" src="assets/xiaomi-band.svg" alt="" aria-hidden="true">
+                        <button type="button" id="deviceChooserTrigger" class="device-artwork-button" aria-haspopup="dialog" aria-controls="deviceChooserModal" aria-expanded="false" data-i18n-aria-label="health.deviceChooser.open" aria-label="选择设备或修改名称"><img id="deviceIllustration" class="watch-illustration" src="assets/xiaomi-band.svg" alt=""></button>
                         <p class="device-label" data-i18n="health.connection.device">设备</p><strong id="deviceName">Health Connect</strong><span id="lastSync" class="last-sync">—</span>
                     </div>
                     <dl class="latest-grid">
@@ -131,6 +131,22 @@
             </div>
             <div id="qualityPickerView" class="picker-view" hidden><div id="pickerQualities" class="picker-choice-list quality-choice-list" role="listbox" data-i18n-aria-label="health.picker.qualityOptions" aria-label="睡眠质量选项"></div></div>
             <footer id="pickerActions" class="picker-actions"><button type="button" id="pickerToday" class="picker-text-action" data-i18n="health.picker.today">今天</button><span class="picker-action-spacer"></span><button type="button" id="pickerCancel" class="picker-text-action" data-i18n="health.picker.cancel">取消</button><button type="button" id="pickerApply" class="picker-apply" data-i18n="health.picker.apply">应用</button></footer>
+        </section>
+    </div>
+
+    <div id="deviceChooserModal" class="picker-backdrop device-chooser-backdrop" hidden>
+        <section class="glass-picker device-chooser-dialog" role="dialog" aria-modal="true" aria-labelledby="deviceChooserTitle">
+            <header class="picker-header"><div><p class="section-eyebrow">WEARABLE DEVICE</p><h2 id="deviceChooserTitle" data-i18n="health.deviceChooser.title">选择您的设备</h2></div><button type="button" id="deviceChooserClose" class="picker-icon-button" data-i18n-aria-label="health.deviceChooser.close" aria-label="关闭设备选择器">×</button></header>
+            <form id="deviceChooserForm" class="device-chooser-form" novalidate>
+                <div id="deviceTypeOptions" class="device-type-options" role="radiogroup" data-i18n-aria-label="health.deviceChooser.title" aria-label="选择您的设备">
+                    <button type="button" class="device-type-option" data-device-type="apple" role="radio" aria-checked="false"><img src="assets/apple-watch.svg" alt=""><span data-i18n="health.deviceChooser.apple">Apple Watch</span></button>
+                    <button type="button" class="device-type-option" data-device-type="miband" role="radio" aria-checked="false"><img src="assets/xiaomi-band.svg" alt=""><span data-i18n="health.deviceChooser.miband">Mi Band</span></button>
+                    <button type="button" class="device-type-option is-unavailable" disabled aria-disabled="true"><span class="available-soon-art" aria-hidden="true">•••</span><span data-i18n="health.deviceChooser.availableSoon">即将推出</span><small data-i18n="health.deviceChooser.unavailable">此设备暂不可用</small></button>
+                </div>
+                <label class="device-name-field"><span data-i18n="health.deviceChooser.name">设备名称</span><input type="text" id="deviceDisplayName" maxlength="60" autocomplete="off" data-i18n-placeholder="health.deviceChooser.namePlaceholder" placeholder="请输入设备名称" required aria-required="true"></label>
+                <p id="deviceChooserError" class="device-chooser-error" role="alert" hidden></p>
+                <div class="device-chooser-actions"><button type="button" id="deviceChooserCancel" class="picker-text-action" data-i18n="health.picker.cancel">取消</button><button type="submit" id="deviceChooserApply" class="picker-apply" data-i18n="health.picker.apply">应用</button></div>
+            </form>
         </section>
     </div>
 

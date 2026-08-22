@@ -61,6 +61,14 @@ function initSchema() {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS health_device_preferences (
+      user_id INTEGER PRIMARY KEY,
+      device_type TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS health_daily (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       connection_id INTEGER NOT NULL,

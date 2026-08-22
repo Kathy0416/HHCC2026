@@ -53,8 +53,20 @@
       'health.picker.apply': 'Apply',
       'health.picker.close': 'Close picker',
       'health.picker.required': 'Choose a date, bedtime, and wake time before saving.',
-      'health.connection.title': 'Watch Connection',
+      'health.connection.title': 'Data Sync',
       'health.connection.device': 'Device',
+      'health.deviceChooser.open': 'Choose or rename device',
+      'health.deviceChooser.title': 'Choose your device',
+      'health.deviceChooser.apple': 'Apple Watch',
+      'health.deviceChooser.miband': 'Mi Band',
+      'health.deviceChooser.availableSoon': 'Available soon',
+      'health.deviceChooser.unavailable': 'This device is not available yet',
+      'health.deviceChooser.name': 'Device name',
+      'health.deviceChooser.namePlaceholder': 'Enter a device name',
+      'health.deviceChooser.invalidName': 'Enter a device name from 1 to 60 characters.',
+      'health.deviceChooser.previewOnly': 'Preview applied for this browser session. Log in to save it to your account.',
+      'health.deviceChooser.saved': 'Device preference saved.',
+      'health.deviceChooser.close': 'Close device chooser',
       'health.connection.connected': 'Connected',
       'health.connection.disconnected': 'Disconnected',
       'health.connection.stale': 'Data may be out of date',
@@ -197,8 +209,20 @@
       'health.picker.apply': '应用',
       'health.picker.close': '关闭选择器',
       'health.picker.required': '保存前请选择日期、入睡时间和起床时间。',
-      'health.connection.title': '手表连接',
+      'health.connection.title': '数据同步',
       'health.connection.device': '设备',
+      'health.deviceChooser.open': '选择设备或修改名称',
+      'health.deviceChooser.title': '选择您的设备',
+      'health.deviceChooser.apple': 'Apple Watch',
+      'health.deviceChooser.miband': 'Mi Band',
+      'health.deviceChooser.availableSoon': '即将推出',
+      'health.deviceChooser.unavailable': '此设备暂不可用',
+      'health.deviceChooser.name': '设备名称',
+      'health.deviceChooser.namePlaceholder': '请输入设备名称',
+      'health.deviceChooser.invalidName': '请输入 1 至 60 个字符的设备名称。',
+      'health.deviceChooser.previewOnly': '已在当前浏览器会话中预览。登录后可保存到您的账号。',
+      'health.deviceChooser.saved': '设备偏好已保存。',
+      'health.deviceChooser.close': '关闭设备选择器',
       'health.connection.connected': '已连接',
       'health.connection.disconnected': '已断开',
       'health.connection.stale': '数据可能已过期',
@@ -380,13 +404,13 @@
       usernameTaken: 'That username is already registered.', invalidCredentials: 'Incorrect username or password.', userNotFound: 'User not found.', invalidDate: 'Date must use YYYY-MM-DD.',
       emptyTitle: 'Title is required.', emptyContent: 'Content is required.', titleTooLong: 'Title is too long (100 characters maximum).', contentTooLong: 'Content is too long (20,000 characters maximum).',
       imageTooLarge: 'Image is too large (approximately 7 MB maximum).', invalidTemplate: 'Invalid template type.', tipNotFound: 'Tip not found.', emptyComment: 'Comment cannot be empty.', commentTooLong: 'Comment is too long.'
-      , invalidProvider: 'Only Health Connect is supported.', invalidHealthPayload: 'The health data payload is invalid.', invalidTimezone: 'The time zone is invalid.', invalidTimestamp: 'A health timestamp is invalid.', invalidConnection: 'The connection ID is invalid.', connectionNotFound: 'Health connection not found.', connectionInactive: 'This health connection is disconnected. Reconnect it in the Android app before syncing.', invalidRange: 'Range must be 7, 30, or 90 days.'
+      , invalidProvider: 'Only Health Connect is supported.', invalidHealthPayload: 'The health data payload is invalid.', invalidTimezone: 'The time zone is invalid.', invalidTimestamp: 'A health timestamp is invalid.', invalidConnection: 'The connection ID is invalid.', connectionNotFound: 'Health connection not found.', connectionInactive: 'This health connection is disconnected. Reconnect it in the Android app before syncing.', invalidRange: 'Range must be 7, 30, or 90 days.', invalidDeviceType: 'Choose Apple Watch or Mi Band.', invalidDeviceName: 'Device name must contain 1 to 60 characters.'
     },
     'zh-CN': {
       loginRequired: '未登录或登录已过期', invalidSession: '登录状态无效，请重新登录', notFound: '接口不存在', internal: '服务器内部错误', emptyMessage: '消息不能为空',
       emptyCredentials: '用户名和密码不能为空', usernameLength: '用户名长度需在 2-30 个字符之间', passwordLength: '密码至少需要 4 位', usernameTaken: '该用户名已被注册', invalidCredentials: '用户名或密码错误', userNotFound: '用户不存在', invalidDate: '日期格式应为 YYYY-MM-DD',
       emptyTitle: '标题不能为空', emptyContent: '内容不能为空', titleTooLong: '标题过长（最多 100 字）', contentTooLong: '内容过长（最多 20000 字）', imageTooLarge: '图片过大（最大约 7MB）', invalidTemplate: '模板类型无效', tipNotFound: '未找到该笔记', emptyComment: '评论内容不能为空', commentTooLong: '评论内容过长'
-      , invalidProvider: '目前仅支持 Health Connect', invalidHealthPayload: '健康数据格式无效', invalidTimezone: '时区无效', invalidTimestamp: '健康数据时间戳无效', invalidConnection: '连接编号无效', connectionNotFound: '未找到健康数据连接', connectionInactive: '此健康连接已断开，请先在安卓应用中重新连接', invalidRange: '时间范围只能为 7、30 或 90 天'
+      , invalidProvider: '目前仅支持 Health Connect', invalidHealthPayload: '健康数据格式无效', invalidTimezone: '时区无效', invalidTimestamp: '健康数据时间戳无效', invalidConnection: '连接编号无效', connectionNotFound: '未找到健康数据连接', connectionInactive: '此健康连接已断开，请先在安卓应用中重新连接', invalidRange: '时间范围只能为 7、30 或 90 天', invalidDeviceType: '请选择 Apple Watch 或 Mi Band。', invalidDeviceName: '设备名称必须包含 1 至 60 个字符。'
     }
   };
 
