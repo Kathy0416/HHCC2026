@@ -194,32 +194,41 @@
   }
 
   function renderTimePicker(focusSelected = false) {
-    const list = document.getElementById('pickerTimes');
-    const fragment = document.createDocumentFragment();
-    list.replaceChildren();
-    for (let minuteOfDay = 0; minuteOfDay < 1440; minuteOfDay += 1) {
-      const value = `${String(Math.floor(minuteOfDay / 60)).padStart(2, '0')}:${String(minuteOfDay % 60).padStart(2, '0')}`;
-      const selected = value === pickerState.pendingTime;
-      const button = document.createElement('button'); button.type = 'button'; button.dataset.time = value;
-      button.className = `picker-choice${selected ? ' is-selected' : ''}`; button.textContent = value;
-      button.setAttribute('role', 'option'); button.setAttribute('aria-selected', String(selected));
-      button.setAttribute('aria-posinset', String(minuteOfDay + 1)); button.setAttribute('aria-setsize', '1440');
-      button.tabIndex = selected ? 0 : -1; fragment.appendChild(button);
-    }
-    list.appendChild(fragment);
+    const [selectedHour, selectedMinute] = pickerState.pendingTime.split(':').map(Number);
+    const renderColumn = (id, part, count, selectedValue) => {
+      const list = document.getElementById(id);
+      const fragment = document.createDocumentFragment();
+      list.replaceChildren();
+      for (let value = 0; value < count; value += 1) {
+        const selected = value === selectedValue;
+        const button = document.createElement('button'); button.type = 'button'; button.dataset[part] = String(value);
+        button.className = `picker-choice${selected ? ' is-selected' : ''}`; button.textContent = String(value).padStart(2, '0');
+        button.setAttribute('role', 'option'); button.setAttribute('aria-selected', String(selected));
+        button.setAttribute('aria-posinset', String(value + 1)); button.setAttribute('aria-setsize', String(count));
+        button.tabIndex = selected ? 0 : -1; fragment.appendChild(button);
+      }
+      list.appendChild(fragment);
+    };
+    renderColumn('pickerHours', 'hour', 24, selectedHour);
+    renderColumn('pickerMinutes', 'minute', 60, selectedMinute);
     requestAnimationFrame(() => {
-      const selected = list.querySelector('.is-selected');
-      list.scrollTop = Math.max(0, selected.offsetTop - list.clientHeight / 2 + selected.offsetHeight / 2);
-      if (focusSelected) selected.focus({ preventScroll: true });
+      for (const id of ['pickerHours', 'pickerMinutes']) {
+        const list = document.getElementById(id); const selected = list.querySelector('.is-selected');
+        list.scrollTop = Math.max(0, selected.offsetTop - list.clientHeight / 2 + selected.offsetHeight / 2);
+      }
+      if (focusSelected) document.querySelector('#pickerHours .is-selected')?.focus({ preventScroll: true });
     });
   }
 
-  function selectTime(value, focus = false) {
-    pickerState.pendingTime = value;
-    const list = document.getElementById('pickerTimes');
+  function selectTimePart(part, value, focus = false) {
+    const [hour, minute] = pickerState.pendingTime.split(':').map(Number);
+    pickerState.pendingTime = part === 'hour'
+      ? `${String(value).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+      : `${String(hour).padStart(2, '0')}:${String(value).padStart(2, '0')}`;
+    const list = document.getElementById(part === 'hour' ? 'pickerHours' : 'pickerMinutes');
     list.querySelector('.is-selected')?.classList.remove('is-selected');
     list.querySelector('[aria-selected="true"]')?.setAttribute('aria-selected', 'false');
-    const selected = list.querySelector(`[data-time="${value}"]`);
+    const selected = list.querySelector(`[data-${part}="${value}"]`);
     selected.classList.add('is-selected'); selected.setAttribute('aria-selected', 'true');
     list.querySelector('[tabindex="0"]')?.setAttribute('tabindex', '-1'); selected.tabIndex = 0;
     if (focus) {
@@ -319,16 +328,17 @@
   function handlePickerKeydown(event) {
     if (!pickerState.open) return;
     if (event.key === 'Escape') { event.preventDefault(); closePicker(); return; }
-    const timeButton = event.target.closest?.('[data-time]');
+    const timeButton = event.target.closest?.('[data-hour], [data-minute]');
     if (timeButton && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) {
       event.preventDefault();
-      const [hour, minute] = timeButton.dataset.time.split(':').map(Number);
-      const deltas = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1, PageUp: -60, PageDown: 60 };
-      let minuteOfDay = hour * 60 + minute;
-      if (event.key === 'Home') minuteOfDay = 0;
-      else if (event.key === 'End') minuteOfDay = 1439;
-      else minuteOfDay = Math.max(0, Math.min(1439, minuteOfDay + deltas[event.key]));
-      selectTime(`${String(Math.floor(minuteOfDay / 60)).padStart(2, '0')}:${String(minuteOfDay % 60).padStart(2, '0')}`, true);
+      const part = timeButton.hasAttribute('data-hour') ? 'hour' : 'minute';
+      const limit = part === 'hour' ? 24 : 60;
+      const deltas = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1, PageUp: -5, PageDown: 5 };
+      let value = Number(timeButton.dataset[part]);
+      if (event.key === 'Home') value = 0;
+      else if (event.key === 'End') value = limit - 1;
+      else value = Math.max(0, Math.min(limit - 1, value + deltas[event.key]));
+      selectTimePart(part, value, true);
       return;
     }
     const qualityButton = event.target.closest?.('[data-quality]');
@@ -370,10 +380,12 @@
       pickerState.pendingDate = button.dataset.date; const date = dateFromIso(pickerState.pendingDate);
       pickerState.viewMonth = new Date(date.getFullYear(), date.getMonth(), 1, 12); renderDatePicker(true); positionPicker();
     });
-    document.getElementById('pickerTimes').addEventListener('click', (event) => {
-      const button = event.target.closest('[data-time]'); if (!button) return;
-      selectTime(button.dataset.time, true);
-    });
+    for (const part of ['hour', 'minute']) {
+      document.getElementById(part === 'hour' ? 'pickerHours' : 'pickerMinutes').addEventListener('click', (event) => {
+        const button = event.target.closest(`[data-${part}]`); if (!button) return;
+        selectTimePart(part, Number(button.dataset[part]), true);
+      });
+    }
     document.getElementById('pickerQualities').addEventListener('click', (event) => {
       const button = event.target.closest('[data-quality]'); if (!button) return;
       const input = document.getElementById('quality');

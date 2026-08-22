@@ -7,14 +7,14 @@
     <link rel="icon" href="data:,">
     <title>健康分析 - Migraine Signal</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="health-analysis.css?v=14-compact-controls">
+    <link rel="stylesheet" href="health-analysis.css?v=15-compact-wheels">
     <script src="site-header.js"></script>
-    <script src="locales.js?v=14-compact-controls"></script>
+    <script src="locales.js?v=15-compact-wheels"></script>
     <script src="i18n.js?v=8-health-analysis"></script>
     <script src="api.js?v=12-esp32-environment"></script>
     <script src="esp32-parser.js?v=12-esp32-environment"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="health-analysis.js?v=14-compact-controls" defer></script>
+    <script src="health-analysis.js?v=15-compact-wheels" defer></script>
 </head>
 <body class="health-page">
     <div data-site-header data-page-title="健康分析"></div>
@@ -124,7 +124,10 @@
                 <div id="pickerDays" class="picker-days" role="grid" aria-labelledby="pickerMonthLabel"></div>
             </div>
             <div id="timePickerView" class="picker-view" hidden>
-                <div id="pickerTimes" class="picker-choice-list time-choice-list" role="listbox" data-i18n-aria-label="health.picker.timeOptions" aria-label="时间选项"></div>
+                <div class="picker-time-columns">
+                    <section class="picker-time-column" aria-labelledby="pickerHourLabel"><h3 id="pickerHourLabel" data-i18n="health.picker.hour">小时</h3><div id="pickerHours" class="picker-choice-list picker-wheel-list" role="listbox" aria-labelledby="pickerHourLabel"></div></section>
+                    <section class="picker-time-column" aria-labelledby="pickerMinuteLabel"><h3 id="pickerMinuteLabel" data-i18n="health.picker.minute">分钟</h3><div id="pickerMinutes" class="picker-choice-list picker-wheel-list" role="listbox" aria-labelledby="pickerMinuteLabel"></div></section>
+                </div>
             </div>
             <div id="qualityPickerView" class="picker-view" hidden><div id="pickerQualities" class="picker-choice-list quality-choice-list" role="listbox" data-i18n-aria-label="health.picker.qualityOptions" aria-label="睡眠质量选项"></div></div>
             <footer id="pickerActions" class="picker-actions"><button type="button" id="pickerToday" class="picker-text-action" data-i18n="health.picker.today">今天</button><span class="picker-action-spacer"></span><button type="button" id="pickerCancel" class="picker-text-action" data-i18n="health.picker.cancel">取消</button><button type="button" id="pickerApply" class="picker-apply" data-i18n="health.picker.apply">应用</button></footer>

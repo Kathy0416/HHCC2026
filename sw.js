@@ -1,15 +1,15 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v14-compact-controls';
+const CACHE_NAME = 'migraine-app-cache-v15-compact-wheels';
 const urlsToCache = [
   '.',
   'index.html',
   'diary.html',
   'sleep.html',
-  'health-analysis.css?v=14-compact-controls',
-  'health-analysis.js?v=14-compact-controls',
+  'health-analysis.css?v=15-compact-wheels',
+  'health-analysis.js?v=15-compact-wheels',
   'esp32-parser.js?v=12-esp32-environment',
-  'locales.js?v=14-compact-controls',
+  'locales.js?v=15-compact-wheels',
   'api.js?v=12-esp32-environment',
   'assets/apple-watch.svg',
   'assets/xiaomi-band.svg',

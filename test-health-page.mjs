@@ -119,6 +119,7 @@ for (const viewport of [
       dateCells: document.querySelectorAll('#pickerDays .picker-day').length,
       selectedDates: document.querySelectorAll('#pickerDays .is-selected').length,
       hasBackdropBlur: style.backdropFilter !== 'none' || style.webkitBackdropFilter !== 'none',
+      compactCalendar: rect.width <= 450 && rect.height <= 590,
       withinViewport: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight,
       bottomGap: innerHeight - rect.bottom,
       mobileBottomSheet: innerWidth > 640 || Math.abs(innerHeight - rect.bottom - 82) <= 4,
@@ -133,19 +134,24 @@ for (const viewport of [
   await new Promise((resolve) => setTimeout(resolve, 120));
   result.timePicker = await evaluate(`(() => {
     const dialogRect = document.getElementById('glassPicker').getBoundingClientRect();
-    const timeList = document.getElementById('pickerTimes');
-    const listRect = timeList.getBoundingClientRect();
-    const selectedTime = timeList.querySelector('.is-selected').getBoundingClientRect();
-    const choices = [...timeList.querySelectorAll('[data-time]')];
+    const hourList = document.getElementById('pickerHours');
+    const minuteList = document.getElementById('pickerMinutes');
+    const hourRect = hourList.getBoundingClientRect();
+    const minuteRect = minuteList.getBoundingClientRect();
+    const selectedHour = hourList.querySelector('.is-selected').getBoundingClientRect();
+    const selectedMinute = minuteList.querySelector('.is-selected').getBoundingClientRect();
     return {
-      choices: choices.length,
-      first: choices[0]?.dataset.time,
-      last: choices.at(-1)?.dataset.time,
-      columns: getComputedStyle(timeList).gridTemplateColumns.split(' ').length,
-      compactHeight: listRect.height <= 260,
-      compactWidth: dialogRect.width <= 340,
+      hours: hourList.querySelectorAll('[data-hour]').length,
+      minutes: minuteList.querySelectorAll('[data-minute]').length,
+      firstHour: hourList.querySelector('[data-hour]')?.textContent,
+      lastHour: hourList.querySelector('[data-hour]:last-child')?.textContent,
+      firstMinute: minuteList.querySelector('[data-minute]')?.textContent,
+      lastMinute: minuteList.querySelector('[data-minute]:last-child')?.textContent,
+      columns: getComputedStyle(document.querySelector('.picker-time-columns')).gridTemplateColumns.split(' ').length,
+      compactHeight: hourRect.height <= 205 && minuteRect.height <= 205,
+      compactWidth: dialogRect.width <= 300,
       withinViewport: dialogRect.left >= 0 && dialogRect.top >= 0 && dialogRect.right <= innerWidth && dialogRect.bottom <= innerHeight,
-      selectedTimeVisible: selectedTime.top >= listRect.top && selectedTime.bottom <= listRect.bottom,
+      selectedTimeVisible: selectedHour.top >= hourRect.top && selectedHour.bottom <= hourRect.bottom && selectedMinute.top >= minuteRect.top && selectedMinute.bottom <= minuteRect.bottom,
       noHorizontalOverflow: document.documentElement.scrollWidth <= innerWidth
     };
   })()`);
@@ -191,20 +197,23 @@ const pickerInteraction = await evaluate(`(async () => {
 
   bedtimeTrigger.click(); await tick();
   document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true })); await tick();
+  document.querySelector('#pickerMinutes .is-selected').focus();
+  document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true })); await tick();
   document.getElementById('pickerApply').click();
   wakeTrigger.click(); await tick();
-  document.querySelector('[data-time="07:01"]').click();
+  document.querySelector('[data-hour="7"]').click();
+  document.querySelector('[data-minute="1"]').click();
   document.getElementById('pickerApply').click();
 
   wakeTrigger.click(); await tick();
-  document.querySelector('[data-time="07:02"]').click();
+  document.querySelector('[data-minute="2"]').click();
   document.getElementById('pickerCancel').click();
   const cancelPreservedTime = document.getElementById('wakeTime').value === '07:01' && document.activeElement === wakeTrigger;
   bedtimeTrigger.click(); await tick();
   document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   const escapeClosed = document.getElementById('pickerBackdrop').hidden && document.activeElement === bedtimeTrigger;
 
-  const exactTimeGrid = document.querySelectorAll('#pickerTimes [data-time]').length === 1440;
+  const exactTimeGrid = document.querySelectorAll('#pickerHours [data-hour]').length === 24 && document.querySelectorAll('#pickerMinutes [data-minute]').length === 60;
   const qualityValues = [];
   for (const quality of ['excellent', 'good', 'fair', 'poor']) {
     qualityTrigger.click(); await tick();
@@ -290,7 +299,9 @@ const pickerSave = await evaluate(`(async () => {
   const tick = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   async function selectTime(triggerId, value) {
     document.getElementById(triggerId).click(); await tick();
-    document.querySelector('[data-time="' + value + '"]').click();
+    const [hour, minute] = value.split(':').map(Number);
+    document.querySelector('[data-hour="' + hour + '"]').click();
+    document.querySelector('[data-minute="' + minute + '"]').click();
     document.getElementById('pickerApply').click();
   }
   await selectTime('sleepTimePickerTrigger', '23:59');
@@ -469,12 +480,13 @@ const failures = layouts.flatMap((layout) => [
   layout.picker.dateCells !== 42 && `${layout.name}: date picker does not render a six-week grid`,
   layout.picker.selectedDates !== 1 && `${layout.name}: date picker selection state is invalid`,
   !layout.picker.hasBackdropBlur && `${layout.name}: picker is missing its liquid-glass blur`,
+  !layout.picker.compactCalendar && `${layout.name}: calendar controller is still oversized`,
   !layout.picker.withinViewport && `${layout.name}: picker exceeds the viewport`,
   !layout.picker.mobileBottomSheet && `${layout.name}: mobile picker is not positioned as a bottom sheet`,
   !layout.picker.desktopAnchored && `${layout.name}: desktop picker is not anchored to its trigger`,
   !layout.picker.triggerExpanded && `${layout.name}: picker trigger does not expose its expanded state`,
-  layout.timePicker.choices !== 1440 || layout.timePicker.first !== '00:00' || layout.timePicker.last !== '23:59' ? `${layout.name}: time picker is missing exact-minute choices` : false,
-  layout.timePicker.columns !== 1 && `${layout.name}: time picker is not one column`,
+  layout.timePicker.hours !== 24 || layout.timePicker.minutes !== 60 || layout.timePicker.firstHour !== '00' || layout.timePicker.lastHour !== '23' || layout.timePicker.firstMinute !== '00' || layout.timePicker.lastMinute !== '59' ? `${layout.name}: time picker is missing hour or minute choices` : false,
+  layout.timePicker.columns !== 2 && `${layout.name}: time picker does not use separate hour and minute scrolls`,
   !layout.timePicker.compactHeight || !layout.timePicker.compactWidth ? `${layout.name}: time picker is not compact` : false,
   !layout.timePicker.withinViewport && `${layout.name}: time picker exceeds the viewport`,
   !layout.timePicker.selectedTimeVisible && `${layout.name}: selected time is not scrolled into view`,
