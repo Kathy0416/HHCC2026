@@ -61,6 +61,8 @@ async function waitForDeviceBrand(expectedBrand) {
 
 await call('Runtime.enable');
 await call('Log.enable');
+await call('Log.clear');
+errors.length = 0;
 const layouts = [];
 for (const viewport of [
   { name: 'desktop', width: 1440, height: 1100, mobile: false },
@@ -93,12 +95,10 @@ for (const viewport of [
   fs.writeFileSync(`health-page-${viewport.name}.png`, Buffer.from(screenshot.data, 'base64'));
 }
 
-const auth = await evaluate(`(async () => {
-  const username = 'band-artwork-browser-test';
+await evaluate(`(async () => {
+  const username = 'band-art-' + Date.now();
   const password = 'band-artwork-test-password';
-  let result;
-  try { result = await window.ApiClient.register(username, password); }
-  catch (error) { result = await window.ApiClient.login(username, password); }
+  const result = await window.ApiClient.register(username, password);
   window.ApiClient.setToken(result.token);
   localStorage.setItem('currentUser', JSON.stringify(result.user));
   return result;
