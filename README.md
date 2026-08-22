@@ -2,6 +2,8 @@
 
 Migraine Signal is a browser-based migraine tracker backed by Node.js, Express, and SQLite. Docker Compose runs the frontend and API together at [http://localhost:3000](http://localhost:3000).
 
+The Health Analysis page at `sleep.html` combines manual sleep records, migraine diary data, and daily Health Connect summaries. A sideloadable foreground-sync Android client and build instructions are available in [`android-companion`](android-companion/README.md).
+
 ## Run with Docker Compose
 
 Requirements: Docker Desktop with Docker Compose.

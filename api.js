@@ -8,7 +8,8 @@
 (function (global) {
   'use strict';
 
-  const API_BASE = (global.API_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '') + '/api';
+  const defaultOrigin = /^https?:$/.test(global.location.protocol) ? global.location.origin : 'http://localhost:3000';
+  const API_BASE = (global.API_BASE_URL || defaultOrigin).replace(/\/+$/, '') + '/api';
 
   const ApiClient = {
     _token: null,
@@ -143,6 +144,29 @@
     },
     deleteSleepRecord(date) {
       return this._request('DELETE', '/sleep/' + encodeURIComponent(date));
+    },
+
+    // ---- 健康分析 / Health Connect ----
+    getHealthConnection() {
+      return this._request('GET', '/health/connection');
+    },
+    createHealthConnection(connection) {
+      return this._request('POST', '/health/connections', connection);
+    },
+    updateHealthDevicePreference(preference) {
+      return this._request('PUT', '/health/device-preference', preference);
+    },
+    disconnectHealthConnection(id) {
+      return this._request('DELETE', '/health/connections/' + encodeURIComponent(id));
+    },
+    syncHealthData(payload) {
+      return this._request('POST', '/health/sync', payload);
+    },
+    syncEsp32Environment(payload) {
+      return this._request('POST', '/health/environment-sync', payload);
+    },
+    getHealthAnalysis(range) {
+      return this._request('GET', '/health/analysis?range=' + encodeURIComponent(range || 30));
     },
 
     // ---- Tips 广场 ----

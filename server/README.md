@@ -1,6 +1,6 @@
 # 偏头痛记录日历 - 后端服务
 
-基于 **Node.js + Express + SQLite** 的后端，为现有前端提供：用户认证、日历记录、睡眠记录、Tips 广场、评论、以及 DeepSeek AI 代理。
+基于 **Node.js + Express + SQLite** 的后端，为现有前端提供：用户认证、日历记录、睡眠记录、Health Connect 每日汇总与分析、Tips 广场、评论、以及 DeepSeek AI 代理。
 
 - 数据库使用 Node.js 内置的 `node:sqlite`（Node ≥ 22.5，推荐 Node 24），**无需安装任何原生编译依赖**。
 - 密码使用 `bcryptjs` 哈希存储，认证使用 `jsonwebtoken`（JWT）。
@@ -17,6 +17,7 @@ server/
 │   ├── auth.js        # 注册 / 登录 / 当前用户
 │   ├── calendar.js    # 日历记录 CRUD
 │   ├── sleep.js       # 睡眠记录 CRUD
+│   ├── health.js      # Health Connect 连接、同步与分析
 │   ├── tips.js        # Tips 列表 / 评论 / 点赞
 │   └── ai.js          # DeepSeek 代理 + 聊天历史
 ├── package.json
@@ -85,6 +86,32 @@ npm run dev
 | GET | `/api/sleep` | 获取全部记录 | - |
 | PUT | `/api/sleep/:date` | 保存某天记录 | `{ sleepTime, wakeTime, duration: { hours, minutes, totalMinutes }, quality }` |
 | DELETE | `/api/sleep/:date` | 删除某天记录 | - |
+
+### 健康分析 `/api/health`（需登录）
+
+| 方法 | 路径 | 说明 | 请求体 |
+|------|------|------|--------|
+| POST | `/api/health/connections` | 注册或重新启用 Health Connect 数据源 | `{ provider: "health_connect", deviceName?, manufacturer?, model?, sourcePackages? }` |
+| GET | `/api/health/connection` | 获取连接状态与最新汇总 | - |
+| DELETE | `/api/health/connections/:id` | 停用连接并保留历史 | - |
+| POST | `/api/health/sync` | 幂等写入每日汇总和睡眠会话 | `{ connectionId, timezone, days, sleepSessions }` |
+| POST | `/api/health/environment-sync` | 幂等写入 ESP32 环境样本 | `{ connectionId, timezone, readings }` |
+| GET | `/api/health/analysis?range=30` | 获取 7/30/90 天趋势、KPI、覆盖率和描述性对比 | - |
+
+同步接口只从 JWT 读取用户身份，忽略请求体中的任何用户编号。每日数据包括睡眠、心率 min/avg/max/count、SpO₂ min/avg/max/count、步数、时区和数据来源。分析以可穿戴睡眠优先，手动睡眠记录仍单独保留。
+
+### ESP32 环境数据格式
+
+健康分析页会从用户保存的 ESP32 HTTP 地址读取 `text/plain`，ESP32 必须允许网页来源的 CORS GET 请求。每条数据库记录占一行，字段顺序可以变化：
+
+```text
+[SAMPLE] mode=NORMAL mono_us=106183660 utc_ms=1787392800000 light=428.3 temp=24.8 humidity=62.9 noise=61.0
+```
+
+- `utc_ms` 必须是非空的 Unix 毫秒时间戳；`mono_us` 是启动后的单调微秒计数。
+- `temp` 使用 °C，`humidity` 使用百分比，`light` 使用 lux，`noise` 使用 dB。
+- 网页最多读取 5 MB / 50,000 条样本，并以每批 500 条上传。稳定来源编号 `esp32:{utc_ms}:{mono_us}` 使重复同步保持幂等。
+- ESP32 请求不会携带 Migraine Signal 登录令牌。解析后的数据再通过认证的 `/api/health/environment-sync` 保存，并且不会覆盖可穿戴健康数据。
 
 ### Tips `/api/tips`
 

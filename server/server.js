@@ -23,6 +23,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/sleep', require('./routes/sleep'));
+app.use('/api/health', require('./routes/health'));
 app.use('/api/tips', require('./routes/tips'));
 app.use('/api/ai', require('./routes/ai'));
 

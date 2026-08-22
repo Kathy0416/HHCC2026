@@ -7,6 +7,7 @@
     <link rel="icon" href="data:,">
     <!-- 引入外部样式 -->
     <link rel="stylesheet" href="styles.css">
+    <script src="site-header.js"></script>
     <script src="locales.js"></script>
     <script src="i18n.js?v=7-content-boundary"></script>
     <script src="api.js"></script>
@@ -452,10 +453,10 @@
             left: 0;
             width: 100%;
             padding: 0.5rem 0 1rem;
-            background: rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(18, 18, 18, 0.12);
+            backdrop-filter: blur(20px) saturate(160%);
+            -webkit-backdrop-filter: blur(20px) saturate(160%);
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
             z-index: 100;
         }
         
@@ -1094,23 +1095,8 @@
     </style>
 </head>
 <body>
+    <div data-site-header data-page-title="Tips广场"></div>
     <div class="container">
-        <header class="header">
-            <div class="header-content">
-                <h1 data-text="Tips广场">Tips广场</h1>
-                <div class="user-auth-section">
-                    <div id="userStatus" class="user-status" style="display: none;">
-                        <span id="usernameDisplay"></span>
-                        <button id="logoutBtn" class="logout-btn">退出登录</button>
-                    </div>
-                    <div id="authBtns" class="auth-buttons">
-                        <button id="loginBtn" class="auth-btn">登录</button>
-                        <button id="registerBtn" class="auth-btn">注册</button>
-                    </div>
-                </div>
-            </div>
-        </header>
-    
         <main class="tips-container">
             <h2 style="text-align: center; color: var(--accent-blue-light); margin-top: 2rem;">探索偏头痛管理小贴士</h2>
             <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem;">分享你的经验，学习他人的技巧，一起管理偏头痛</p>
@@ -1264,7 +1250,7 @@
                 </a>
                 <a href="sleep.html" class="nav-link">
                     <span class="nav-icon">💤</span>
-                    <span class="nav-text">睡眠记录</span>
+                    <span class="nav-text" data-i18n="nav.healthAnalysis">健康分析</span>
                 </a>
                 <a href="diary.html" class="nav-link calendar-btn">
                     <span class="nav-icon">📔</span>
