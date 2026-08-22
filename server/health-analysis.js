@@ -62,15 +62,17 @@ function metricComparison(days, field) {
   };
 }
 
-function buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows }) {
+function buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows, environmentRows = [] }) {
   const wearable = new Map(wearableRows.map((row) => [row.local_date, row]));
   const manual = new Map(manualRows.map((row) => [row.date, row]));
   const calendar = new Map(calendarRows.map((row) => [row.date, row]));
+  const environment = new Map(environmentRows.map((row) => [row.local_date, row]));
 
   const series = dateSeries(endDate, range).map((date) => {
     const health = wearable.get(date);
     const sleep = manual.get(date);
     const diary = calendar.get(date);
+    const surroundings = environment.get(date);
     const triggers = safeJson(diary && diary.triggers, []);
     const wearableSleep = health && health.sleep_duration_minutes != null;
     return {
@@ -87,7 +89,11 @@ function buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows 
       sleepEnd: wearableSleep ? health.sleep_end : (sleep && sleep.wake_time),
       heartRateAvg: finiteOrNull(health && health.heart_rate_avg),
       spo2Avg: finiteOrNull(health && health.spo2_avg),
-      steps: finiteOrNull(health && health.steps)
+      steps: finiteOrNull(health && health.steps),
+      temperatureAvg: finiteOrNull(surroundings && surroundings.temperature_avg),
+      humidityAvg: finiteOrNull(surroundings && surroundings.humidity_avg),
+      lightAvg: finiteOrNull(surroundings && surroundings.light_avg),
+      noiseAvg: finiteOrNull(surroundings && surroundings.noise_avg)
     };
   });
 

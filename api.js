@@ -146,25 +146,6 @@
       return this._request('DELETE', '/sleep/' + encodeURIComponent(date));
     },
 
-    // ---- 读数（逐条时间戳记录，供 sleep 页面图表 / 调试表格调用）----
-    // 环境读数：温湿度 / 光照 / 噪音（来自 ESP32 上传）
-    getEnvironmentReadings(params) {
-      const query = params && typeof params === 'object'
-        ? '?' + new URLSearchParams(Object.entries(params).filter(([, value]) => value != null)).toString()
-        : '';
-      return this._request('GET', '/readings/environment' + query);
-    },
-    // 体征读数：心率 / 血氧 / 步数
-    getVitalsReadings(params) {
-      const query = params && typeof params === 'object'
-        ? '?' + new URLSearchParams(Object.entries(params).filter(([, value]) => value != null)).toString()
-        : '';
-      return this._request('GET', '/readings/vitals' + query);
-    },
-    saveVitalsReadings(readings) {
-      return this._request('POST', '/readings/vitals', { readings });
-    },
-
     // ---- 健康分析 / Health Connect ----
     getHealthConnection() {
       return this._request('GET', '/health/connection');
@@ -172,11 +153,17 @@
     createHealthConnection(connection) {
       return this._request('POST', '/health/connections', connection);
     },
+    updateHealthDevicePreference(preference) {
+      return this._request('PUT', '/health/device-preference', preference);
+    },
     disconnectHealthConnection(id) {
       return this._request('DELETE', '/health/connections/' + encodeURIComponent(id));
     },
     syncHealthData(payload) {
       return this._request('POST', '/health/sync', payload);
+    },
+    syncEsp32Environment(payload) {
+      return this._request('POST', '/health/environment-sync', payload);
     },
     getHealthAnalysis(range) {
       return this._request('GET', '/health/analysis?range=' + encodeURIComponent(range || 30));

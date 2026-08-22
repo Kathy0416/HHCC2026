@@ -1,0 +1,15 @@
+default_profile: esp32_devkit
+
+profiles:
+  esp32_devkit:
+    notes: Classic ESP32 DevKit V1, 4 MB flash, default filesystem partition
+    fqbn: esp32:esp32:esp32:FlashSize=4M,PartitionScheme=default
+    platforms:
+      - platform: esp32:esp32 (3.3.11)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+    libraries:
+      - BH1750 (1.3.0)
+      - Adafruit SHT31 Library (2.2.2)
+      - Adafruit SSD1306 (2.5.17)
+      - Adafruit GFX Library (1.12.6)
+      - Adafruit BusIO (1.17.4)

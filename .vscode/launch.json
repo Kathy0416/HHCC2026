@@ -6,8 +6,8 @@
     "configurations": [
         {
             // 推荐：F5 一键启动「后端 + 前端」，后端和前端都能打断点调试。
-            // 后端启动后会自动用 Chrome 打开前端页面并进入调试。
-            "name": "🚀 F5 一键启动 (后端+前端, Chrome)",
+            // 默认打开健康分析页 sleep.html（含 Sync ESP32 data 新 UI）。
+            "name": "🚀 F5 一键启动 (后端+前端, 健康分析页, Chrome)",
             "type": "node",
             "request": "launch",
             "program": "${workspaceFolder}/server/server.js",
@@ -22,13 +22,13 @@
             "serverReadyAction": {
                 "action": "debugWithChrome",
                 "pattern": "localhost:3000",
-                "uriFormat": "http://localhost:3000/index.html",
+                "uriFormat": "http://localhost:3000/sleep.html",
                 "webRoot": "${workspaceFolder}"
             }
         },
         {
             // 备选：Windows 自带 Edge，没有 Chrome 时用这个。
-            "name": "🚀 F5 一键启动 (后端+前端, Edge)",
+            "name": "🚀 F5 一键启动 (后端+前端, 健康分析页, Edge)",
             "type": "node",
             "request": "launch",
             "program": "${workspaceFolder}/server/server.js",
@@ -42,6 +42,27 @@
             ],
             "serverReadyAction": {
                 "action": "debugWithEdge",
+                "pattern": "localhost:3000",
+                "uriFormat": "http://localhost:3000/sleep.html",
+                "webRoot": "${workspaceFolder}"
+            }
+        },
+        {
+            // 想从首页 index.html 看时用这个。
+            "name": "🚀 F5 一键启动 (后端+前端, 首页, Chrome)",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/server/server.js",
+            "cwd": "${workspaceFolder}/server",
+            "env": {
+                "SERVE_FRONTEND": "1"
+            },
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "serverReadyAction": {
+                "action": "debugWithChrome",
                 "pattern": "localhost:3000",
                 "uriFormat": "http://localhost:3000/index.html",
                 "webRoot": "${workspaceFolder}"

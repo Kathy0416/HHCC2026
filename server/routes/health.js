@@ -7,6 +7,8 @@ const { DATE_RE, buildAnalysis, parseRange, safeJson, todayInZone } = require('.
 
 const MAX_DAYS_PER_SYNC = 100;
 const MAX_SESSIONS_PER_SYNC = 300;
+const MAX_ENVIRONMENT_READINGS_PER_SYNC = 500;
+const DEVICE_TYPES = new Set(['apple', 'miband']);
 
 function text(value, maxLength = 160) {
   return String(value == null ? '' : value).trim().slice(0, maxLength);
@@ -48,6 +50,20 @@ function validIso(value, required = false) {
   }
   const result = text(value, 40);
   if (!Number.isFinite(Date.parse(result))) throw new TypeError('invalidTimestamp');
+  return result;
+}
+
+function localDateForTimestamp(timestamp, timezone) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date(timestamp));
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${byType.year}-${byType.month}-${byType.day}`;
+}
+
+function requiredNumber(value, min, max, integer = false) {
+  const result = optionalNumber(value, min, max, integer);
+  if (result == null) throw new TypeError('invalidMetric');
   return result;
 }
 
@@ -107,6 +123,25 @@ function cleanSession(value) {
   };
 }
 
+function cleanEnvironmentReading(value, timezone) {
+  if (!value || typeof value !== 'object') throw new TypeError('invalidHealthPayload');
+  const sourceRecordId = text(value.sourceRecordId, 240);
+  if (!sourceRecordId) throw new TypeError('invalidHealthPayload');
+  const recordedAt = new Date(validIso(value.recordedAt, true)).toISOString();
+  return {
+    sourceRecordId,
+    recordedAt,
+    localDate: localDateForTimestamp(recordedAt, timezone),
+    timezone,
+    monoUs: requiredNumber(value.monoUs, 0, Number.MAX_SAFE_INTEGER, true),
+    mode: text(value.mode, 40),
+    temperatureC: requiredNumber(value.temperatureC, -50, 100),
+    humidityPct: requiredNumber(value.humidityPct, 0, 100),
+    lightLux: requiredNumber(value.lightLux, 0, 1000000),
+    noiseDb: requiredNumber(value.noiseDb, 0, 200)
+  };
+}
+
 function connectionJson(row) {
   if (!row) return null;
   return {
@@ -119,6 +154,15 @@ function connectionJson(row) {
     active: !!row.active,
     lastSyncedAt: row.last_synced_at,
     createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function devicePreferenceJson(row) {
+  if (!row) return null;
+  return {
+    deviceType: row.device_type,
+    displayName: row.display_name,
     updatedAt: row.updated_at
   };
 }
@@ -142,6 +186,19 @@ function latestJson(row) {
     },
     steps: row.steps,
     dataOrigins: safeJson(row.data_origins, [])
+  };
+}
+
+function environmentLatestJson(row) {
+  if (!row) return null;
+  return {
+    sourceRecordId: row.source_record_id,
+    recordedAt: row.recorded_at,
+    mode: row.mode,
+    temperatureC: row.temperature_c,
+    humidityPct: row.humidity_pct,
+    lightLux: row.light_lux,
+    noiseDb: row.noise_db
   };
 }
 
@@ -190,7 +247,36 @@ function createHealthRouter(db = defaultDb) {
     const latest = row ? db.prepare(`
       SELECT * FROM health_daily WHERE user_id = ? AND connection_id = ? ORDER BY local_date DESC LIMIT 1
     `).get(req.user.id, row.id) : null;
-    res.json({ connection: connectionJson(row), latest: latestJson(latest) });
+    const environmentLatest = row ? db.prepare(`
+      SELECT * FROM environment_readings WHERE user_id = ? AND connection_id = ? ORDER BY recorded_at DESC, id DESC LIMIT 1
+    `).get(req.user.id, row.id) : null;
+    const devicePreference = db.prepare('SELECT * FROM health_device_preferences WHERE user_id = ?').get(req.user.id);
+    res.json({
+      connection: connectionJson(row),
+      latest: latestJson(latest),
+      environmentLatest: environmentLatestJson(environmentLatest),
+      devicePreference: devicePreferenceJson(devicePreference)
+    });
+  });
+
+  router.put('/device-preference', (req, res) => {
+    const deviceType = text(req.body.deviceType, 20).toLowerCase();
+    const displayName = String(req.body.displayName == null ? '' : req.body.displayName).trim();
+    if (!DEVICE_TYPES.has(deviceType)) return res.status(400).json({ error: req.t('invalidDeviceType') });
+    if (!displayName || Array.from(displayName).length > 60) {
+      return res.status(400).json({ error: req.t('invalidDeviceName') });
+    }
+
+    db.prepare(`
+      INSERT INTO health_device_preferences (user_id, device_type, display_name, updated_at)
+      VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(user_id) DO UPDATE SET
+        device_type = excluded.device_type,
+        display_name = excluded.display_name,
+        updated_at = datetime('now')
+    `).run(req.user.id, deviceType, displayName);
+    const row = db.prepare('SELECT * FROM health_device_preferences WHERE user_id = ?').get(req.user.id);
+    res.json({ devicePreference: devicePreferenceJson(row) });
   });
 
   router.delete('/connections/:id', (req, res) => {
@@ -300,6 +386,75 @@ function createHealthRouter(db = defaultDb) {
     res.json({ ok: true, daysUpserted: days.length, sleepSessionsUpserted: sessions.length });
   });
 
+  router.post('/environment-sync', (req, res, next) => {
+    const connectionId = Number(req.body.connectionId);
+    if (!Number.isInteger(connectionId) || connectionId < 1) {
+      return res.status(400).json({ error: req.t('invalidConnection') });
+    }
+    const connection = db.prepare(`
+      SELECT * FROM health_connections WHERE id = ? AND user_id = ?
+    `).get(connectionId, req.user.id);
+    if (!connection) return res.status(404).json({ error: req.t('connectionNotFound') });
+    if (!connection.active) return res.status(409).json({ error: req.t('connectionInactive') });
+
+    const input = req.body.readings;
+    if (!Array.isArray(input) || input.length < 1 || input.length > MAX_ENVIRONMENT_READINGS_PER_SYNC) {
+      return res.status(400).json({ error: req.t('invalidHealthPayload') });
+    }
+
+    let readings;
+    try {
+      const timezone = validTimezone(req.body.timezone || 'UTC');
+      readings = input.map((reading) => cleanEnvironmentReading(reading, timezone));
+    } catch (error) {
+      const key = ['invalidTimezone', 'invalidTimestamp'].includes(error.message)
+        ? error.message
+        : 'invalidHealthPayload';
+      return res.status(400).json({ error: req.t(key) });
+    }
+
+    const upsert = db.prepare(`
+      INSERT INTO environment_readings (
+        connection_id, user_id, source_record_id, recorded_at, local_date, timezone, mono_us, mode,
+        temperature_c, humidity_pct, light_lux, noise_db, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(connection_id, source_record_id) DO UPDATE SET
+        recorded_at = excluded.recorded_at,
+        local_date = excluded.local_date,
+        timezone = excluded.timezone,
+        mono_us = excluded.mono_us,
+        mode = excluded.mode,
+        temperature_c = excluded.temperature_c,
+        humidity_pct = excluded.humidity_pct,
+        light_lux = excluded.light_lux,
+        noise_db = excluded.noise_db,
+        updated_at = datetime('now')
+    `);
+
+    try {
+      db.exec('BEGIN IMMEDIATE');
+      for (const reading of readings) {
+        upsert.run(
+          connection.id, req.user.id, reading.sourceRecordId, reading.recordedAt, reading.localDate,
+          reading.timezone, reading.monoUs, reading.mode, reading.temperatureC, reading.humidityPct,
+          reading.lightLux, reading.noiseDb
+        );
+      }
+      db.prepare(`
+        UPDATE health_connections SET last_synced_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND user_id = ?
+      `).run(connection.id, req.user.id);
+      db.exec('COMMIT');
+    } catch (error) {
+      try { db.exec('ROLLBACK'); } catch (rollbackError) { /* transaction was not active */ }
+      return next(error);
+    }
+
+    const latest = db.prepare(`
+      SELECT * FROM environment_readings WHERE user_id = ? AND connection_id = ? ORDER BY recorded_at DESC, id DESC LIMIT 1
+    `).get(req.user.id, connection.id);
+    res.json({ ok: true, readingsUpserted: readings.length, environmentLatest: environmentLatestJson(latest) });
+  });
+
   router.get('/analysis', (req, res) => {
     const range = parseRange(req.query.range);
     if (!range) return res.status(400).json({ error: req.t('invalidRange') });
@@ -309,7 +464,10 @@ function createHealthRouter(db = defaultDb) {
     const latest = db.prepare(`
       SELECT * FROM health_daily WHERE user_id = ? ORDER BY local_date DESC LIMIT 1
     `).get(req.user.id);
-    const endDate = todayInZone(latest && latest.timezone);
+    const latestEnvironment = db.prepare(`
+      SELECT timezone FROM environment_readings WHERE user_id = ? ORDER BY recorded_at DESC, id DESC LIMIT 1
+    `).get(req.user.id);
+    const endDate = todayInZone((latest && latest.timezone) || (latestEnvironment && latestEnvironment.timezone));
     const startDate = new Date(`${endDate}T12:00:00Z`);
     startDate.setUTCDate(startDate.getUTCDate() - range + 1);
     const start = startDate.toISOString().slice(0, 10);
@@ -323,7 +481,18 @@ function createHealthRouter(db = defaultDb) {
     const calendarRows = db.prepare(`
       SELECT * FROM calendar_entries WHERE user_id = ? AND date BETWEEN ? AND ? ORDER BY date ASC
     `).all(req.user.id, start, endDate);
-    const analysis = buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows });
+    const environmentRows = db.prepare(`
+      SELECT local_date,
+        AVG(temperature_c) AS temperature_avg,
+        AVG(humidity_pct) AS humidity_avg,
+        AVG(light_lux) AS light_avg,
+        AVG(noise_db) AS noise_avg
+      FROM environment_readings
+      WHERE user_id = ? AND local_date BETWEEN ? AND ?
+      GROUP BY local_date
+      ORDER BY local_date ASC
+    `).all(req.user.id, start, endDate);
+    const analysis = buildAnalysis({ range, endDate, wearableRows, manualRows, calendarRows, environmentRows });
     res.json({ connection: connectionJson(connection), latest: latestJson(latest), ...analysis });
   });
 
@@ -333,4 +502,4 @@ function createHealthRouter(db = defaultDb) {
 const router = createHealthRouter();
 module.exports = router;
 module.exports.createHealthRouter = createHealthRouter;
-module.exports._validation = { cleanDay, cleanSession, validTimezone };
+module.exports._validation = { cleanDay, cleanSession, cleanEnvironmentReading, validTimezone };

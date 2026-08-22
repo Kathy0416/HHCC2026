@@ -61,6 +61,14 @@ function initSchema() {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS health_device_preferences (
+      user_id INTEGER PRIMARY KEY,
+      device_type TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS health_daily (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       connection_id INTEGER NOT NULL,
@@ -105,6 +113,32 @@ function initSchema() {
       FOREIGN KEY(connection_id) REFERENCES health_connections(id) ON DELETE CASCADE,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS environment_readings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      connection_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      source_record_id TEXT NOT NULL,
+      recorded_at TEXT NOT NULL,
+      local_date TEXT NOT NULL,
+      timezone TEXT NOT NULL DEFAULT 'UTC',
+      mono_us INTEGER NOT NULL,
+      mode TEXT NOT NULL DEFAULT '',
+      temperature_c REAL NOT NULL,
+      humidity_pct REAL NOT NULL,
+      light_lux REAL NOT NULL,
+      noise_db REAL NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(connection_id, source_record_id),
+      FOREIGN KEY(connection_id) REFERENCES health_connections(id) ON DELETE CASCADE,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_environment_user_date
+      ON environment_readings(user_id, local_date);
+    CREATE INDEX IF NOT EXISTS idx_environment_connection_time
+      ON environment_readings(connection_id, recorded_at);
 
     CREATE TABLE IF NOT EXISTS tips (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
