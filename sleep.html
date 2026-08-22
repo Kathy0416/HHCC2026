@@ -7,14 +7,14 @@
     <link rel="icon" href="data:,">
     <title>健康分析 - Migraine Signal</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="health-analysis.css?v=17-moon-icon">
+    <link rel="stylesheet" href="health-analysis.css?v=18-health-export">
     <script src="site-header.js"></script>
-    <script src="locales.js?v=17-moon-icon"></script>
+    <script src="locales.js?v=18-health-export"></script>
     <script src="i18n.js?v=8-health-analysis"></script>
-    <script src="api.js?v=17-moon-icon"></script>
+    <script src="api.js?v=18-health-export"></script>
     <script src="esp32-parser.js?v=12-esp32-environment"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="health-analysis.js?v=17-moon-icon" defer></script>
+    <script src="health-analysis.js?v=18-health-export" defer></script>
 </head>
 <body class="health-page">
     <div data-site-header data-page-title="健康分析"></div>
@@ -72,7 +72,10 @@
         <section class="health-card analysis-card" aria-labelledby="analysis-title">
             <div class="analysis-header">
                 <div class="section-heading compact-heading"><div><p class="section-eyebrow">PERSONAL TRENDS</p><h2 id="analysis-title" data-i18n="health.analysis.title">健康分析</h2></div></div>
-                <div class="range-picker" role="group" data-i18n-aria-label="health.analysis.rangeLabel" aria-label="分析周期"><button type="button" data-range="7">7D</button><button type="button" data-range="30" class="is-active">30D</button><button type="button" data-range="90">90D</button></div>
+                <div class="analysis-tools">
+                    <button type="button" id="exportAnalysisBtn" class="secondary-action export-button" data-i18n="health.analysis.export">导出 CSV</button>
+                    <div class="range-picker" role="group" data-i18n-aria-label="health.analysis.rangeLabel" aria-label="分析周期"><button type="button" data-range="7">7D</button><button type="button" data-range="30" class="is-active">30D</button><button type="button" data-range="90">90D</button></div>
+                </div>
             </div>
             <div class="kpi-grid">
                 <article class="kpi-card"><span data-i18n="health.kpi.sleep">平均睡眠</span><strong id="kpiSleep">—</strong></article>

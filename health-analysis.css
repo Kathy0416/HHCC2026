@@ -203,6 +203,8 @@
 
 .analysis-card, .history-card { margin-top: 24px; }
 .analysis-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 24px; }
+.analysis-tools { display: flex; align-items: center; gap: 10px; }
+.export-button { min-height: 44px; padding-inline: 14px; white-space: nowrap; }
 .range-picker { display: inline-flex; padding: 4px; border: 1px solid rgba(120,148,220,.18); border-radius: 13px; background: rgba(9,14,25,.36); }
 .range-picker button { min-width: 52px; height: 36px; padding: 0 10px; background: transparent; color: var(--health-muted); font-size: .75rem; }
 .range-picker button.is-active { color: white; background: linear-gradient(100deg, #456bd5, #668df0); box-shadow: 0 5px 16px rgba(55,86,179,.28); }
@@ -316,6 +318,7 @@
     .health-footer { padding-inline: 4px; }
     .health-nav-link { min-width: 44px; font-size: .62rem; }
     .health-nav-link.journal-link { width: 55px; height: 55px; min-width: 55px; }
+    .analysis-tools { justify-content: space-between; }
     .chat-shortcut { width: 50px; height: 50px; right: 15px; bottom: 80px; }
 }
 

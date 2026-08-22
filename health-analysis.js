@@ -870,6 +870,42 @@
     });
   }
 
+  function exportAnalysisCsv() {
+    const analysis = state.analysis;
+    if (!analysis || !Array.isArray(analysis.series) || !analysis.series.length) {
+      setStatus(t('health.common.noData'), 'error');
+      return;
+    }
+    const headers = [
+      t('health.history.date'), t('health.history.source'), t('health.history.sleep'),
+      'Sleep start', 'Sleep end', t('health.history.heartRate'), t('health.history.spo2'),
+      t('health.history.steps'), t('health.environment.temperature'), t('health.environment.humidity'),
+      t('health.environment.light'), t('health.environment.noise'), t('health.history.migraine'), 'Stress trigger', 'Triggers'
+    ];
+    const rows = analysis.series.map((day) => [
+      day.date, day.sleepSource || '', day.sleepMinutes ?? '', day.sleepStart || '', day.sleepEnd || '',
+      day.heartRateAvg ?? '', day.spo2Avg ?? '', day.steps ?? '', day.temperatureAvg ?? '',
+      day.humidityAvg ?? '', day.lightAvg ?? '', day.noiseAvg ?? '', day.migraine ? 'true' : 'false',
+      day.stressTrigger ? 'true' : 'false', Array.isArray(day.triggers) ? day.triggers.join('; ') : ''
+    ]);
+    const csvCell = (value) => {
+      let text = String(value ?? '');
+      if (/^[=+\-@]/.test(text)) text = `'${text}`;
+      return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    const csv = [headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n');
+    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `health-analysis-${analysis.range}d-${analysis.startDate || localToday()}-${analysis.endDate || localToday()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setStatus(t('health.export.success'), 'success');
+  }
+
   function renderAnalysis(analysis) {
     state.analysis = analysis;
     document.getElementById('kpiSleep').textContent = formatDuration(analysis.kpis.averageSleepMinutes);
@@ -1094,6 +1130,7 @@
       panel.hidden = !panel.hidden;
       document.getElementById('setupBtn').setAttribute('aria-expanded', String(!panel.hidden));
     });
+    document.getElementById('exportAnalysisBtn').addEventListener('click', exportAnalysisCsv);
     document.getElementById('disconnectBtn').addEventListener('click', async () => {
       if (!state.connection?.active || !window.confirm(t('health.connection.confirmDisconnect'))) return;
       try {
