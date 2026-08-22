@@ -13,6 +13,9 @@ void SerialConsole::printHelp() {
   Serial.println("  HELP");
   Serial.println("  STATUS");
   Serial.println("  TIME <UTC epoch milliseconds>");
+  Serial.println("  WIFI_STATUS");
+  Serial.println("  WIFI_PORTAL");
+  Serial.println("  WIFI_FORGET");
   Serial.println("  LIST_EVENTS");
   Serial.println("  DUMP_EVENT <event_id>");
   Serial.println("  DUMP_LEGACY");
@@ -38,6 +41,8 @@ void SerialConsole::handle(char *command, uint64_t nowUs) {
     Serial.println(timeKeeper_.isSynchronized() ? "true" : "false");
     Serial.print("boot_id=");
     Serial.println(timeKeeper_.bootId(), HEX);
+    network_.printStatus(Serial);
+    timeSync_.printStatus(Serial);
     if (events_.recording()) {
       Serial.print("active_event_id=");
       Serial.println(events_.eventId());
@@ -56,6 +61,15 @@ void SerialConsole::handle(char *command, uint64_t nowUs) {
     } else {
       Serial.println("[INFO] UTC clock synchronized for this boot");
     }
+  } else if (strcmp(command, "WIFI_STATUS") == 0) {
+    network_.printStatus(Serial);
+    timeSync_.printStatus(Serial);
+  } else if (strcmp(command, "WIFI_PORTAL") == 0) {
+    Serial.println(network_.requestPortal(nowUs)
+                       ? "[INFO] Wi-Fi setup portal is active"
+                       : "[ERROR] Wi-Fi setup portal could not start");
+  } else if (strcmp(command, "WIFI_FORGET") == 0) {
+    network_.forgetCredentials(nowUs);
   } else if (strcmp(command, "LIST_EVENTS") == 0) {
     storage_.printEventList(Serial);
   } else if (strncmp(command, "DUMP_EVENT ", 11) == 0) {

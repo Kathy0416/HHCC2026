@@ -1,6 +1,7 @@
 #include "display_manager.h"
 
 #include <Wire.h>
+#include <string.h>
 
 #include "config.h"
 
@@ -38,6 +39,25 @@ void DisplayManager::showTransient(const char *line1, const char *line2,
           sizeof(transientLine1_));
   strlcpy(transientLine2_, line2 == nullptr ? "" : line2,
           sizeof(transientLine2_));
+  networkSetupTransient_ = false;
+  transientUntilUs_ = nowUs + static_cast<uint64_t>(durationMs) * MS_TO_US;
+  lastRefreshUs_ = 0;
+}
+
+void DisplayManager::showNetworkSetup(const char *ssid, const char *password,
+                                      uint64_t nowUs, uint32_t durationMs) {
+  memset(setupSsidLine1_, 0, sizeof(setupSsidLine1_));
+  memset(setupSsidLine2_, 0, sizeof(setupSsidLine2_));
+  if (ssid != nullptr) {
+    strncpy(setupSsidLine1_, ssid, sizeof(setupSsidLine1_) - 1U);
+    if (strlen(ssid) > sizeof(setupSsidLine1_) - 1U) {
+      strncpy(setupSsidLine2_, ssid + sizeof(setupSsidLine1_) - 1U,
+              sizeof(setupSsidLine2_) - 1U);
+    }
+  }
+  strlcpy(setupPassword_, password == nullptr ? "" : password,
+          sizeof(setupPassword_));
+  networkSetupTransient_ = true;
   transientUntilUs_ = nowUs + static_cast<uint64_t>(durationMs) * MS_TO_US;
   lastRefreshUs_ = 0;
 }
@@ -80,6 +100,21 @@ void DisplayManager::update(uint64_t nowUs, const SensorSample &sample,
   display_.setTextSize(1);
 
   if (nowUs < transientUntilUs_) {
+    if (networkSetupTransient_) {
+      display_.setCursor(0, 0);
+      display_.println("WiFi setup");
+      display_.setCursor(0, 13);
+      display_.println(setupSsidLine1_);
+      display_.setCursor(0, 25);
+      display_.println(setupSsidLine2_);
+      display_.setCursor(0, 38);
+      display_.println("Open 192.168.4.1");
+      display_.setCursor(0, 50);
+      display_.print("PW ");
+      display_.println(setupPassword_);
+      display_.display();
+      return;
+    }
     display_.drawFastHLine(0, 15, Config::SCREEN_WIDTH, SSD1306_WHITE);
     display_.setCursor(0, 20);
     display_.println(transientLine1_);

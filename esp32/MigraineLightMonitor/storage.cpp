@@ -48,6 +48,17 @@ void printFloatOrNull(Print &output, float value, bool valid) {
   }
 }
 
+bool deriveUtcFromAnchor(const ClockAnchor &anchor, uint32_t bootId,
+                         uint64_t monotonicUs, int64_t &utcEpochMs) {
+  if (!anchor.valid || anchor.bootId != bootId) {
+    return false;
+  }
+  const int64_t deltaUs = static_cast<int64_t>(monotonicUs) -
+                          static_cast<int64_t>(anchor.monotonicUs);
+  utcEpochMs = anchor.utcEpochMs + deltaUs / 1000LL;
+  return utcEpochMs != 0;
+}
+
 }  // namespace
 
 bool StorageManager::begin() {
@@ -742,26 +753,10 @@ bool StorageManager::dumpEventCsv(const char *eventId, Print &output) const {
     return false;
   }
 
-  output.print("# event_id=");
-  output.println(metadata.eventId);
-  output.print("# device_id=");
-  output.println(metadata.deviceId);
-  output.print("# status=");
-  output.println(eventStatusName(statusForPath(path)));
-  output.print("# event_utc_ms=");
-  if (metadata.eventUtcMs == 0) {
-    output.println("null");
-  } else {
-    printInt64(output, metadata.eventUtcMs);
-    output.println();
-  }
-  output.println(
-      "monotonic_us,utc_epoch_ms,boot_id,sampling_mode,time_quality,"
-      "light_lux,temperature_c,humidity_percent,noise_db_spl,valid_mask");
-
   const size_t size = file.size();
   size_t dataEnd = size;
   BinaryCodec::FooterData footer;
+  bool hasFooter = false;
   if (size >= BinaryCodec::EVENT_HEADER_BYTES +
                   BinaryCodec::EVENT_FOOTER_BYTES &&
       file.seek(size - BinaryCodec::EVENT_FOOTER_BYTES)) {
@@ -769,8 +764,32 @@ bool StorageManager::dumpEventCsv(const char *eventId, Print &output) const {
     if (file.read(footerBytes, sizeof(footerBytes)) == sizeof(footerBytes) &&
         BinaryCodec::decodeFooter(footerBytes, footer)) {
       dataEnd -= BinaryCodec::EVENT_FOOTER_BYTES;
+      hasFooter = true;
     }
   }
+
+  int64_t renderedEventUtcMs = metadata.eventUtcMs;
+  if (renderedEventUtcMs == 0 && hasFooter) {
+    deriveUtcFromAnchor(footer.anchor, metadata.bootId,
+                        metadata.eventMonotonicUs, renderedEventUtcMs);
+  }
+
+  output.print("# event_id=");
+  output.println(metadata.eventId);
+  output.print("# device_id=");
+  output.println(metadata.deviceId);
+  output.print("# status=");
+  output.println(eventStatusName(statusForPath(path)));
+  output.print("# event_utc_ms=");
+  if (renderedEventUtcMs == 0) {
+    output.println("null");
+  } else {
+    printInt64(output, renderedEventUtcMs);
+    output.println();
+  }
+  output.println(
+      "monotonic_us,utc_epoch_ms,boot_id,sampling_mode,time_quality,"
+      "light_lux,temperature_c,humidity_percent,noise_db_spl,valid_mask");
 
   file.seek(BinaryCodec::EVENT_HEADER_BYTES);
   uint8_t record[BinaryCodec::SAMPLE_RECORD_BYTES];
@@ -782,6 +801,11 @@ bool StorageManager::dumpEventCsv(const char *eventId, Print &output) const {
     if (!BinaryCodec::decodeSample(record, sample)) {
       output.println("# CRC_ERROR: remaining records not emitted");
       break;
+    }
+    if (sample.utcEpochMs == 0 && hasFooter &&
+        deriveUtcFromAnchor(footer.anchor, sample.bootId, sample.monotonicUs,
+                            sample.utcEpochMs)) {
+      sample.timeQuality = TimeQuality::BACKFILLED;
     }
     char number[32];
     snprintf(number, sizeof(number), "%llu",

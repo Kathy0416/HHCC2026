@@ -5,6 +5,7 @@
 
 #include "binary_codec.h"
 #include "circular_buffer.h"
+#include "time_keeper.h"
 
 namespace {
 
@@ -67,6 +68,40 @@ bool runFirmwareSelfTests(Print &output) {
   encoded[20] ^= 0x01;
   result(output, "sample CRC corruption detection",
          !BinaryCodec::decodeSample(encoded, decoded), allPassed);
+
+  TimeKeeper testClock;
+  testClock.begin();
+  constexpr int64_t TEST_UTC_MS = 1755800000000LL;
+  constexpr uint64_t TEST_ANCHOR_US = 10000000ULL;
+  result(output, "UTC range validation",
+         !testClock.setUtcEpochMs(1, TEST_ANCHOR_US) &&
+             testClock.setUtcEpochMs(TEST_UTC_MS, TEST_ANCHOR_US),
+         allPassed);
+  TimeQuality testQuality = TimeQuality::UNKNOWN;
+  const int64_t convertedUtc =
+      testClock.utcFor(TEST_ANCHOR_US + 2500000ULL, testQuality);
+  result(output, "monotonic to UTC conversion",
+         convertedUtc == TEST_UTC_MS + 2500LL &&
+             testQuality == TimeQuality::SYNCED,
+         allPassed);
+  SensorSample unsynchronizedSample;
+  unsynchronizedSample.monotonicUs = TEST_ANCHOR_US - 1000000ULL;
+  unsynchronizedSample.bootId = testClock.bootId();
+  result(output, "same-boot UTC backfill",
+         testClock.backfill(unsynchronizedSample) &&
+             unsynchronizedSample.utcEpochMs == TEST_UTC_MS - 1000LL &&
+             unsynchronizedSample.timeQuality == TimeQuality::BACKFILLED,
+         allPassed);
+  constexpr int64_t RESYNCED_UTC_MS = TEST_UTC_MS + 120500LL;
+  constexpr uint64_t RESYNCED_ANCHOR_US =
+      TEST_ANCHOR_US + 120000000ULL;
+  testClock.setUtcEpochMs(RESYNCED_UTC_MS, RESYNCED_ANCHOR_US);
+  testQuality = TimeQuality::UNKNOWN;
+  result(output, "UTC anchor resynchronization",
+         testClock.utcFor(RESYNCED_ANCHOR_US + 1000000ULL, testQuality) ==
+                 RESYNCED_UTC_MS + 1000LL &&
+             testQuality == TimeQuality::SYNCED,
+         allPassed);
 
   EventMetadata metadata;
   strlcpy(metadata.eventId, "ESP32_TEST_U12345678_0000000001_ABCDEF01",

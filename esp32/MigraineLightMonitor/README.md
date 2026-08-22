@@ -1,8 +1,9 @@
 # ESP32 Migraine Data Collector
 
 This firmware implements local-first acquisition and persistence for the
-classic 4 MB ESP32 DevKit V1. It does not contain BLE, network, authentication,
-database, or machine-learning code.
+classic 4 MB ESP32 DevKit V1. Wi-Fi is used for setup and UTC synchronization;
+the firmware does not yet contain BLE, authentication, database upload, or
+machine-learning code.
 
 ## Important upgrade warning
 
@@ -41,6 +42,29 @@ Arduino IDE, select **ESP32 Dev Module**, **4MB Flash**, and the
 same partition layout previously used by the device. The default 4 MB layout
 provides a `0x160000` filesystem partition.
 
+## Wi-Fi setup
+
+Wi-Fi provisioning is non-blocking: sensor acquisition and event persistence
+continue while the device connects or serves the setup page.
+
+1. On first boot, join the access point named `MigraineMonitor-XXXXXX` from a
+   phone. If saved Wi-Fi cannot connect for 20 seconds, this access point also
+   starts automatically.
+2. Enter the setup password `migraine-setup`. Change
+   `Config::WIFI_SETUP_PASSWORD` in `config.h` before flashing if a different
+   setup password is required.
+3. The captive page should open automatically. Otherwise browse to
+   `http://192.168.4.1/`.
+4. Submit a 2.4 GHz Wi-Fi SSID and password. Credentials are saved to ESP32
+   Preferences only after the connection succeeds. They are never printed to
+   Serial output.
+
+The setup access point closes after a successful connection. The device keeps
+the station connection active and retries it in the background if it drops.
+Use `WIFI_PORTAL` to open the setup page while already connected, or
+`WIFI_FORGET` to remove saved credentials and return to setup mode. Preferences
+storage is protected only when the ESP32's flash-security features are enabled.
+
 ## Runtime behavior
 
 - `NORMAL`: one sample every 5 seconds into a fixed 720-entry RAM buffer.
@@ -57,9 +81,17 @@ provides a `0x160000` filesystem partition.
 - A failed sensor produces a cleared validity bit and `null` in CSV output;
   other sensors continue.
 
-UTC is intentionally nullable. Send `TIME <epoch_ms>` after boot to establish a
-UTC anchor. Monotonic time and `boot_id` are always stored. No timestamp is
-fabricated across reboot.
+After Wi-Fi connects, SNTP obtains UTC from `pool.ntp.org`,
+`time.cloudflare.com`, or `time.nist.gov`. The clock is refreshed hourly and
+after reconnection. If Wi-Fi later drops, the last trustworthy UTC anchor and
+the monotonic clock keep timestamps running for the rest of that boot.
+
+UTC remains nullable until NTP succeeds. `TIME <epoch_ms>` is retained as an
+offline fallback; a later NTP update supersedes that manual anchor for future
+samples. Monotonic time and `boot_id` are always stored, and no timestamp is
+fabricated across a cold boot. A completed event's footer anchor is used during
+CSV export to backfill missing same-boot timestamps without rewriting the event
+file.
 
 ## Serial commands
 
@@ -68,6 +100,9 @@ fabricated across reboot.
 | `HELP` | List commands |
 | `STATUS` | Device state, clock, history, and flash usage |
 | `TIME <epoch_ms>` | Set the UTC anchor for this boot |
+| `WIFI_STATUS` | Show connection, setup portal, IP, RSSI, and NTP state |
+| `WIFI_PORTAL` | Open the phone setup portal without forgetting credentials |
+| `WIFI_FORGET` | Forget credentials and immediately enter setup mode |
 | `LIST_EVENTS` | List complete, incomplete, and quarantined event files |
 | `DUMP_EVENT <event_id>` | Validate records and render readable CSV |
 | `DUMP_LEGACY` | Export preserved old CSV logs |
@@ -148,3 +183,7 @@ sample record, including each sample's own CRC.
    cleanup and that event files remain unchanged.
 8. Run one production-duration event and verify approximately 720 pre-event
    records, 600 active records, and stable free heap.
+9. Provision Wi-Fi from a phone, reboot, and confirm automatic reconnection and
+   `ntp_state=synchronized` in `WIFI_STATUS`.
+10. Record before NTP completes, allow the event to finish after synchronization,
+    and confirm `DUMP_EVENT` renders same-boot missing times as `BACKFILLED`.

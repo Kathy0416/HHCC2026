@@ -5,19 +5,24 @@
 #include "alerts.h"
 #include "circular_buffer.h"
 #include "event_manager.h"
+#include "network_manager.h"
 #include "storage.h"
 #include "time_keeper.h"
+#include "time_sync_manager.h"
 
 class SerialConsole {
  public:
   SerialConsole(TimeKeeper &timeKeeper, StorageManager &storage,
                 EventManager &events, HistoryBuffer &history,
-                AlertManager &alerts)
+                AlertManager &alerts, WifiProvisioningManager &network,
+                TimeSyncManager &timeSync)
       : timeKeeper_(timeKeeper),
         storage_(storage),
         events_(events),
         history_(history),
-        alerts_(alerts) {}
+        alerts_(alerts),
+        network_(network),
+        timeSync_(timeSync) {}
 
   void begin();
   void tick(uint64_t nowUs);
@@ -31,6 +36,8 @@ class SerialConsole {
   EventManager &events_;
   HistoryBuffer &history_;
   AlertManager &alerts_;
+  WifiProvisioningManager &network_;
+  TimeSyncManager &timeSync_;
   char input_[160] = {};
   size_t inputLength_ = 0;
 };

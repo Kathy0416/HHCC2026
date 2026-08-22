@@ -13,6 +13,8 @@ class DisplayManager {
   bool ready() const { return ready_; }
   void showTransient(const char *line1, const char *line2, uint64_t nowUs,
                      uint32_t durationMs = 2500);
+  void showNetworkSetup(const char *ssid, const char *password,
+                        uint64_t nowUs, uint32_t durationMs = 15000);
   void update(uint64_t nowUs, const SensorSample &sample, DeviceState state,
               uint32_t activeCount, uint32_t expectedActiveCount,
               uint8_t flashPercent, bool storageReady,
@@ -27,6 +29,10 @@ class DisplayManager {
   uint64_t nextRetryUs_ = 0;
   uint64_t lastRefreshUs_ = 0;
   uint64_t transientUntilUs_ = 0;
+  bool networkSetupTransient_ = false;
   char transientLine1_[22] = {};
   char transientLine2_[22] = {};
+  char setupSsidLine1_[17] = {};
+  char setupSsidLine2_[17] = {};
+  char setupPassword_[65] = {};
 };

@@ -7,7 +7,8 @@
     Motor driver input: GPIO15
     User-reported migraine button: GPIO4 to GND (INPUT_PULLUP)
 
-  This phase intentionally contains no BLE, JWT, database, or ML code.
+  Wi-Fi is used for captive-portal provisioning and NTP time synchronization.
+  This firmware contains no BLE, JWT, database, or ML code.
 */
 
 #include <Arduino.h>
@@ -18,22 +19,27 @@
 #include "config.h"
 #include "display_manager.h"
 #include "event_manager.h"
+#include "network_manager.h"
 #include "sensors.h"
 #include "serial_console.h"
 #include "storage.h"
 #include "time_keeper.h"
+#include "time_sync_manager.h"
 
 namespace {
 constexpr uint64_t MS_TO_US = 1000ULL;
 
 TimeKeeper timeKeeper;
+WifiProvisioningManager network;
+TimeSyncManager timeSync(timeKeeper, network);
 HistoryBuffer history;
 StorageManager storage;
 SensorManager sensors(timeKeeper);
 AlertManager alerts;
 DisplayManager displayManager;
 EventManager events(sensors, timeKeeper, history, storage);
-SerialConsole console(timeKeeper, storage, events, history, alerts);
+SerialConsole console(timeKeeper, storage, events, history, alerts, network,
+                      timeSync);
 
 bool lastRawButton = HIGH;
 bool stableButton = HIGH;
@@ -41,6 +47,7 @@ uint64_t buttonChangedUs = 0;
 uint64_t nextNormalSampleUs = 0;
 uint64_t nextBaselineSampleUs = 0;
 uint64_t nextFlashHealthUs = 0;
+bool lastPortalActive = false;
 
 void printSample(const SensorSample &sample) {
   Serial.print("[SAMPLE] mode=");
@@ -143,6 +150,8 @@ void setup() {
   sensors.begin(nowUs);
   events.begin();
   console.begin();
+  timeSync.begin();
+  network.begin(nowUs);
 
   nextNormalSampleUs = nowUs;
   nextBaselineSampleUs =
@@ -157,7 +166,15 @@ void loop() {
   alerts.update(nowUs, sensors.latest());
   handleButton(nowUs);
   events.tick(nowUs);
+  network.tick(nowUs);
+  timeSync.tick(nowUs);
   console.tick(nowUs);
+
+  if (network.portalActive() && !lastPortalActive) {
+    displayManager.showNetworkSetup(network.portalSsid(),
+                                    Config::WIFI_SETUP_PASSWORD, nowUs);
+  }
+  lastPortalActive = network.portalActive();
 
   if (!events.suspendsNormalSampling() && nowUs >= nextNormalSampleUs) {
     const SensorSample sample =

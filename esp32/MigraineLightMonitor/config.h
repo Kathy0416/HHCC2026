@@ -50,6 +50,17 @@ constexpr uint32_t DISPLAY_REFRESH_MS = 500;
 constexpr uint32_t FLASH_HEALTH_INTERVAL_MS = 60000;
 constexpr uint32_t BUTTON_DEBOUNCE_MS = 30;
 
+// Wi-Fi provisioning and UTC synchronization. The setup access point is only
+// active while credentials are missing, a connection has timed out, or it was
+// explicitly requested from Serial Monitor.
+constexpr const char *WIFI_SETUP_PASSWORD = "migraine-setup";
+constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000;
+constexpr uint32_t WIFI_RETRY_INTERVAL_MS = 30000;
+constexpr const char *NTP_SERVER_1 = "pool.ntp.org";
+constexpr const char *NTP_SERVER_2 = "time.cloudflare.com";
+constexpr const char *NTP_SERVER_3 = "time.nist.gov";
+constexpr uint32_t NTP_RESYNC_INTERVAL_MS = 60UL * 60UL * 1000UL;
+
 // Sensor plausibility ranges. Raw finite values are retained even when their
 // validity bit is cleared.
 constexpr float LIGHT_MIN_LUX = 0.0F;
