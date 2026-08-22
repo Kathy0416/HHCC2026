@@ -1,8 +1,10 @@
 (function () {
   'use strict';
 
-  const state = { range: 30, analysis: null, connection: null, latest: null, charts: {} };
+  const state = { range: 30, analysis: null, connection: null, latest: null, environmentLatest: null, esp32Syncing: false, charts: {} };
   const QUALITY = new Set(['excellent', 'good', 'fair', 'poor']);
+  const ESP32_ENDPOINT_KEY = 'esp32EndpointUrl';
+  const ESP32_UPLOAD_CHUNK_SIZE = 500;
   const DEVICE_ARTWORK = Object.freeze({
     apple: 'assets/apple-watch.svg',
     xiaomi: 'assets/xiaomi-band.svg'
@@ -58,6 +60,7 @@
       updateAuthHeader();
       state.connection = null;
       state.latest = null;
+      state.environmentLatest = null;
       renderConnection();
       renderLocalAnalysis();
       setStatus(t('health.record.loginRequired'));
@@ -217,6 +220,25 @@
     illustration.dataset.deviceBrand = brand;
   }
 
+  function renderEnvironmentLatest() {
+    const latest = state.environmentLatest;
+    document.getElementById('latestTemperature').textContent = rounded(latest?.temperatureC, '', 1);
+    document.getElementById('latestHumidity').textContent = rounded(latest?.humidityPct, '', 1);
+    document.getElementById('latestLight').textContent = rounded(latest?.lightLux, '', 1);
+    document.getElementById('latestNoise').textContent = rounded(latest?.noiseDb, '', 1);
+    document.getElementById('environmentUpdatedAt').textContent = latest?.recordedAt
+      ? t('health.esp32.updatedAt', { time: formatDateTime(latest.recordedAt) })
+      : t('health.esp32.noData');
+  }
+
+  function updateEsp32Button() {
+    const button = document.getElementById('esp32SyncBtn');
+    const active = !!state.connection?.active;
+    button.disabled = !active || state.esp32Syncing;
+    button.setAttribute('aria-busy', String(state.esp32Syncing));
+    button.textContent = t(state.esp32Syncing ? 'health.esp32.syncing' : 'health.esp32.sync');
+  }
+
   function renderConnection() {
     const connection = state.connection;
     const latest = state.latest;
@@ -242,11 +264,9 @@
     document.getElementById('latestSpo2').textContent = latest?.spo2?.avg == null ? '—' : Number(latest.spo2.avg).toFixed(1);
     document.getElementById('latestSteps').textContent = latest?.steps == null ? '—' : Number(latest.steps).toLocaleString(locale());
     document.getElementById('latestSleep').textContent = latest?.sleep?.durationMinutes == null ? '—' : formatDuration(latest.sleep.durationMinutes);
-    const latestDay = state.analysis?.series?.find((day) => day.date === latest?.date);
-    document.getElementById('latestStress').textContent = connection
-      ? `${t(latestDay?.stressTrigger ? 'health.common.yes' : 'health.common.no')} · ${t('health.connection.stressDiary')}`
-      : t('health.connection.unavailable');
     document.getElementById('disconnectBtn').disabled = !active;
+    renderEnvironmentLatest();
+    updateEsp32Button();
   }
 
   function chartDefaults() {
@@ -298,6 +318,32 @@
     replaceChart('steps', 'stepsChart', {
       type: 'bar', data: { labels, datasets: [{ label: t('health.connection.steps'), data: analysis.series.map((day) => day.steps), backgroundColor: analysis.series.map((day) => day.migraine ? 'rgba(255,108,124,.7)' : 'rgba(101,147,255,.62)'), borderRadius: 5 }] }, options: chartDefaults()
     });
+
+    const climateOptions = chartDefaults();
+    climateOptions.scales = {
+      x: climateOptions.scales.x,
+      temperature: { type: 'linear', position: 'left', ticks: { color: '#8794af' }, grid: { color: 'rgba(123,147,205,.09)' }, title: { display: true, text: '°C', color: '#8794af' } },
+      humidity: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { color: '#8794af' }, grid: { drawOnChartArea: false }, title: { display: true, text: '%', color: '#8794af' } }
+    };
+    replaceChart('environmentClimate', 'environmentClimateChart', {
+      type: 'line', data: { labels, datasets: [
+        { label: t('health.environment.temperature'), data: analysis.series.map((day) => day.temperatureAvg), yAxisID: 'temperature', borderColor: '#ff9b75', backgroundColor: '#ff9b75', tension: .3, spanGaps: true, pointRadius: 2 },
+        { label: t('health.environment.humidity'), data: analysis.series.map((day) => day.humidityAvg), yAxisID: 'humidity', borderColor: '#66d5dc', backgroundColor: '#66d5dc', tension: .3, spanGaps: true, pointRadius: 2 }
+      ] }, options: climateOptions
+    });
+
+    const exposureOptions = chartDefaults();
+    exposureOptions.scales = {
+      x: exposureOptions.scales.x,
+      light: { type: 'linear', position: 'left', beginAtZero: true, ticks: { color: '#8794af' }, grid: { color: 'rgba(123,147,205,.09)' }, title: { display: true, text: 'lux', color: '#8794af' } },
+      noise: { type: 'linear', position: 'right', beginAtZero: true, suggestedMax: 120, ticks: { color: '#8794af' }, grid: { drawOnChartArea: false }, title: { display: true, text: 'dB', color: '#8794af' } }
+    };
+    replaceChart('environmentExposure', 'environmentExposureChart', {
+      type: 'line', data: { labels, datasets: [
+        { label: t('health.environment.light'), data: analysis.series.map((day) => day.lightAvg), yAxisID: 'light', borderColor: '#ffd36a', backgroundColor: '#ffd36a', tension: .3, spanGaps: true, pointRadius: 2 },
+        { label: t('health.environment.noise'), data: analysis.series.map((day) => day.noiseAvg), yAxisID: 'noise', borderColor: '#bd8cff', backgroundColor: '#bd8cff', tension: .3, spanGaps: true, pointRadius: 2 }
+      ] }, options: exposureOptions
+    });
   }
 
   function addComparison(container, title, comparison, formatter) {
@@ -344,13 +390,21 @@
   function renderHistory(analysis) {
     const body = document.getElementById('healthHistoryBody');
     body.replaceChildren();
-    const rows = analysis.series.filter((day) => day.sleepMinutes != null || day.heartRateAvg != null || day.spo2Avg != null || day.steps != null || day.hasDiaryEntry).slice().reverse();
+    const rows = analysis.series.filter((day) => (
+      day.sleepMinutes != null || day.heartRateAvg != null || day.spo2Avg != null || day.steps != null ||
+      day.temperatureAvg != null || day.humidityAvg != null || day.lightAvg != null || day.noiseAvg != null || day.hasDiaryEntry
+    )).slice().reverse();
     document.getElementById('emptyState').hidden = rows.length > 0;
     document.querySelector('.health-table').hidden = rows.length === 0;
     rows.forEach((day) => {
       const row = document.createElement('tr');
       const source = day.sleepSource ? t(`health.source.${day.sleepSource}`) : '—';
-      const cells = [formatDate(day.date), source, formatDuration(day.sleepMinutes), rounded(day.heartRateAvg, ' bpm'), rounded(day.spo2Avg, '%', 1), day.steps == null ? '—' : Math.round(day.steps).toLocaleString(locale())];
+      const cells = [
+        formatDate(day.date), source, formatDuration(day.sleepMinutes), rounded(day.heartRateAvg, ' bpm'),
+        rounded(day.spo2Avg, '%', 1), day.steps == null ? '—' : Math.round(day.steps).toLocaleString(locale()),
+        rounded(day.temperatureAvg, ' °C', 1), rounded(day.humidityAvg, '%', 1),
+        rounded(day.lightAvg, ' lux', 1), rounded(day.noiseAvg, ' dB', 1)
+      ];
       cells.forEach((value, index) => {
         const cell = document.createElement('td');
         if (index === 1 && day.sleepSource) {
@@ -390,7 +444,12 @@
     const records = new Map(localSleepRecords().map((record) => [record.date, record]));
     const series = Array.from({ length: state.range }, (_, index) => {
       const date = localDate(index - state.range + 1); const record = records.get(date);
-      return { date, migraine: false, hasDiaryEntry: false, stressTrigger: false, sleepMinutes: record?.duration?.totalMinutes ?? null, sleepSource: record ? 'manual' : null, heartRateAvg: null, spo2Avg: null, steps: null };
+      return {
+        date, migraine: false, hasDiaryEntry: false, stressTrigger: false,
+        sleepMinutes: record?.duration?.totalMinutes ?? null, sleepSource: record ? 'manual' : null,
+        heartRateAvg: null, spo2Avg: null, steps: null,
+        temperatureAvg: null, humidityAvg: null, lightAvg: null, noiseAvg: null
+      };
     });
     const sleepValues = series.map((day) => day.sleepMinutes).filter(Number.isFinite);
     renderAnalysis({ range: state.range, series, kpis: { averageSleepMinutes: sleepValues.length ? sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length : null, migraineDays: 0, averageHeartRate: null, averageSpo2: null, averageSteps: null }, coverage: { recordedDays: sleepValues.length, overlappingDays: 0, insightsAvailable: false }, comparisons: null });
@@ -399,19 +458,115 @@
   async function loadAll(showLoading = true) {
     if (showLoading) setStatus(t('health.common.loading'));
     if (!window.ApiClient?.hasToken()) {
-      state.connection = null; state.latest = null; renderConnection(); renderLocalAnalysis(); setStatus(t('health.record.loginRequired'));
+      state.connection = null; state.latest = null; state.environmentLatest = null; renderConnection(); renderLocalAnalysis(); setStatus(t('health.record.loginRequired'));
       return;
     }
     try {
       const [connectionData, analysis] = await Promise.all([window.ApiClient.getHealthConnection(), window.ApiClient.getHealthAnalysis(state.range)]);
       state.connection = connectionData.connection;
       state.latest = connectionData.latest;
+      state.environmentLatest = connectionData.environmentLatest;
       renderAnalysis(analysis);
       setStatus('');
     } catch (error) {
       if (error.status === 401) showModal('loginModal');
       renderLocalAnalysis();
       setStatus(error.status ? error.message : t('health.common.offline'), 'error');
+    }
+  }
+
+  function setEsp32Status(message, type) {
+    const element = document.getElementById('esp32Status');
+    element.textContent = message || '';
+    element.className = `esp32-status${type ? ` is-${type}` : ''}`;
+  }
+
+  function validatedEsp32Url(value) {
+    let endpoint;
+    try {
+      endpoint = new URL(String(value || '').trim());
+    } catch (error) {
+      throw Object.assign(new Error(t('health.esp32.invalidUrl')), { code: 'invalidUrl' });
+    }
+    if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
+      throw Object.assign(new Error(t('health.esp32.invalidUrl')), { code: 'invalidUrl' });
+    }
+    if (window.location.protocol === 'https:' && endpoint.protocol === 'http:') {
+      throw Object.assign(new Error(t('health.esp32.mixedContent')), { code: 'mixedContent' });
+    }
+    return endpoint.href;
+  }
+
+  function esp32ParseMessage(error) {
+    const keyByCode = {
+      responseTooLarge: 'health.esp32.responseTooLarge',
+      tooManySamples: 'health.esp32.tooManySamples',
+      noValidSamples: 'health.esp32.noValidSamples'
+    };
+    return t(keyByCode[error?.code] || 'health.esp32.fetchFailed');
+  }
+
+  async function syncEsp32Environment() {
+    if (!window.ApiClient?.hasToken()) {
+      setEsp32Status(t('health.esp32.loginRequired'), 'error');
+      showModal('loginModal');
+      return;
+    }
+    if (!state.connection?.active) {
+      setEsp32Status(t('health.esp32.connectionRequired'), 'error');
+      return;
+    }
+
+    const endpointInput = document.getElementById('esp32Endpoint');
+    let endpoint;
+    try {
+      endpoint = validatedEsp32Url(endpointInput.value);
+    } catch (error) {
+      setEsp32Status(error.message, 'error');
+      endpointInput.focus();
+      return;
+    }
+
+    localStorage.setItem(ESP32_ENDPOINT_KEY, endpoint);
+    state.esp32Syncing = true;
+    updateEsp32Button();
+    setEsp32Status(t('health.esp32.fetching'));
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { Accept: 'text/plain' },
+        credentials: 'omit',
+        cache: 'no-store',
+        mode: 'cors',
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(t('health.esp32.httpError', { status: response.status }));
+      const declaredLength = Number(response.headers.get('content-length'));
+      if (Number.isFinite(declaredLength) && declaredLength > window.Esp32Parser.MAX_RESPONSE_BYTES) {
+        throw Object.assign(new Error('responseTooLarge'), { code: 'responseTooLarge' });
+      }
+      const parsed = window.Esp32Parser.parseEsp32Samples(await response.text());
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      let uploaded = 0;
+      for (let index = 0; index < parsed.readings.length; index += ESP32_UPLOAD_CHUNK_SIZE) {
+        const readings = parsed.readings.slice(index, index + ESP32_UPLOAD_CHUNK_SIZE);
+        const result = await window.ApiClient.syncEsp32Environment({ connectionId: state.connection.id, timezone, readings });
+        uploaded += result.readingsUpserted;
+        state.environmentLatest = result.environmentLatest;
+      }
+      await loadAll(false);
+      setEsp32Status(t('health.esp32.synced', { count: uploaded, skipped: parsed.skipped }), 'success');
+    } catch (error) {
+      const message = error.name === 'AbortError'
+        ? t('health.esp32.timeout')
+        : (error.code ? esp32ParseMessage(error) : (error instanceof TypeError ? t('health.esp32.fetchFailed') : (error.message || t('health.esp32.fetchFailed'))));
+      setEsp32Status(message, 'error');
+    } finally {
+      window.clearTimeout(timeout);
+      state.esp32Syncing = false;
+      updateEsp32Button();
     }
   }
 
@@ -422,6 +577,8 @@
       await loadAll();
     }));
     document.getElementById('refreshBtn').addEventListener('click', () => loadAll());
+    document.getElementById('esp32Endpoint').value = localStorage.getItem(ESP32_ENDPOINT_KEY) || '';
+    document.getElementById('esp32SyncBtn').addEventListener('click', syncEsp32Environment);
     document.getElementById('setupBtn').addEventListener('click', () => {
       const panel = document.getElementById('androidSetup');
       panel.hidden = !panel.hidden;

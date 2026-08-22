@@ -7,13 +7,14 @@
     <link rel="icon" href="data:,">
     <title>健康分析 - Migraine Signal</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="health-analysis.css?v=11-larger-band-artwork">
+    <link rel="stylesheet" href="health-analysis.css?v=12-esp32-environment">
     <script src="site-header.js"></script>
-    <script src="locales.js"></script>
+    <script src="locales.js?v=12-esp32-environment"></script>
     <script src="i18n.js?v=8-health-analysis"></script>
-    <script src="api.js"></script>
+    <script src="api.js?v=12-esp32-environment"></script>
+    <script src="esp32-parser.js?v=12-esp32-environment"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="health-analysis.js?v=9-band-artwork" defer></script>
+    <script src="health-analysis.js?v=12-esp32-environment" defer></script>
 </head>
 <body class="health-page">
     <div data-site-header data-page-title="健康分析"></div>
@@ -57,7 +58,6 @@
                         <div class="latest-metric"><dt data-i18n="health.connection.spo2">血氧</dt><dd><span id="latestSpo2">—</span> <small>%</small></dd></div>
                         <div class="latest-metric"><dt data-i18n="health.connection.steps">步数</dt><dd><span id="latestSteps">—</span></dd></div>
                         <div class="latest-metric"><dt data-i18n="health.connection.sleep">最近睡眠</dt><dd><span id="latestSleep">—</span></dd></div>
-                        <div class="latest-metric"><dt data-i18n="health.connection.stress">压力</dt><dd class="text-value" id="latestStress" data-i18n="health.connection.stressDiary">来自日记触发因素</dd></div>
                     </dl>
                 </div>
                 <div class="connection-actions">
@@ -67,6 +67,21 @@
                 </div>
                 <p class="connection-hint" data-i18n="health.connection.refreshHint">刷新只会加载安卓配套应用已上传的数据。</p>
                 <div id="androidSetup" class="setup-panel" hidden><h3 data-i18n="health.connection.setupTitle">通过 Health Connect 连接</h3><p data-i18n="health.connection.setupBody">安装配套应用，使用本账号登录，授权读取 Mi Fitness 数据，然后在手机上点击“立即同步”。</p><code>android-companion/README.md</code></div>
+                <section class="esp32-panel" aria-labelledby="esp32-title">
+                    <div class="esp32-heading"><div><p class="section-eyebrow">ESP32 ENVIRONMENT</p><h3 id="esp32-title" data-i18n="health.esp32.title">环境数据</h3></div><span id="esp32Status" class="esp32-status" role="status" aria-live="polite"></span></div>
+                    <div class="esp32-controls">
+                        <label class="esp32-endpoint"><span data-i18n="health.esp32.endpoint">设备数据地址</span><input type="url" id="esp32Endpoint" inputmode="url" autocomplete="url" placeholder="http://esp32.local/data" data-i18n-placeholder="health.esp32.endpointPlaceholder"></label>
+                        <button type="button" id="esp32SyncBtn" class="primary-action compact" disabled data-i18n="health.esp32.sync">同步 ESP32 数据</button>
+                    </div>
+                    <p class="esp32-hint" data-i18n="health.esp32.hint">从同一网络上的 ESP32 读取环境数据库，并安全保存到当前账号。</p>
+                    <dl class="environment-grid">
+                        <div class="environment-metric"><dt data-i18n="health.environment.temperature">温度</dt><dd><span id="latestTemperature">—</span> <small>°C</small></dd></div>
+                        <div class="environment-metric"><dt data-i18n="health.environment.humidity">湿度</dt><dd><span id="latestHumidity">—</span> <small>%</small></dd></div>
+                        <div class="environment-metric"><dt data-i18n="health.environment.light">光照强度</dt><dd><span id="latestLight">—</span> <small>lux</small></dd></div>
+                        <div class="environment-metric"><dt data-i18n="health.environment.noise">噪声</dt><dd><span id="latestNoise">—</span> <small>dB</small></dd></div>
+                    </dl>
+                    <p id="environmentUpdatedAt" class="environment-updated" data-i18n="health.esp32.noData">尚未同步环境数据。</p>
+                </section>
             </section>
         </div>
 
@@ -87,6 +102,8 @@
                 <article class="chart-card chart-wide"><h3 data-i18n="health.chart.sleep">睡眠与偏头痛日期</h3><div class="chart-frame"><canvas id="sleepMigraineChart"></canvas></div></article>
                 <article class="chart-card"><h3 data-i18n="health.chart.vitals">心率与血氧</h3><div class="chart-frame"><canvas id="vitalsChart"></canvas></div></article>
                 <article class="chart-card"><h3 data-i18n="health.chart.steps">每日活动</h3><div class="chart-frame"><canvas id="stepsChart"></canvas></div></article>
+                <article class="chart-card"><h3 data-i18n="health.chart.environmentClimate">温度与湿度</h3><div class="chart-frame"><canvas id="environmentClimateChart"></canvas></div></article>
+                <article class="chart-card"><h3 data-i18n="health.chart.environmentExposure">光照与噪声</h3><div class="chart-frame"><canvas id="environmentExposureChart"></canvas></div></article>
             </div>
             <section class="insights-panel" aria-labelledby="insights-title">
                 <div class="insights-heading"><h3 id="insights-title" data-i18n="health.insights.title">偏头痛日期对比</h3><span class="insight-tag">DESCRIPTIVE</span></div>
@@ -98,7 +115,7 @@
         <section class="health-card history-card" aria-labelledby="history-title">
             <div class="section-heading compact-heading"><h2 id="history-title" data-i18n="health.history.title">近期每日记录</h2></div>
             <div class="table-wrap"><table class="health-table"><thead><tr>
-                <th data-i18n="health.history.date">日期</th><th data-i18n="health.history.source">睡眠来源</th><th data-i18n="health.history.sleep">睡眠</th><th data-i18n="health.history.heartRate">心率</th><th data-i18n="health.history.spo2">血氧</th><th data-i18n="health.history.steps">步数</th><th data-i18n="health.history.migraine">偏头痛</th>
+                <th data-i18n="health.history.date">日期</th><th data-i18n="health.history.source">睡眠来源</th><th data-i18n="health.history.sleep">睡眠</th><th data-i18n="health.history.heartRate">心率</th><th data-i18n="health.history.spo2">血氧</th><th data-i18n="health.history.steps">步数</th><th data-i18n="health.environment.temperature">温度</th><th data-i18n="health.environment.humidity">湿度</th><th data-i18n="health.environment.light">光照强度</th><th data-i18n="health.environment.noise">噪声</th><th data-i18n="health.history.migraine">偏头痛</th>
             </tr></thead><tbody id="healthHistoryBody"></tbody></table></div>
             <div id="emptyState" class="empty-state" hidden data-i18n="health.common.noData">此时间范围内还没有健康数据。</div>
         </section>

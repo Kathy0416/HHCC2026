@@ -159,6 +159,9 @@
     syncHealthData(payload) {
       return this._request('POST', '/health/sync', payload);
     },
+    syncEsp32Environment(payload) {
+      return this._request('POST', '/health/environment-sync', payload);
+    },
     getHealthAnalysis(range) {
       return this._request('GET', '/health/analysis?range=' + encodeURIComponent(range || 30));
     },

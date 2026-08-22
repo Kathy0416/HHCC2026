@@ -1,13 +1,16 @@
 // Service Worker for Migraine Tracker App
 
-const CACHE_NAME = 'migraine-app-cache-v11-larger-band-artwork';
+const CACHE_NAME = 'migraine-app-cache-v12-esp32-environment';
 const urlsToCache = [
   '.',
   'index.html',
   'diary.html',
   'sleep.html',
-  'health-analysis.css?v=11-larger-band-artwork',
-  'health-analysis.js?v=9-band-artwork',
+  'health-analysis.css?v=12-esp32-environment',
+  'health-analysis.js?v=12-esp32-environment',
+  'esp32-parser.js?v=12-esp32-environment',
+  'locales.js?v=12-esp32-environment',
+  'api.js?v=12-esp32-environment',
   'assets/apple-watch.svg',
   'assets/xiaomi-band.svg',
   'tips.html',
