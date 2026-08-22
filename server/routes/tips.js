@@ -1,6 +1,8 @@
 const express = require('express');
 const { optionalAuth, requireAuth } = require('../middleware');
 const db = require('../db');
+const catalog = require('../../locales');
+const { serializeTip } = require('../builtin-tips');
 
 const router = express.Router();
 const CLINICAL_REQUIRED_TAG = '医学建议';
@@ -18,40 +20,25 @@ function normalizeTags(tags, template) {
   return uniqueTags;
 }
 
-function toTip(row) {
-  let tags = [];
-  try {
-    tags = JSON.parse(row.tags || '[]');
-  } catch (e) {
-    tags = [];
-  }
-  const template = row.template_type || 'normal';
+// 评论序列化（支持本地化匿名）
+function toComment(row, locale = 'zh-CN') {
+  const isAnonymous = row.author === '__anonymous__' || row.author === '匿名' || row.author === 'Anonymous';
   return {
     id: row.id,
-    title: row.title,
-    description: row.description,
+    author: isAnonymous ? catalog.keys[locale]['common.anonymous'] : row.author,
     content: row.content,
-    image: row.image,
-    template,
-    author: {
-      name: row.author_name,
-      username: row.author_username,
-      bio: row.author_bio,
-      avatar: row.author_avatar
-    },
-    tags: normalizeTags(tags, template),
-    likes: Number(row.like_count == null ? row.likes : row.like_count),
-    liked: Boolean(row.liked_by_user),
-    comments: Number(row.comment_count || 0),
-    date: row.date,
-    createdAt: row.created_at
+    date: row.date
   };
 }
 
-function toComment(row) {
-  return { id: row.id, author: row.author, content: row.content, date: row.date };
+// 为 Tip 对象附加评论数
+function withCommentCount(tip) {
+  const { c } = db.prepare('SELECT COUNT(*) AS c FROM comments WHERE tip_id = ?').get(tip.id);
+  tip.comments = c;
+  return tip;
 }
 
+// 构建 Tip 查询 SQL（支持权限和统计）
 function tipSelect(userId) {
   return {
     sql: `
@@ -69,6 +56,7 @@ function tipSelect(userId) {
   };
 }
 
+// 获取单个 Tip 的点赞状态
 function getTipLikeState(tipId, userId) {
   return db.prepare(`
     SELECT
@@ -82,14 +70,17 @@ function getTipLikeState(tipId, userId) {
   `).get(userId, tipId);
 }
 
-// 获取 Tips 列表
+// ============ 路由 ============
+
+// 获取 Tips 列表（支持可选身份）
 router.get('/', optionalAuth, (req, res) => {
   const query = tipSelect(req.user && req.user.id);
   const rows = db.prepare(`${query.sql} ORDER BY tips.id DESC`).all(...query.params);
-  res.json({ tips: rows.map(toTip) });
+  const tips = rows.map((row) => withCommentCount(serializeTip(row, req.locale)));
+  res.json({ tips });
 });
 
-// 发布 Tips（需登录，支持图片 base64 和 markdown 文字）
+// 发布 Tips（需登录）
 router.post('/', requireAuth, (req, res) => {
   const title = String(req.body.title || '').trim();
   const content = String(req.body.content || '').trim();
@@ -101,22 +92,22 @@ router.post('/', requireAuth, (req, res) => {
   const tags = normalizeTags(req.body.tags, template);
 
   if (!title) {
-    return res.status(400).json({ error: '标题不能为空' });
+    return res.status(400).json({ error: req.t('emptyTitle') });
   }
   if (!content) {
-    return res.status(400).json({ error: '内容不能为空' });
+    return res.status(400).json({ error: req.t('emptyContent') });
   }
   if (title.length > 100) {
-    return res.status(400).json({ error: '标题过长（最多 100 字）' });
+    return res.status(400).json({ error: req.t('titleTooLong') });
   }
   if (content.length > 20000) {
-    return res.status(400).json({ error: '内容过长（最多 20000 字）' });
+    return res.status(400).json({ error: req.t('contentTooLong') });
   }
   if (image && image.length > 10 * 1024 * 1024) {
-    return res.status(400).json({ error: '图片过大（最大约 7MB）' });
+    return res.status(400).json({ error: req.t('imageTooLarge') });
   }
   if (!['clinical', 'daily', 'normal'].includes(template)) {
-    return res.status(400).json({ error: '模板类型无效' });
+    return res.status(400).json({ error: req.t('invalidTemplate') });
   }
 
   const username = req.user.username;
@@ -130,19 +121,20 @@ router.post('/', requireAuth, (req, res) => {
     `)
     .run(title, description, content, image, template, username, username, '', avatar, JSON.stringify(tags), date);
 
+  // 使用 tipSelect 查询最新插入的记录（包含统计）
   const query = tipSelect(req.user.id);
   const row = db.prepare(`${query.sql} WHERE tips.id = ?`).get(...query.params, Number(info.lastInsertRowid));
-  res.status(201).json({ tip: toTip(row) });
+  res.status(201).json({ tip: withCommentCount(serializeTip(row, req.locale)) });
 });
 
-// 获取单个 Tip
+// 获取单个 Tip（支持可选身份）
 router.get('/:id', optionalAuth, (req, res) => {
   const query = tipSelect(req.user && req.user.id);
   const row = db.prepare(`${query.sql} WHERE tips.id = ?`).get(...query.params, Number(req.params.id));
   if (!row) {
-    return res.status(404).json({ error: '未找到该笔记' });
+    return res.status(404).json({ error: req.t('tipNotFound') });
   }
-  res.json({ tip: toTip(row) });
+  res.json({ tip: withCommentCount(serializeTip(row, req.locale)) });
 });
 
 // 获取某条 Tip 的评论
@@ -150,7 +142,7 @@ router.get('/:id/comments', (req, res) => {
   const rows = db
     .prepare('SELECT * FROM comments WHERE tip_id = ? ORDER BY created_at DESC, id DESC')
     .all(Number(req.params.id));
-  res.json({ comments: rows.map(toComment) });
+  res.json({ comments: rows.map((row) => toComment(row, req.locale)) });
 });
 
 // 发表评论（未登录时为匿名）
@@ -158,28 +150,28 @@ router.post('/:id/comments', optionalAuth, (req, res) => {
   const tipId = Number(req.params.id);
   const tip = db.prepare('SELECT id FROM tips WHERE id = ?').get(tipId);
   if (!tip) {
-    return res.status(404).json({ error: '未找到该笔记' });
+    return res.status(404).json({ error: req.t('tipNotFound') });
   }
 
   const content = String(req.body.content || '').trim();
   if (!content) {
-    return res.status(400).json({ error: '评论内容不能为空' });
+    return res.status(400).json({ error: req.t('emptyComment') });
   }
   if (content.length > 1000) {
-    return res.status(400).json({ error: '评论内容过长' });
+    return res.status(400).json({ error: req.t('commentTooLong') });
   }
 
-  const author = req.user ? req.user.username : '匿名';
+  const author = req.user ? req.user.username : '__anonymous__';
   const date = new Date().toISOString().split('T')[0];
   const info = db
     .prepare('INSERT INTO comments (tip_id, user_id, author, content, date) VALUES (?, ?, ?, ?, ?)')
     .run(tipId, req.user ? req.user.id : null, author, content, date);
 
   const row = db.prepare('SELECT * FROM comments WHERE id = ?').get(Number(info.lastInsertRowid));
-  res.status(201).json({ comment: toComment(row) });
+  res.status(201).json({ comment: toComment(row, req.locale) });
 });
 
-// 点赞（重复请求保持已点赞状态，不会创建重复数据）
+// 点赞（重复请求保持已点赞状态）
 router.post('/:id/like', requireAuth, (req, res) => {
   const tipId = Number(req.params.id);
   const tip = db.prepare('SELECT id FROM tips WHERE id = ?').get(tipId);
@@ -198,7 +190,7 @@ router.delete('/:id/like', requireAuth, (req, res) => {
   const tipId = Number(req.params.id);
   const tip = db.prepare('SELECT id FROM tips WHERE id = ?').get(tipId);
   if (!tip) {
-    return res.status(404).json({ error: '未找到该笔记' });
+    return res.status(404).json({ error: req.t('tipNotFound') });
   }
 
   db.prepare('DELETE FROM tip_likes WHERE tip_id = ? AND user_id = ?')

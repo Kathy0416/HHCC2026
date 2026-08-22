@@ -15,18 +15,18 @@ router.post('/register', (req, res) => {
   const password = String(req.body.password || '');
 
   if (!username || !password) {
-    return res.status(400).json({ error: '用户名和密码不能为空' });
+    return res.status(400).json({ error: req.t('emptyCredentials') });
   }
   if (username.length < 2 || username.length > 30) {
-    return res.status(400).json({ error: '用户名长度需在 2-30 个字符之间' });
+    return res.status(400).json({ error: req.t('usernameLength') });
   }
   if (password.length < 4) {
-    return res.status(400).json({ error: '密码至少需要 4 位' });
+    return res.status(400).json({ error: req.t('passwordLength') });
   }
 
   const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
   if (exists) {
-    return res.status(409).json({ error: '该用户名已被注册' });
+    return res.status(409).json({ error: req.t('usernameTaken') });
   }
 
   const passwordHash = bcrypt.hashSync(password, 10);
@@ -44,7 +44,7 @@ router.post('/login', (req, res) => {
 
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-    return res.status(401).json({ error: '用户名或密码错误' });
+    return res.status(401).json({ error: req.t('invalidCredentials') });
   }
 
   const token = signToken(user);
@@ -55,7 +55,7 @@ router.post('/login', (req, res) => {
 router.get('/me', requireAuth, (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
   if (!user) {
-    return res.status(404).json({ error: '用户不存在' });
+    return res.status(404).json({ error: req.t('userNotFound') });
   }
   res.json({ user: publicUser(user) });
 });

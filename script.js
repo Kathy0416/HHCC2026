@@ -4,6 +4,23 @@ let selectedDate = null;
 let calendarData = {};
 let currentView = 'month'; // 'month' 或 'year'
 
+function appLanguage() {
+    return window.I18n ? window.I18n.getLanguage() : 'zh-CN';
+}
+
+function localizedMonthName(month) {
+    return new Intl.DateTimeFormat(appLanguage(), { month: 'long' }).format(new Date(2024, month, 1));
+}
+
+function localizedWeekdays(width = 'short') {
+    const sunday = new Date(2024, 0, 7);
+    return Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(sunday);
+        date.setDate(sunday.getDate() + index);
+        return new Intl.DateTimeFormat(appLanguage(), { weekday: width }).format(date);
+    });
+}
+
 // DOM元素
 const calendarGrid = document.getElementById('calendar-grid');
 const currentMonthYearEl = document.getElementById('current-month-year');
@@ -50,7 +67,9 @@ function toggleYearView() {
         calendarContainer.style.display = 'none';
         yearViewContainer.style.display = 'block';
         // 更改标题文本
-        currentMonthYearEl.textContent = `${currentDate.getFullYear()}年`;
+        currentMonthYearEl.textContent = window.I18n
+            ? window.I18n.t('calendar.year', { year: currentDate.getFullYear() })
+            : `${currentDate.getFullYear()}年`;
         // 隐藏月份导航按钮
         prevMonthBtn.textContent = '‹';
         nextMonthBtn.textContent = '›';
@@ -72,7 +91,7 @@ function renderYearView() {
     yearViewContainer.innerHTML = '';
     
     const year = currentDate.getFullYear();
-    const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+    const monthNames = Array.from({ length: 12 }, (_, month) => localizedMonthName(month));
     
     // 创建月份网格容器
     const monthsGrid = document.createElement('div');
@@ -91,7 +110,7 @@ function renderYearView() {
         // 星期标签（可选，为了布局对称）
             const weekLabels = document.createElement('div');
             weekLabels.className = 'month-days week-labels';
-            const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+            const weekDays = localizedWeekdays('narrow');
             weekDays.forEach(day => {
                 const label = document.createElement('div');
                 label.textContent = day;
@@ -181,7 +200,9 @@ function handleNavigation() {
             currentDate.setFullYear(currentDate.getFullYear() + 1);
         }
         renderYearView();
-        currentMonthYearEl.textContent = `${currentDate.getFullYear()}年`;
+        currentMonthYearEl.textContent = window.I18n
+            ? window.I18n.t('calendar.year', { year: currentDate.getFullYear() })
+            : `${currentDate.getFullYear()}年`;
     } else {
         // 月视图下正常切换月份
         if (this === prevMonthBtn) {
@@ -253,8 +274,10 @@ function renderCalendar() {
     calendarGrid.innerHTML = '';
     
     // 设置当前月份和年份显示
-    const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
-    currentMonthYearEl.textContent = `${currentDate.getFullYear()}年 ${monthNames[currentDate.getMonth()]}`;
+    currentMonthYearEl.textContent = new Intl.DateTimeFormat(appLanguage(), {
+        year: 'numeric',
+        month: 'long'
+    }).format(currentDate);
     
     // 获取当月的第一天和最后一天
     const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -340,8 +363,10 @@ function openModal(dateStr) {
     selectedDate = dateStr;
     
     // 格式化日期显示
-    const [year, month, day] = dateStr.split('-');
-    const formattedDate = `${year}年${month}月${day}日`;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const formattedDate = window.I18n
+        ? window.I18n.formatDate(new Date(year, month - 1, day))
+        : `${year}年${month}月${day}日`;
     modalDateEl.textContent = formattedDate;
     
     // 加载现有数据
@@ -411,7 +436,7 @@ function saveCalendarEntry() {
     if (!selectedDate) return;
     
     // 未登录检查：记录日记需先登录
-    if (window.ApiClient && !window.ApiClient.requireLogin('请先登录或注册后再记录日记')) {
+    if (window.ApiClient && !window.ApiClient.requireLogin(window.I18n ? window.I18n.t('calendar.loginRequired') : '请先登录或注册后再记录日记')) {
         return;
     }
     
@@ -434,7 +459,7 @@ function saveCalendarEntry() {
     renderCalendar();
     
     // 显示成功消息
-    showNotification('保存成功！', 'success');
+    showNotification(window.I18n ? window.I18n.t('calendar.saved') : '保存成功！', 'success');
     
     // 关闭模态框
     closeModal();
@@ -445,11 +470,11 @@ function deleteCalendarEntry() {
     if (!selectedDate) return;
     
     // 未登录检查
-    if (window.ApiClient && !window.ApiClient.requireLogin('请先登录或注册后再操作')) {
+    if (window.ApiClient && !window.ApiClient.requireLogin(window.I18n ? window.I18n.t('calendar.actionLoginRequired') : '请先登录或注册后再操作')) {
         return;
     }
     
-    if (confirm('确定要删除这条记录吗？此操作无法撤销。')) {
+    if (confirm(window.I18n ? window.I18n.t('calendar.deleteConfirm') : '确定要删除这条记录吗？此操作无法撤销。')) {
         // 删除数据
         delete calendarData[selectedDate];
         
@@ -463,7 +488,7 @@ function deleteCalendarEntry() {
         renderCalendar();
         
         // 显示成功消息
-        showNotification('记录已删除。', 'info');
+        showNotification(window.I18n ? window.I18n.t('calendar.deleted') : '记录已删除。', 'info');
         
         // 关闭模态框
         closeModal();
@@ -663,3 +688,12 @@ function addEventListeners() {
 
 // 初始化应用
 init();
+
+window.addEventListener('migraine:languagechange', () => {
+    if (currentView === 'year') renderYearView();
+    else renderCalendar();
+    if (selectedDate && modal.style.display === 'flex') {
+        const [year, month, day] = selectedDate.split('-').map(Number);
+        modalDateEl.textContent = window.I18n.formatDate(new Date(year, month - 1, day));
+    }
+});

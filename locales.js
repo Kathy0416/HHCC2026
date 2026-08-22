@@ -1,0 +1,242 @@
+(function (root, factory) {
+  const catalog = factory();
+  if (typeof module === 'object' && module.exports) module.exports = catalog;
+  if (root) root.MigraineLocales = catalog;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  const keys = {
+    en: {
+      'language.label': 'Language',
+      'language.english': 'English',
+      'language.chinese': '简体中文',
+      'language.current': 'Language: {{language}}',
+      'nav.tips': 'Tips',
+      'common.anonymous': 'Anonymous',
+      'common.notProvided': 'Not provided',
+      'common.noData': 'No data',
+      'calendar.year': '{{year}}',
+      'calendar.monthYear': '{{month}} {{year}}',
+      'calendar.saved': 'Saved successfully!',
+      'calendar.deleted': 'Record deleted.',
+      'calendar.deleteConfirm': 'Delete this record? This action cannot be undone.',
+      'calendar.loginRequired': 'Please log in or register before recording a diary entry.',
+      'calendar.actionLoginRequired': 'Please log in or register to continue.',
+      'sleep.duration': '{{hours}} hr {{minutes}} min',
+      'sleep.quality.excellent': 'Excellent',
+      'sleep.quality.good': 'Good',
+      'sleep.quality.fair': 'Fair',
+      'sleep.quality.poor': 'Poor',
+      'diary.migraineEntry': 'Migraine entry',
+      'diary.dailyEntry': 'Daily entry',
+      'diary.triggers': 'Possible triggers: {{triggers}}',
+      'diary.noDiary': 'No diary details',
+      'tips.commentsCount': 'Comments ({{count}})',
+      'tips.noComments': 'No comments yet. Start the conversation!',
+      'tips.template.clinical': 'Clinical',
+      'tips.template.daily': 'Daily',
+      'tips.template.normal': 'Normal',
+      'profile.activityCount': '{{count}} activities',
+      'profile.noActivity': 'No activity',
+      'profile.noActivities': 'No activity recorded yet',
+      'profile.migraineActivity': 'Migraine recorded',
+      'profile.sleepActivity': 'Sleep recorded',
+      'profile.diaryActivity': 'Diary entry added',
+      'ai.offline': 'This feature requires an internet connection.',
+      'ai.unavailable': 'The AI service is temporarily unavailable. Please try again later.',
+      'api.requestFailed': 'Request failed ({{status}})'
+    },
+    'zh-CN': {
+      'language.label': '语言',
+      'language.english': 'English',
+      'language.chinese': '简体中文',
+      'language.current': '语言：{{language}}',
+      'nav.tips': '贴士',
+      'common.anonymous': '匿名',
+      'common.notProvided': '未填写',
+      'common.noData': '暂无数据',
+      'calendar.year': '{{year}}年',
+      'calendar.monthYear': '{{year}}年 {{month}}',
+      'calendar.saved': '保存成功！',
+      'calendar.deleted': '记录已删除。',
+      'calendar.deleteConfirm': '确定要删除这条记录吗？此操作无法撤销。',
+      'calendar.loginRequired': '请先登录或注册后再记录日记',
+      'calendar.actionLoginRequired': '请先登录或注册后再操作',
+      'sleep.duration': '{{hours}}小时{{minutes}}分钟',
+      'sleep.quality.excellent': '优秀',
+      'sleep.quality.good': '良好',
+      'sleep.quality.fair': '一般',
+      'sleep.quality.poor': '较差',
+      'diary.migraineEntry': '偏头痛记录',
+      'diary.dailyEntry': '日常记录',
+      'diary.triggers': '可能的触发因素：{{triggers}}',
+      'diary.noDiary': '未填写日记',
+      'tips.commentsCount': '评论 ({{count}})',
+      'tips.noComments': '暂无评论，快来发表第一条评论吧！',
+      'tips.template.clinical': '临床',
+      'tips.template.daily': '日常',
+      'tips.template.normal': '普通',
+      'profile.activityCount': '活动次数: {{count}}',
+      'profile.noActivity': '无活动',
+      'profile.noActivities': '暂无活动记录',
+      'profile.migraineActivity': '记录了偏头痛',
+      'profile.sleepActivity': '记录了睡眠',
+      'profile.diaryActivity': '添加了日记',
+      'ai.offline': '该功能需联网使用',
+      'ai.unavailable': 'AI 服务暂时不可用，请稍后再试',
+      'api.requestFailed': '请求失败 ({{status}})'
+    }
+  };
+
+  // Exact translations for legacy static markup and existing alert messages.
+  // New code should prefer semantic keys above.
+  const sourceToEnglish = {
+    '偏头痛记录日历': 'Migraine Tracker Calendar',
+    '睡眠记录 - 偏头痛记录应用': 'Sleep Tracking - Migraine Signal',
+    '偏头痛日记 - 时间线视图': 'Migraine Diary - Timeline',
+    'Tips广场 - 偏头痛记录应用': 'Tips Community - Migraine Signal',
+    '我的 - 偏头痛记录应用': 'My Profile - Migraine Signal',
+    '退出登录': 'Log out', '登录': 'Log in', '注册': 'Register',
+    '首页': 'Home', '睡眠记录': 'Sleep', '日历': 'Calendar', '我的': 'Profile',
+    '偏头痛日记': 'Migraine Diary', 'Tips广场': 'Tips Community', 'AI助手': 'AI Assistant',
+    '周日': 'Sun', '周一': 'Mon', '周二': 'Tue', '周三': 'Wed', '周四': 'Thu', '周五': 'Fri', '周六': 'Sat',
+    '日': 'Sun', '一': 'Mon', '二': 'Tue', '三': 'Wed', '四': 'Thu', '五': 'Fri', '六': 'Sat',
+    '标记此日发生偏头痛': 'Mark a migraine on this day',
+    '偏头痛': 'Migraine',
+    '选择可能的触发因素：': 'Select possible triggers:',
+    '1. 饮食触发因素': '1. Dietary triggers',
+    '酒精（尤其是红酒、啤酒）': 'Alcohol (especially red wine and beer)',
+    '咖啡因（过量或戒断）': 'Caffeine (excess or withdrawal)',
+    '陈年奶酪（酪胺）': 'Aged cheese (tyramine)',
+    '加工肉类（硝酸盐/亚硝酸盐：培根、萨拉米、热狗）': 'Processed meats (nitrates/nitrites)',
+    '味精': 'MSG', '人工甜味剂（尤其是阿斯巴甜）': 'Artificial sweeteners (especially aspartame)',
+    '巧克力': 'Chocolate', '柑橘类水果': 'Citrus fruit', '脱水': 'Dehydration', '跳过餐食/低血糖': 'Skipped meals / low blood sugar',
+    '2. 荷尔蒙变化（尤其是女性）': '2. Hormonal changes', '月经': 'Menstruation', '排卵': 'Ovulation', '激素替代疗法': 'Hormone replacement therapy',
+    '3. 睡眠相关': '3. Sleep-related triggers', '睡眠不足': 'Too little sleep', '睡眠过多（睡过头）': 'Too much sleep', '睡眠不规律/时差': 'Irregular sleep / jet lag', '轮班工作': 'Shift work',
+    '4. 压力与情绪触发因素': '4. Stress and emotional triggers', '压力（急性或慢性）': 'Stress (acute or chronic)', '压力后的放松（周末偏头痛）': 'Relaxation after stress (weekend migraine)', '焦虑、担忧、兴奋': 'Anxiety, worry, or excitement', '抑郁': 'Depression',
+    '5. 环境/感官触发因素': '5. Environmental / sensory triggers', '强光或闪烁的灯光': 'Bright or flickering lights', '嘈杂的噪音': 'Loud noise', '强烈的气味（香水、烟雾、清洁产品）': 'Strong smells (perfume, smoke, cleaning products)', '天气变化（气压下降、暴风雨、高湿度、极端冷热）': 'Weather changes (pressure, storms, humidity, extreme temperatures)', '高海拔': 'High altitude',
+    '6. 身体触发因素': '6. Physical triggers', '剧烈的身体活动': 'Intense physical activity', '颈部或肩部紧张': 'Neck or shoulder tension', '不良姿势': 'Poor posture', '眼睛疲劳（长时间使用屏幕）': 'Eye strain (long screen use)',
+    '7. 药物与物质触发因素': '7. Medication and substance triggers', '某些降压药（如血管扩张剂）': 'Some blood-pressure medicines', '硝酸甘油': 'Nitroglycerin', '激素药物': 'Hormonal medication', '过度使用急性偏头痛药物': 'Overuse of acute migraine medication',
+    '8. 其他/杂项': '8. Other triggers', '日常习惯改变（旅行、日程变化）': 'Routine changes (travel or schedule changes)', '某些食品添加剂（酵母提取物、水解蛋白）': 'Some food additives', '吸烟或接触二手烟': 'Smoking or secondhand smoke',
+    '日记记录：': 'Diary notes:', '删除记录': 'Delete', '保存': 'Save',
+    '记录此日的感受或其他信息...': 'Record how you felt or other details...',
+    '点击进入全年视图': 'Open year view',
+    '你好！我是你的AI助手，有什么关于偏头痛的问题可以问我。': 'Hi! I am your AI assistant. Ask me anything about migraines.',
+    '你好！我是你的AI助手，有什么关于偏头痛或睡眠的问题可以问我。': 'Hi! I am your AI assistant. Ask me anything about migraines or sleep.',
+    '输入你的问题...': 'Type your question...', '输入 DeepSeek API Key': 'Enter DeepSeek API Key', '保存 API Key': 'Save API Key',
+    '用户登录': 'User Login', '用户注册': 'Create Account', '用户名': 'Username', '密码': 'Password', '确认密码': 'Confirm password',
+    '还没有账号？': "Don't have an account?", '立即注册': 'Register now', '已有账号？': 'Already have an account?', '立即登录': 'Log in now',
+    '记录睡眠数据': 'Record Sleep', '记录日期': 'Date', '入睡时间': 'Bedtime', '起床时间': 'Wake time', '睡眠质量': 'Sleep quality',
+    '优秀': 'Excellent', '良好': 'Good', '一般': 'Fair', '较差': 'Poor', '睡眠时长:': 'Sleep duration:', '保存记录': 'Save record',
+    '睡眠数据分析': 'Sleep Analysis', '历史记录': 'History', '暂无睡眠记录': 'No sleep records yet', '记录您的睡眠数据后，将在此处显示': 'Your sleep history will appear here after you add a record.',
+    '日期': 'Date', '睡眠时长': 'Duration',
+    '记录您的偏头痛历程，追踪模式和趋势': 'Track your migraine journey, patterns, and trends',
+    '全部': 'All', '仅显示偏头痛': 'Migraines only', '仅显示日记': 'Diary entries only', '偏头痛记录': 'Migraine entries', '日常记录': 'Daily entries',
+    '暂无偏头痛记录': 'No migraine entries yet', '暂无日记记录': 'No diary entries yet', '在日历页面添加记录后，将在此处显示': 'Entries added from the calendar will appear here.', '在日历页面添加偏头痛记录后，将在此处显示': 'Migraine entries added from the calendar will appear here.', '在日历页面添加日记记录后，将在此处显示': 'Diary entries added from the calendar will appear here.', '返回日历': 'Back to calendar',
+    '探索偏头痛管理小贴士': 'Explore migraine management tips', '分享你的经验，学习他人的技巧，一起管理偏头痛': 'Share experiences, learn from others, and manage migraines together',
+    '发布 Tips': 'Publish a Tip', '选择发布模板': 'Choose a template', 'Clinical 临床': 'Clinical', '症状、处理与注意事项': 'Symptoms, management, and precautions',
+    'Daily 日常': 'Daily', '当天体验与个人记录': 'Daily experience and personal notes', 'Normal 普通': 'Normal', '自由分享实用 Tips': 'Freely share useful tips',
+    '标题': 'Title', '简介（可选）': 'Summary (optional)', '内容（支持 Markdown：**加粗**、换行、- 列表）': 'Content (Markdown supported)', '标签（点选或输入，用 # 分隔）': 'Tags (select or enter, separated by #)', '图片（可选）': 'Image (optional)', '发布': 'Publish',
+    '#偏头痛': '#migraine', '#缓解方法': '#relief', '#触发因素': '#triggers', '#饮食': '#diet', '#睡眠': '#sleep', '#压力': '#stress', '#药物': '#medication', '#运动': '#exercise', '#情绪': '#mood', '#环境': '#environment',
+    '给你的 Tips 起个标题': 'Give your Tip a title', '一句话简介': 'A one-line summary', '或手动输入，用 # 分隔，如：#偏头痛 #缓解方法': 'Or enter tags separated by #, e.g. #migraine #relief',
+    'CLINICAL / 临床': 'CLINICAL', '临床主题': 'Clinical topic', '例如：偏头痛先兆的识别与处理': 'Example: Recognizing and managing migraine aura', '临床摘要（可选）': 'Clinical summary (optional)', '概括症状、处理方法或注意事项': 'Summarize symptoms, management, or precautions', '临床内容（支持 Markdown）': 'Clinical content (Markdown supported)', '请描述症状表现、处理方法、注意事项和可参考的依据。': 'Describe symptoms, management, precautions, and useful references.',
+    'DAILY / 日常': 'DAILY', '日常标题': 'Daily title', '例如：今天是什么帮助我缓解了头痛': 'Example: What helped my headache today', '今日概况（可选）': 'Today’s summary (optional)', '用一句话记录今天的状态': 'Describe how you felt today in one sentence', '日常记录（支持 Markdown）': 'Daily entry (Markdown supported)', '记录今天的症状、可能诱因、感受，以及对你有效的方法。': 'Record today’s symptoms, possible triggers, feelings, and what helped.',
+    'NORMAL / 普通': 'NORMAL', '支持 Markdown 语法，例如：\n**加粗文字**\n- 列表项一\n- 列表项二': 'Markdown is supported, for example:\n**bold text**\n- first item\n- second item',
+    '我的': 'Profile', '未登录': 'Not logged in', '点击登录查看个人信息': 'Log in to view your profile', '日记记录': 'Diary entries', '发布的Tips': 'Published Tips',
+    '最近活动': 'Recent Activity', '活动热力图': 'Activity Heatmap', '活动频率': 'Activity frequency', '少': 'Less', '多': 'More', '登录后查看最近活动': 'Log in to see recent activity',
+    '暂无活动记录': 'No activity recorded yet',
+    '登录成功！': 'Logged in successfully!', '登录失败！': 'Login failed!', '用户名或密码错误！': 'Incorrect username or password!',
+    '两次输入的密码不一致！': 'The passwords do not match!', '注册成功！': 'Registration successful!', '注册失败！': 'Registration failed!',
+    '该用户名已被注册！': 'That username is already registered!', '已退出登录！': 'You have logged out.',
+    '睡眠记录保存成功！': 'Sleep record saved!', '确定要删除这条记录吗？此操作无法撤销。': 'Delete this record? This action cannot be undone.',
+    '保存成功！': 'Saved successfully!', '记录已删除。': 'Record deleted.', '请先登录或注册后再记录日记': 'Please log in or register before recording a diary entry.',
+    '请先登录或注册后再操作': 'Please log in or register to continue.', '请输入 DeepSeek API Key': 'Please enter a DeepSeek API Key.', '已保存 DeepSeek API Key，下一次请求将使用该Key。': 'API key saved. It will be used for the next request.',
+    '该功能需联网使用': 'This feature requires an internet connection.', 'AI 服务暂时不可用，请稍后再试': 'The AI service is temporarily unavailable. Please try again later.',
+    '图片过大，请选择 7MB 以内的图片': 'The image is too large. Choose an image under 7 MB.', '请填写标题和内容': 'Please enter a title and content.', '发布成功！': 'Published successfully!',
+    '发布失败，请稍后再试': 'Publishing failed. Please try again later.', '后端未连接，无法发布。请先启动后端服务。': 'The backend is offline, so publishing is unavailable.',
+    '请输入您的评论内容': 'Enter your comment', '请输入评论内容': 'Please enter a comment.', '暂无评论，快来发表第一条评论吧！': 'No comments yet. Start the conversation!',
+    '发布时间：': 'Published: ', '医学建议': 'Medical guidance', '发表评论': 'Post a comment', '⚠️ 免责声明：本文提供的医学建议仅供参考，具体治疗方案请咨询专业医生。': '⚠️ Disclaimer: This information is for general reference only. Consult a qualified clinician for individual treatment.',
+    '请填写完整的注册信息': 'Please complete all registration fields.', '两次输入的密码不一致': 'The passwords do not match.', '密码长度不能少于6个字符': 'Password must be at least 6 characters.',
+    '注册成功！欢迎使用Tips广场。': 'Registration successful! Welcome to the Tips Community.', '该用户名已被注册': 'That username is already registered.',
+    '请填写完整的登录信息': 'Please enter your username and password.', '登录成功！欢迎回来。': 'Welcome back!', '用户名或密码错误': 'Incorrect username or password.',
+    '您已成功退出登录。': 'You have logged out.', '请先登录后再发表评论': 'Please log in before commenting.',
+    '请求失败': 'Request failed', '加载失败': 'Failed to load'
+  };
+
+  const api = {
+    en: {
+      loginRequired: 'Please log in or log in again.', invalidSession: 'Your session is invalid. Please log in again.',
+      notFound: 'API endpoint not found.', internal: 'Internal server error.', emptyMessage: 'Message cannot be empty.',
+      emptyCredentials: 'Username and password are required.', usernameLength: 'Username must be 2–30 characters.', passwordLength: 'Password must be at least 4 characters.',
+      usernameTaken: 'That username is already registered.', invalidCredentials: 'Incorrect username or password.', userNotFound: 'User not found.', invalidDate: 'Date must use YYYY-MM-DD.',
+      emptyTitle: 'Title is required.', emptyContent: 'Content is required.', titleTooLong: 'Title is too long (100 characters maximum).', contentTooLong: 'Content is too long (20,000 characters maximum).',
+      imageTooLarge: 'Image is too large (approximately 7 MB maximum).', invalidTemplate: 'Invalid template type.', tipNotFound: 'Tip not found.', emptyComment: 'Comment cannot be empty.', commentTooLong: 'Comment is too long.'
+    },
+    'zh-CN': {
+      loginRequired: '未登录或登录已过期', invalidSession: '登录状态无效，请重新登录', notFound: '接口不存在', internal: '服务器内部错误', emptyMessage: '消息不能为空',
+      emptyCredentials: '用户名和密码不能为空', usernameLength: '用户名长度需在 2-30 个字符之间', passwordLength: '密码至少需要 4 位', usernameTaken: '该用户名已被注册', invalidCredentials: '用户名或密码错误', userNotFound: '用户不存在', invalidDate: '日期格式应为 YYYY-MM-DD',
+      emptyTitle: '标题不能为空', emptyContent: '内容不能为空', titleTooLong: '标题过长（最多 100 字）', contentTooLong: '内容过长（最多 20000 字）', imageTooLarge: '图片过大（最大约 7MB）', invalidTemplate: '模板类型无效', tipNotFound: '未找到该笔记', emptyComment: '评论内容不能为空', commentTooLong: '评论内容过长'
+    }
+  };
+
+  const tips = {
+    trigger_factors: {
+      en: { title: 'Identify Migraine Triggers', description: 'Learn common migraine triggers and how to recognize patterns in your attacks.', content: 'Common migraine triggers include stress, too little or too much sleep, alcohol, caffeine, chocolate, hormonal changes, bright light, noise, and weather changes. Record when attacks happen, how long they last, and your diet and sleep that day to gradually discover your personal patterns.', authorName: 'Dr. Li, Neurology', authorBio: 'Neurologist at a leading hospital', tags: ['Triggers', 'Self-monitoring', 'Health education'] },
+      'zh-CN': { title: '识别偏头痛触发因素', description: '了解常见的偏头痛触发因素，学会如何识别并记录自己的发作规律。', content: '偏头痛的常见触发因素包括：压力、睡眠不足或过多、饮食（酒精、咖啡因、巧克力、含硝酸盐食物）、荷尔蒙变化、环境因素（强光、噪音、天气变化）等。建议坚持记录发作时间、持续时长、当天饮食与睡眠，逐步找到属于自己的规律。', authorName: '神经内科李医生', authorBio: '三甲医院神经内科医生', tags: ['触发因素', '自我监测', '健康科普'] }
+    },
+    acute_relief: {
+      en: { title: 'Relief During an Acute Migraine Attack', description: 'Practical steps that may help ease pain when an attack begins.', content: 'During an acute attack: 1. Rest in a quiet, dark room; 2. Drink water; 3. Apply a cold pack to your forehead or temples; 4. Use pain medicine recommended by your clinician when needed; 5. Try slow breathing or another relaxation technique. Seek medical care if symptoms are severe or attacks become more frequent.', authorName: 'Dr. Wang, Pain Medicine', authorBio: 'Consultant in pain medicine', tags: ['Relief', 'Acute attack', 'Practical tips'] },
+      'zh-CN': { title: '偏头痛急性发作的缓解方法', description: '发作时如何第一时间缓解疼痛，这些实用技巧请收好。', content: '急性发作时建议：1. 到安静、黑暗的房间休息；2. 多喝水帮助代谢；3. 冷敷额头或太阳穴；4. 必要时服用医生建议的止痛药；5. 尝试深呼吸等放松技巧。如果症状严重或频率增加，请及时就医。', authorName: '疼痛科王主任', authorBio: '疼痛科主任医师', tags: ['缓解方法', '急性发作', '实用技巧'] }
+    },
+    sleep_migraine: {
+      en: { title: 'Sleep and Migraine', description: 'Regular sleep is an important part of migraine prevention.', content: 'Both too little and too much sleep can trigger migraines. Keep consistent bed and wake times, make your bedroom comfortable, and avoid caffeine and screens before bed. Use the app’s sleep tracker to look for connections between sleep duration and migraine attacks.', authorName: 'Dr. Zhang, Sleep Medicine', authorBio: 'Sleep medicine physician', tags: ['Sleep', 'Prevention', 'Daily habits'] },
+      'zh-CN': { title: '睡眠与偏头痛的关系', description: '规律睡眠是预防偏头痛的重要一环，学会建立健康的睡眠习惯。', content: '睡眠不足和睡眠过多都可能诱发偏头痛。建议保持固定的入睡和起床时间，营造舒适的睡眠环境，睡前避免咖啡因和电子屏幕。使用本应用的睡眠记录功能，观察睡眠时长与偏头痛发作之间的关联。', authorName: '睡眠医学科张医生', authorBio: '睡眠医学科医生', tags: ['睡眠', '预防发作', '生活习惯'] }
+    },
+    food_diary: {
+      en: { title: 'A Food Diary for Migraine', description: 'Food tracking can help reveal personal migraine triggers.', content: 'A food diary is a useful way to identify triggers. Record food and drinks each day, especially chocolate, caffeine, alcohol, and aged cheese, alongside whether a headache occurred. Review four to six weeks of entries to look for patterns.', authorName: 'Dr. Huang, Nutrition', authorBio: 'Dietitian specializing in food tracking', tags: ['Food diary', 'Triggers', 'Self-monitoring'] },
+      'zh-CN': { title: '偏头痛患者的饮食日记', description: '记录饮食可以帮助识别偏头痛触发因素，学习如何正确记录。', content: '饮食日记是识别偏头痛触发因素的有效工具。建议记录每天摄入的食物与饮品，尤其是巧克力、咖啡因、酒精、奶酪等常见嫌疑食物，并同时记录是否出现头痛。坚持 4-6 周后回顾，更容易发现规律。', authorName: '营养师黄医生', authorBio: '营养师，擅长饮食记录和分析', tags: ['饮食日记', '触发因素', '自我监测'] }
+    },
+    stress_management: {
+      en: { title: 'Stress Management and Migraine Prevention', description: 'Learn practical relaxation skills for a common migraine trigger.', content: 'Stress is a common migraine trigger. Try slow breathing, mindfulness, regular exercise, a balanced schedule, and social support. Making time to relax regularly may help reduce attack frequency.', authorName: 'Dr. Zhao, Psychology', authorBio: 'Psychologist specializing in stress management', tags: ['Stress management', 'Relaxation', 'Prevention'] },
+      'zh-CN': { title: '压力管理与偏头痛预防', description: '压力是最常见的偏头痛触发因素之一，学习有效的放松技巧。', content: '压力是偏头痛最常见的触发因素之一。建议尝试：深呼吸练习、正念冥想、规律运动、合理安排作息、寻求社交支持。定期放松能有效降低偏头痛发作频率。', authorName: '心理科赵医生', authorBio: '心理科医生，擅长压力管理', tags: ['压力管理', '放松技巧', '预防措施'] }
+    },
+    exercise_guide: {
+      en: { title: 'Exercise Guide for People with Migraine', description: 'Moderate exercise may help prevent migraine when approached carefully.', content: 'Regular moderate aerobic exercise such as brisk walking, swimming, or cycling may reduce migraine frequency. Avoid sudden intense exercise, warm up properly, and stay hydrated. If exercise triggers headaches, reduce the intensity and consult a clinician.', authorName: 'Dr. Sun, Rehabilitation', authorBio: 'Rehabilitation physician specializing in exercise guidance', tags: ['Exercise', 'Prevention', 'Healthy living'] },
+      'zh-CN': { title: '偏头痛患者的运动指南', description: '适度运动有助于预防偏头痛，但需注意方式方法。', content: '规律的中等强度有氧运动（如快走、游泳、骑行）有助于降低偏头痛发作频率。但应避免突然的剧烈运动，运动前充分热身，并保持充足饮水。若运动反而诱发头痛，请调整强度并咨询医生。', authorName: '康复科孙医生', authorBio: '康复科医生，擅长运动指导', tags: ['运动', '预防发作', '健康生活'] }
+    }
+  };
+
+  const ai = {
+    en: {
+      systemPrompt: 'You are a supportive health assistant inside a migraine tracking app. You may use migraine records supplied by the app to offer personalized, practical suggestions. Do not diagnose or replace a clinician. Keep answers concise and respond in English.',
+      noDiary: 'No diary details', noTriggers: 'None recorded', recordsIntro: 'The user has {{count}} recorded migraine attacks, newest first:', triggerLabel: 'triggers',
+      fallbackSuffix: 'DeepSeek was unavailable, so a local response was used.',
+      defaultReply: 'I’m sorry, I did not understand the question. You can ask me about migraine symptoms, triggers, treatment approaches, sleep, diet, or tracking.',
+      migraineReply: 'Migraine is a common neurological condition involving recurring moderate to severe headaches, often with nausea and sensitivity to light or sound. Regular sleep and avoiding personal triggers may help. Consult a clinician if symptoms are severe or changing.',
+      foodReply: 'Some foods can trigger migraine for some people, including alcohol, caffeine, chocolate, and nitrate-containing foods. Rest somewhere quiet and dark, hydrate, record what happened, and seek medical advice if symptoms are severe.',
+      triggerReply: 'Common triggers include stress, too little or too much sleep, alcohol, caffeine, chocolate, hormonal changes, bright light, noise, and weather changes. Personal triggers vary, so tracking patterns is useful.',
+      treatmentReply: 'Helpful measures can include resting in a quiet, dark room, using clinician-recommended pain relief, avoiding known triggers, keeping a regular routine, and trying relaxation techniques. Seek medical advice for severe or frequent attacks.',
+      trackingReply: 'Tracking attacks can reveal patterns. Record timing, duration, pain severity, related symptoms, diet, sleep, and stress level.',
+      symptomReply: 'Common symptoms include throbbing pain, often on one side, nausea, and sensitivity to light and sound. Some people have aura, such as flashing lights or blind spots. Symptoms often last 4–72 hours.',
+      sleepReply: 'Both too little and too much sleep can trigger migraine. Keep consistent sleep and wake times, make the room comfortable, and avoid caffeine and screens before bed.',
+      fruitReply: 'Apples are not a typical migraine trigger. Observe your own response and keep tracking if you notice a consistent connection.',
+      recordsReply: 'Your records contain {{count}} migraine attacks. The latest was {{date}} ({{diary}}; triggers: {{triggers}}). Recent dates: {{dates}}.'
+    },
+    'zh-CN': {
+      systemPrompt: '你是偏头痛记录应用中的智能健康助手。你可以访问用户在本应用中记录的偏头痛发作数据，并结合这些数据为用户提供个性化、贴合其记录的建议。回答应温和、实用、符合健康安全，不提供医疗诊断、不替代医生。请保持回答简短精炼，直接给出要点，避免冗长的长篇大论。请使用简体中文回答。',
+      noDiary: '未填写日记', noTriggers: '未记录', recordsIntro: '该用户在本应用中记录的偏头痛发作数据如下（共 {{count}} 次，按日期倒序）：', triggerLabel: '触发因素',
+      fallbackSuffix: 'DeepSeek 调用失败，已回退本地模拟回复。', defaultReply: '抱歉，我不太明白你的问题。你可以问我关于偏头痛的症状、触发因素、治疗方法、睡眠、饮食或记录等问题。',
+      migraineReply: '偏头痛是一种常见的神经系统疾病，特征是反复发作的中重度头痛，通常伴有恶心、呕吐、对光和声音敏感。建议保持规律作息并避免个人触发因素。如果症状严重或发生变化，请咨询医生。',
+      foodReply: '某些食物可能触发偏头痛，包括酒精、咖啡因、巧克力和含硝酸盐食物。建议在安静黑暗的房间休息、补充水分并记录这次发作。症状严重时请咨询医生。',
+      triggerReply: '常见触发因素包括压力、睡眠不足或过多、酒精、咖啡因、巧克力、荷尔蒙变化、强光、噪音和天气变化。每个人的触发因素不同，持续记录有助于发现规律。',
+      treatmentReply: '可尝试在安静黑暗的房间休息、使用医生建议的止痛药、避免已知触发因素、保持规律作息并练习放松技巧。严重或频繁发作时请咨询医生。',
+      trackingReply: '记录发作有助于识别规律。建议记录时间、持续时长、疼痛程度、伴随症状，以及饮食、睡眠和压力水平。',
+      symptomReply: '常见症状包括单侧搏动性头痛、恶心以及对光和声音敏感。部分人会出现闪光或暗点等先兆。症状通常持续 4–72 小时。',
+      sleepReply: '睡眠不足和睡眠过多都可能诱发偏头痛。建议保持固定的入睡和起床时间，营造舒适环境，并在睡前避免咖啡因和电子屏幕。',
+      fruitReply: '苹果不是典型的偏头痛触发因素。建议观察自身反应；如果发现稳定关联，可以继续记录。',
+      recordsReply: '根据你的记录，你目前共记录了 {{count}} 次偏头痛发作。最近一次是 {{date}}（{{diary}}，触发因素：{{triggers}}）。最近几次发作日期：{{dates}}。'
+    }
+  };
+
+  return { supported: ['en', 'zh-CN'], keys, sourceToEnglish, api, tips, ai };
+});

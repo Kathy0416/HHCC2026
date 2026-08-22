@@ -5,12 +5,14 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const db = require('./db');
+const { localeMiddleware } = require('./i18n');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));
+app.use(localeMiddleware);
 
 // 健康检查
 app.get('/api/health', (req, res) => {
@@ -35,13 +37,13 @@ if (process.env.SERVE_FRONTEND === '1') {
 
 // 404
 app.use((req, res) => {
-  res.status(404).json({ error: '接口不存在' });
+  res.status(404).json({ error: req.t('notFound') });
 });
 
 // 统一错误处理
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ error: '服务器内部错误' });
+  res.status(500).json({ error: req.t('internal') });
 });
 
 if (require.main === module) {

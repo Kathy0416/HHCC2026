@@ -35,7 +35,10 @@
 
     // ---- 基础请求 ----
     async _request(method, path, body) {
-      const headers = { 'Content-Type': 'application/json' };
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept-Language': global.I18n ? global.I18n.getLanguage() : 'zh-CN'
+      };
       const token = this.getToken();
       if (token) {
         headers['Authorization'] = 'Bearer ' + token;
@@ -54,7 +57,10 @@
       }
 
       if (!res.ok) {
-        const err = new Error((data && data.error) || ('请求失败 (' + res.status + ')'));
+        const fallbackMessage = global.I18n
+          ? global.I18n.t('api.requestFailed', { status: res.status })
+          : ('请求失败 (' + res.status + ')');
+        const err = new Error((data && data.error) || fallbackMessage);
         err.status = res.status;
         throw err;
       }
@@ -64,7 +70,10 @@
     // 健康检查（探测后端是否可用）
     async health() {
       try {
-        const res = await fetch(API_BASE + '/health', { method: 'GET' });
+        const res = await fetch(API_BASE + '/health', {
+          method: 'GET',
+          headers: { 'Accept-Language': global.I18n ? global.I18n.getLanguage() : 'zh-CN' }
+        });
         const data = await res.json();
         this._backendAvailable = !!(data && data.ok);
       } catch (e) {
